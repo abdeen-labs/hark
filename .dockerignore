@@ -1,0 +1,17 @@
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+*.p8
+*.pem
+/bin
+/out
+/dist
+harkd
+specs
+README.md
+compose.yaml
+
+# docs/ is deliberately absent: docs/api.md is compiled into the binary and
+# served at /docs, so excluding it here would break the build.

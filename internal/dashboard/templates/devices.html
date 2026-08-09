@@ -1,0 +1,53 @@
+{{define "content"}}
+<h1 class="page-title">Devices</h1>
+<p class="muted page-lede">A phone registers itself, keyed on its APNs token. iOS reissues that token
+  whenever it likes, so the same handset can appear twice — the old row stops being used once a push
+  to it fails.</p>
+
+<section class="plate">
+  {{if .Devices}}
+  <div class="scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th><th>State</th><th>Live Activities</th><th>Environment</th>
+          <th>Last seen</th><th>Registered</th><th class="cell--right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Devices}}
+        <tr>
+          <td>
+            {{with text .Name}}{{.}}{{else}}<span class="muted">Unnamed</span>{{end}}
+            <span class="mono muted block">{{.ID}}</span>
+          </td>
+          <td>
+            {{if .Active}}<span class="pill pill--accepted">Active</span>
+            {{else}}<span class="pill pill--failed">Retired</span>{{end}}
+          </td>
+          <td>
+            {{if .LiveActivityCapable}}
+              <span class="pill pill--accepted">Ready</span>
+              {{if not .InteractiveLiveActivityCapable}}<span class="pill pill--kind">No buttons</span>{{end}}
+            {{else}}<span class="muted">No push-to-start token</span>{{end}}
+          </td>
+          <td class="mono">{{with text .PushToStartEnvironment}}{{.}}{{else}}—{{end}}</td>
+          <td><time datetime="{{iso .LastSeenAt}}" title="{{when .LastSeenAt}}">{{ago .LastSeenAt}}</time></td>
+          <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
+          <td class="cell--right">
+            <form method="post" action="{{$.Paths.Devices}}/{{.ID}}/delete"
+                  data-confirm="Unregister this device? Anything it is showing stays on screen, and nothing more is sent to it.">
+              <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+              <button class="btn btn--danger" type="submit">Unregister</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="empty">No device is registered. Sign in on the iOS app to register this account's first phone.</p>
+  {{end}}
+</section>
+{{end}}

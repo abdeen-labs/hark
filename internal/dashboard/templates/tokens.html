@@ -1,0 +1,97 @@
+{{define "content"}}
+<h1 class="page-title">API tokens</h1>
+<p class="muted page-lede">An agent sends with one of these. A token can act within its scopes but can
+  never mint another — that needs this page.</p>
+
+{{with .Secret}}
+<section class="plate plate--accent">
+  <h2 class="plate__title">Your new token</h2>
+  <p class="muted">Shown once. It is not stored, and no one can recover it.</p>
+  <div class="secret">
+    <code class="secret__value">{{.}}</code>
+    <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
+  </div>
+</section>
+{{end}}
+
+<section class="plate">
+  <h2 class="plate__title">Mint a token</h2>
+  <form method="post" action="{{.Paths.Tokens}}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+    <div class="row">
+      <label class="field">
+        <span class="field__label">Name</span>
+        <input class="input" type="text" name="name" value="{{.Form.Name}}"
+               placeholder="deploy-bot" maxlength="80" required>
+      </label>
+      <label class="field field--tight">
+        <span class="field__label">Expires</span>
+        <select class="input" name="expires_in">
+          <option value="30d"{{if eq .Form.ExpiresIn "30d"}} selected{{end}}>in 30 days</option>
+          <option value="90d"{{if eq .Form.ExpiresIn "90d"}} selected{{end}}>in 90 days</option>
+          <option value="365d"{{if eq .Form.ExpiresIn "365d"}} selected{{end}}>in a year</option>
+          <option value="never"{{if eq .Form.ExpiresIn "never"}} selected{{end}}>never</option>
+        </select>
+      </label>
+    </div>
+
+    <fieldset class="field">
+      <legend class="field__label">Scopes</legend>
+      <div class="checks">
+        {{$form := .Form}}
+        {{range .Scopes}}
+        <label class="check">
+          <input type="checkbox" name="scopes" value="{{.}}"{{if has $form.Scopes .}} checked{{end}}>
+          <span class="mono">{{.}}</span>
+        </label>
+        {{end}}
+      </div>
+    </fieldset>
+
+    <button class="btn btn--primary" type="submit">Create token</button>
+  </form>
+</section>
+
+<section class="plate">
+  <h2 class="plate__title">Existing tokens</h2>
+  {{if .Tokens}}
+  <div class="scroll">
+    <table class="table">
+      <thead>
+        <tr><th>Name</th><th>State</th><th>Scopes</th><th>Last used</th><th>Expires</th><th class="cell--right">Actions</th></tr>
+      </thead>
+      <tbody>
+        {{$now := .Now}}
+        {{range .Tokens}}
+        <tr>
+          <td>{{.Name}}<span class="mono muted block">{{.Prefix}}…</span></td>
+          <td>
+            {{if .Active $now}}<span class="pill pill--accepted">Active</span>
+            {{else if .RevokedAt}}<span class="pill pill--failed">Revoked</span>
+            {{else}}<span class="pill pill--expired">Expired</span>{{end}}
+          </td>
+          <td>
+            {{range .Scopes}}<span class="pill pill--kind mono">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}
+          </td>
+          <td><time datetime="{{iso .LastUsedAt}}" title="{{when .LastUsedAt}}">{{ago .LastUsedAt}}</time></td>
+          <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
+          <td class="cell--right">
+            {{if .Active $now}}
+            <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/revoke"
+                  data-confirm="Revoke this token? Anything using it stops working immediately.">
+              <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+              <button class="btn btn--danger" type="submit">Revoke</button>
+            </form>
+            {{else}}<span class="muted">—</span>{{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="empty">No tokens yet.</p>
+  {{end}}
+</section>
+{{end}}

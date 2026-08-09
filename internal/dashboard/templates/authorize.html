@@ -1,0 +1,79 @@
+{{define "content"}}
+<h1 class="page-title">Authorize a client</h1>
+<p class="muted page-lede">A command-line client asked to act for this account. It cannot do anything
+  until you say so here, and what it receives is an API token with exactly the scopes listed below —
+  never your password.</p>
+
+{{with .Request}}
+<section class="plate">
+  <h2 class="plate__title">{{.ClientName}}</h2>
+
+  <div class="scroll">
+    <table class="table">
+      <tbody>
+        <tr>
+          <th>Code</th>
+          <td class="mono">{{.UserCode}}</td>
+        </tr>
+        <tr>
+          <th>State</th>
+          <td>
+            {{if $.Pending}}<span class="pill pill--starting">Awaiting your decision</span>
+            {{else if eq .Status "approved"}}<span class="pill pill--accepted">Approved</span>
+            {{else if eq .Status "consumed"}}<span class="pill pill--accepted">Approved · token collected</span>
+            {{else if eq .Status "denied"}}<span class="pill pill--failed">Denied</span>
+            {{else}}<span class="pill pill--expired">Expired</span>{{end}}
+          </td>
+        </tr>
+        <tr>
+          <th>Scopes</th>
+          <td>
+            {{range .RequestedScopes}}<span class="pill pill--kind mono">{{.}}</span>
+            {{else}}<span class="muted">None — the token could read and send nothing.</span>{{end}}
+          </td>
+        </tr>
+        <tr>
+          <th>Request expires</th>
+          <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
+        </tr>
+        <tr>
+          <th>Token expiry</th>
+          <td><time datetime="{{iso .TokenExpiresAt}}" title="{{when .TokenExpiresAt}}">{{ago .TokenExpiresAt}}</time></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {{if $.Pending}}
+  <p class="muted">Approve this only if you started it. If the code arrived any other way — a message,
+    a page you did not open — deny it.</p>
+  <form method="post" action="{{$.Paths.Authorize}}" class="row row--controls">
+    <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+    <input type="hidden" name="code" value="{{.UserCode}}">
+    <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve</button>
+    <button class="btn btn--danger" type="submit" name="decision" value="deny">Deny</button>
+  </form>
+  {{else}}
+  <p class="empty">There is nothing left to decide on this request. Start a new one from the client.</p>
+  {{end}}
+</section>
+{{end}}
+
+{{if not .Pending}}
+<section class="plate">
+  <h2 class="plate__title">{{if .Request}}Another code{{else}}Enter the code{{end}}</h2>
+  <p class="muted">The client printed eight characters, usually as <span class="mono">XXXX-XXXX</span>.
+    Spacing and case do not matter.</p>
+  <form method="post" action="{{.Paths.Authorize}}" class="row row--controls">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <label class="field field--tight">
+      <span class="field__label">Code</span>
+      <input class="input mono" type="text" name="code" value="{{.Code}}"
+             placeholder="XXXX-XXXX" maxlength="32" autocomplete="off"
+             autocapitalize="characters" spellcheck="false" required>
+    </label>
+    <button class="btn btn--primary" type="submit">Look it up</button>
+  </form>
+</section>
+{{end}}
+{{end}}

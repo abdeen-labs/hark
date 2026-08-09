@@ -1,0 +1,24 @@
+{{define "content"}}
+<section class="plate plate--narrow">
+  <h1 class="plate__title">Sign in</h1>
+  <p class="muted">This deployment serves one account.</p>
+
+  <form method="post" action="{{.Paths.Login}}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <input type="hidden" name="next" value="{{.Next}}">
+
+    <label class="field">
+      <span class="field__label">Username</span>
+      <input class="input" type="text" name="username" value="{{.Username}}"
+             autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Password</span>
+      <input class="input" type="password" name="password" autocomplete="current-password" required>
+    </label>
+
+    <button class="btn btn--primary" type="submit">Sign in</button>
+  </form>
+</section>
+{{end}}

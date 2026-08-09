@@ -1,0 +1,223 @@
+/* Hark — the published API contract.
+ *
+ * Everything here rests on app.css: the Axis tokens, the type stack, the
+ * topbar and the footer are already defined there, and this file only adds
+ * what a long document needs — a measure you can read, an outline beside it,
+ * and prose elements the dashboard has no use for. */
+
+.docs {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+/* Contents ---------------------------------------------------------------- */
+
+.toc {
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.5rem;
+  border-right: 1px solid var(--line);
+}
+
+.toc__title {
+  margin: 0 0 0.6rem;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.toc__list { list-style: none; margin: 0; padding: 0; }
+
+.toc__item a {
+  display: block;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--r-control);
+  color: var(--ink-subtle);
+  font-size: 13px;
+  /* A path is one token: breaking it mid-segment is worse than a scrollbar. */
+  overflow-wrap: anywhere;
+}
+.toc__item a:hover { background: var(--surface-hover); color: var(--ink); text-decoration: none; }
+.toc__item a:target, .toc__item a:focus-visible { color: var(--ink); }
+
+/* Section headings anchor the outline; endpoints hang off them. */
+.toc__item--h2 a { margin-top: 0.5rem; color: var(--ink); font-weight: 500; }
+.toc__item--h3 a { padding-left: 1rem; font-family: var(--mono); font-size: 12px; }
+
+/* Prose ------------------------------------------------------------------- */
+
+.prose {
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+/* Roughly 70 characters: past that the eye loses the start of the next line.
+ * The measure is on the prose itself rather than on the column, because a
+ * table or a payload is read by scanning and wants every pixel it can get. */
+.prose > p,
+.prose > ul,
+.prose > ol,
+.prose > blockquote,
+.prose > h1,
+.prose > h2,
+.prose > h3,
+.prose > h4 {
+  max-width: 70ch;
+}
+
+.prose > :first-child { margin-top: 0; }
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  /* An anchored heading lands below the sticky topbar rather than under it. */
+  scroll-margin-top: 1.5rem;
+}
+.prose h1 { font-size: 28px; margin: 0 0 1.5rem; }
+.prose h2 {
+  font-size: 21px;
+  margin: 3rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.prose h3 { font-size: 16px; margin: 2rem 0 0.75rem; }
+.prose h4 { font-size: 14px; margin: 1.5rem 0 0.5rem; color: var(--ink-muted); }
+
+/* A heading that is entirely a code span is an endpoint: it reads as one. */
+.prose h3 code, .prose h4 code {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-text);
+  font-size: inherit;
+}
+
+.prose p { margin: 0 0 1rem; }
+.prose ul, .prose ol { margin: 0 0 1rem; padding-left: 1.35rem; }
+.prose li { margin: 0.25rem 0; }
+.prose li > ul, .prose li > ol { margin-bottom: 0; }
+
+.prose hr {
+  height: 0;
+  margin: 2.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.prose blockquote {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-plate) var(--r-plate) 0;
+  background: var(--surface);
+  color: var(--ink-subtle);
+}
+.prose blockquote > :last-child { margin-bottom: 0; }
+
+.prose strong { color: var(--ink); font-weight: 600; }
+
+/* Code -------------------------------------------------------------------- */
+
+.prose code {
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--code);
+  color: var(--code-ink);
+  font-family: var(--mono);
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+
+.prose pre {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-plate);
+  background: var(--code);
+  /* A payload is read by structure, not by line: it scrolls rather than
+   * wraps, so the indentation still means something. */
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.prose pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  overflow-wrap: normal;
+  white-space: pre;
+}
+
+/* Tables ------------------------------------------------------------------ */
+
+/* Most of this document is tables, and the widest of them still exceed the
+ * column. Each is its own scroll container rather than squeezing the page. */
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 1.25rem;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.prose th, .prose td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Inside a cell an identifier stays whole. Paragraph code may break anywhere,
+ * because a long URL mid-sentence has to go somewhere — but a column of
+ * `bad_reque st` is not a table. Keeping tokens intact is also what makes the
+ * scrollbar above appear: it is the table's min-content width that overflows. */
+.prose th code,
+.prose td code {
+  overflow-wrap: normal;
+}
+.prose tbody tr:last-child td { border-bottom: 0; }
+.prose tbody tr:hover { background: var(--surface-muted); }
+
+/* Narrow viewports ---------------------------------------------------------
+ *
+ * The outline stops being a sidebar and becomes a preamble: a sticky column
+ * on a phone is most of the screen. */
+@media (max-width: 60rem) {
+  .docs { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem 1rem 3rem; }
+  .toc {
+    position: static;
+    max-height: 18rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-plate);
+    background: var(--surface);
+  }
+  .toc__item--h3 { display: none; }
+  .prose { font-size: 15px; }
+}

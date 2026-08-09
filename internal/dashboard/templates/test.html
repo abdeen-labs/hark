@@ -1,0 +1,63 @@
+{{define "content"}}
+<h1 class="page-title">Send a test</h1>
+<p class="muted page-lede">One notification, through the same push transport the API uses. It proves the
+  round trip; it is not written to the history, because a history entry belongs to the credential that
+  asked for it and this is you.</p>
+
+{{/* The plate stays neutral whatever happened: the banner above already says
+     whether this went well, and lacquer red is never a success colour. */}}
+{{with .Result}}
+<section class="plate">
+  <h2 class="plate__title">Result</h2>
+  <p><span class="mono">{{.Accepted}}</span> of <span class="mono">{{.Attempted}}</span> messages accepted by APNs.</p>
+  {{if .Failures}}
+  <ul class="failures">
+    {{range .Failures}}<li class="mono">{{.}}</li>{{end}}
+  </ul>
+  {{end}}
+</section>
+{{end}}
+
+<section class="plate">
+  <form method="post" action="{{.Paths.Test}}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+    <div class="row">
+      <label class="field">
+        <span class="field__label">Title</span>
+        <input class="input" type="text" name="title" value="{{.Form.Title}}" placeholder="Hark" maxlength="200">
+      </label>
+      <label class="field field--tight">
+        <span class="field__label">Priority</span>
+        <select class="input" name="priority">
+          {{$form := .Form}}
+          {{range .Priorities}}
+          <option value="{{.}}"{{if eq $form.Priority .}} selected{{end}}>{{title .}}</option>
+          {{end}}
+        </select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field__label">Body</span>
+      <textarea class="input" name="body" rows="3" maxlength="1000" required>{{.Form.Body}}</textarea>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Target</span>
+      <select class="input" name="device_id">
+        <option value=""{{if eq .Form.DeviceID ""}} selected{{end}}>Every active device</option>
+        {{$form := .Form}}
+        {{range .Devices}}
+        <option value="{{.ID}}"{{if eq $form.DeviceID .ID}} selected{{end}}>
+          {{with text .Name}}{{.}}{{else}}Unnamed device{{end}} · {{.ID}}
+        </option>
+        {{end}}
+      </select>
+    </label>
+
+    <button class="btn btn--primary" type="submit"{{if not .Devices}} disabled{{end}}>Send</button>
+    {{if not .Devices}}<p class="muted">No active device is registered to send to.</p>{{end}}
+  </form>
+</section>
+{{end}}

@@ -1,0 +1,57 @@
+name: hark
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hark}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hark}
+      POSTGRES_DB: ${POSTGRES_DB:-hark}
+      # Deterministic initdb settings; the app stores and compares UTC instants.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hark} -d ${POSTGRES_DB:-hark}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    # Not published by default: only harkd needs it. Uncomment to inspect the
+    # database from the host.
+    # ports:
+    #   - "5432:5432"
+
+  harkd:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${HARK_PORT:-8080}:8080"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-hark}:${POSTGRES_PASSWORD:-hark}@postgres:5432/${POSTGRES_DB:-hark}?sslmode=disable
+
+      HARK_ENV: ${HARK_ENV:-development}
+      HARK_LISTEN_ADDR: ":8080"
+      HARK_PUBLIC_URL: ${HARK_PUBLIC_URL:-http://localhost:8080}
+      HARK_SECRET_KEY: "${HARK_SECRET_KEY:?set HARK_SECRET_KEY in .env - generate one with: openssl rand -base64 48}"
+      HARK_LOG_LEVEL: ${HARK_LOG_LEVEL:-info}
+
+      HARK_ADMIN_USERNAME: ${HARK_ADMIN_USERNAME:-admin}
+      HARK_ADMIN_PASSWORD: ${HARK_ADMIN_PASSWORD:-}
+      HARK_ADMIN_EMAIL: ${HARK_ADMIN_EMAIL:-}
+
+      HARK_APNS_KEY_ID: ${HARK_APNS_KEY_ID:-}
+      HARK_APNS_TEAM_ID: ${HARK_APNS_TEAM_ID:-}
+      HARK_APNS_PRIVATE_KEY: ${HARK_APNS_PRIVATE_KEY:-}
+      HARK_APNS_BUNDLE_ID: ${HARK_APNS_BUNDLE_ID:-dev.abdeen.hark}
+      HARK_APNS_ENVIRONMENT: ${HARK_APNS_ENVIRONMENT:-sandbox}
+
+      HARK_TRUSTED_CLIENT_IP_HEADER: ${HARK_TRUSTED_CLIENT_IP_HEADER:-}
+
+volumes:
+  postgres-data:

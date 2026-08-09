@@ -1,0 +1,45 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.Title}} · Hark</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23ce2020'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="{{.Assets.CSS}}">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+{{if .Username}}
+<header class="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark</a>
+    <nav class="nav" aria-label="Sections">
+      <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
+      <a href="{{.Paths.Devices}}"{{if eq .Section "devices"}} aria-current="page"{{end}}>Devices</a>
+      <a href="{{.Paths.Tokens}}"{{if eq .Section "tokens"}} aria-current="page"{{end}}>Tokens</a>
+      <a href="{{.Paths.Test}}"{{if eq .Section "test"}} aria-current="page"{{end}}>Send a test</a>
+      <a href="{{.Paths.Docs}}">API</a>
+    </nav>
+    <form class="topbar__out" method="post" action="{{.Paths.Logout}}">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <span class="topbar__user">{{.Username}}</span>
+      <button class="btn btn--ghost" type="submit">Sign out</button>
+    </form>
+  </div>
+</header>
+{{end}}
+
+<main class="shell">
+  {{with .Notice}}<p class="notice notice--{{.Kind}}" role="status">{{.Message}}</p>{{end}}
+  {{template "content" .}}
+</main>
+
+<footer class="footer">Hark{{if .Version}} · {{.Version}}{{end}}</footer>
+<script src="{{.Assets.JS}}" defer></script>
+</body>
+</html>{{end}}
