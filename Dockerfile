@@ -6,13 +6,15 @@ FROM golang:1.26-alpine AS build
 WORKDIR /src
 ENV CGO_ENABLED=0 GOOS=linux
 
-# Dependencies first so a source-only change reuses the cached layer.
+# Dependencies first so a source-only change reuses the cached layer. The
+# cache mounts carry explicit ids because Railway's builder refuses one
+# without; Docker itself would have defaulted the id to the target path.
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod go mod download
 
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod \
+    --mount=type=cache,id=go-build,target=/root/.cache/go-build \
     go build -trimpath -ldflags="-s -w" -o /out/harkd ./cmd/harkd
 
 # ── runtime ─────────────────────────────────────────────────────────────────
