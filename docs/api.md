@@ -347,7 +347,7 @@ A token carries a subset of these nine scopes. Anything else is rejected.
 | `interactions:read` | View questions, their status, and their answers. |
 | `notifications:send` | Send one-shot push notifications. |
 | `services:read` | View configured webhook services and their defaults. Webhook credentials are redacted for API tokens. |
-| `services:write` | Create, change, and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. |
+| `services:write` | Change and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. Creating a service mints its webhook credential, so that is [session-only](#post-v1services). |
 
 Scope lists are stored deduplicated and sorted, so a request for
 `["services:read","interactions:read","services:read"]` reads back as
@@ -516,7 +516,7 @@ either gives `429 rate_limited` with `Retry-After`.
 | `POST` | [`/v1/tokens`](#post-v1tokens) | session |
 | `DELETE` | [`/v1/tokens/{id}`](#delete-v1tokensid) | session |
 | `GET` | [`/v1/services`](#get-v1services) | session · token `services:read` |
-| `POST` | [`/v1/services`](#post-v1services) | session · token `services:write` |
+| `POST` | [`/v1/services`](#post-v1services) | session |
 | `GET` | [`/v1/services/{id}`](#get-v1servicesid) | session · token `services:read` |
 | `PATCH` | [`/v1/services/{id}`](#patch-v1servicesid) | session · token `services:write` |
 | `DELETE` | [`/v1/services/{id}`](#delete-v1servicesid) | session · token `services:write` |
@@ -1120,8 +1120,10 @@ Lists the account's services, newest first. **Session, or a token with
 
 ### `POST /v1/services`
 
-Creates a service and mints its webhook credential. **Session, or a token with
-`services:write`.**
+Creates a service and mints its webhook credential. **Session only** — this is
+credential management, like [rotation](#post-v1servicesidwebhook-token): the
+response hands out a URL that can send, so no API token may mint one, whatever
+its scopes.
 
 **Request**
 
@@ -1141,9 +1143,9 @@ Creates a service and mints its webhook credential. **Session, or a token with
 }
 ```
 
-The URL contains the credential. It is returned to whoever created the service —
-including an API token — because nobody else can recover it: the stored form is
-a ciphertext, and only a session is ever shown the decrypted URL again.
+The URL contains the credential. It is returned to the signed-in owner who
+created the service, this once: the stored form is a ciphertext, and only a
+session is ever shown the decrypted URL again.
 
 **422 `validation_failed`** names the offending field.
 

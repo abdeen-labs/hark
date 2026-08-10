@@ -53,7 +53,7 @@ func ScopeDescription(scope string) string {
 	case ScopeServicesRead:
 		return "View configured webhook services and their defaults; webhook credentials stay hidden."
 	case ScopeServicesWrite:
-		return "Create, change, and delete webhook services and their related history."
+		return "Change and delete webhook services and their related history."
 	default:
 		return ""
 	}

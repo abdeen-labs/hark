@@ -186,6 +186,77 @@ func TestRequireAPITokenNamesWhyItRefused(t *testing.T) {
 	}
 }
 
+// TestCreateServiceRequiresSession pins the credential boundary on service
+// creation. The 201 carries the plaintext webhook URL — a second credential
+// that can send, ask, and drive Live Activities — so no API token, whatever
+// its scopes, may mint one; only the signed-in owner may.
+func TestCreateServiceRequiresSession(t *testing.T) {
+	h := newTestServer(t, stubPinger{})
+
+	// The request presents no credential of its own; the principal is placed on
+	// the context directly, which the resolver middleware leaves untouched. That
+	// exercises the registered route and the real wrapper around the handler.
+	post := func(t *testing.T, p *auth.Principal, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/v1/services", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if p != nil {
+			req = req.WithContext(auth.WithPrincipal(req.Context(), p))
+		}
+		return send(t, h, req)
+	}
+
+	tokenWith := func(scopes ...string) *auth.Principal {
+		return &auth.Principal{
+			Kind:     auth.KindAPIToken,
+			User:     db.User{ID: "u"},
+			APIToken: &db.APIToken{ID: "t", Scopes: scopes},
+		}
+	}
+
+	refused := map[string]*auth.Principal{
+		"token with services:write": tokenWith(db.ScopeServicesWrite),
+		"token with every scope":    tokenWith(db.Scopes...),
+	}
+	for name, principal := range refused {
+		t.Run(name, func(t *testing.T) {
+			rec := post(t, principal, `{"title":"Deploy bot"}`)
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want 403: %s", rec.Code, rec.Body)
+			}
+			if got := decodeError(t, rec); got.Error.Code != CodeSessionRequired {
+				t.Errorf("code = %q, want %q", got.Error.Code, CodeSessionRequired)
+			}
+		})
+	}
+
+	t.Run("session reaches the handler", func(t *testing.T) {
+		session := &auth.Principal{Kind: auth.KindSession, User: db.User{ID: "u"}, Session: &db.Session{ID: "s"}}
+		// An empty object decodes but fails the handler's own validation, so a
+		// 422 can only mean the middleware admitted the session and the handler
+		// ran — proven without the database a valid create would need.
+		rec := post(t, session, `{}`)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d, want 422: %s", rec.Code, rec.Body)
+		}
+		if got := decodeError(t, rec); got.Error.Code != CodeValidation {
+			t.Errorf("code = %q, want %q", got.Error.Code, CodeValidation)
+		}
+	})
+
+	// Anonymous stays 401; TestDeliveryRoutesAreClosedByDefault walks the same
+	// route, and this pins it against that test ever dropping the entry.
+	t.Run("anonymous", func(t *testing.T) {
+		rec := post(t, nil, `{"title":"Deploy bot"}`)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("status = %d, want 401: %s", rec.Code, rec.Body)
+		}
+		if got := decodeError(t, rec); got.Error.Code != CodeUnauthorized {
+			t.Errorf("code = %q, want %q", got.Error.Code, CodeUnauthorized)
+		}
+	})
+}
+
 // TestScopesConstrainTokensOnly pins the other half: a token carries exactly
 // what it was granted, and a session — the account owner in person — satisfies
 // every scope check without carrying any.

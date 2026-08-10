@@ -249,13 +249,16 @@ func (s *server) routes(rt *router) {
 	rt.handle(http.MethodDelete, APIPrefix+"/tokens/{id}",
 		RequireSession(http.HandlerFunc(s.handleRevokeToken)))
 
-	// Services own the webhook credential, so writing one is credential
-	// management: session only. Reading is a scoped token's business too, though
-	// a token never sees the webhook URL itself (§ handleListServices).
+	// Services own the webhook credential. Creating a service mints that
+	// credential and rotating it reissues one, so both are credential
+	// management: session only. Editing or deleting a service touches no
+	// credential, so a scoped token may do that; reading is a scoped token's
+	// business too, though a token never sees the webhook URL itself
+	// (§ handleListServices).
 	rt.handle(http.MethodGet, APIPrefix+"/services",
 		s.scoped(db.ScopeServicesRead, s.handleListServices))
 	rt.handle(http.MethodPost, APIPrefix+"/services",
-		s.scoped(db.ScopeServicesWrite, s.handleCreateService))
+		RequireSession(http.HandlerFunc(s.handleCreateService)))
 	rt.handle(http.MethodGet, APIPrefix+"/services/{id}",
 		s.scoped(db.ScopeServicesRead, s.handleGetService))
 	rt.handle(http.MethodPatch, APIPrefix+"/services/{id}",

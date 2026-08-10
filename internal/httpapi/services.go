@@ -72,9 +72,9 @@ type serviceResponse struct {
 }
 
 // createdServiceResponse carries the plaintext ingest URL alongside the service.
-// It is the one response that returns it to any caller, including a token:
-// whoever just created the service is the only party that can be told, and the
-// stored form is a ciphertext nobody else will decrypt for them.
+// Creation and rotation are both session-only, so the URL goes to the
+// authenticated session that minted it — shown this once, because the stored
+// form is a ciphertext nobody else will decrypt for them.
 type createdServiceResponse struct {
 	Service    serviceDTO `json:"service"`
 	WebhookURL string     `json:"webhook_url"`
