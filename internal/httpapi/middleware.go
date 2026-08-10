@@ -148,7 +148,7 @@ func Recover(next http.Handler) http.Handler {
 			LoggerFrom(r.Context()).ErrorContext(r.Context(), "panic serving request",
 				"error", v,
 				"method", r.Method,
-				"path", r.URL.Path,
+				"path", redactPath(r.URL.Path),
 				"stack", string(debug.Stack()),
 			)
 			if ok && rec.wroteHeader {

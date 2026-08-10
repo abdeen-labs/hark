@@ -106,8 +106,9 @@ const (
 	// may not have been sent; nothing is retried either way.
 	ReasonCanceled = "Canceled"
 	// ReasonTransportError covers every other connection-level failure. The
-	// underlying error is logged rather than reported, because it embeds the
-	// request URL and the request URL embeds a device token.
+	// underlying error is discarded — it reaches neither callers nor the log —
+	// because it embeds the request URL and the request URL embeds a device
+	// token.
 	ReasonTransportError = "TransportError"
 	// ReasonInvalidResponse means APNs answered with a body that is not JSON.
 	ReasonInvalidResponse = "InvalidApnsResponse"
@@ -325,7 +326,10 @@ func (c *Client) attempt(ctx context.Context, req Request) (Response, bool) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.host+devicePath+req.Token, bytes.NewReader(req.Payload))
 	if err != nil {
-		c.log.ErrorContext(ctx, "building the APNs request failed", "error", err)
+		// The parse error quotes the URL it choked on, and the URL embeds the
+		// device token, so the raw error is deliberately not logged.
+		c.log.ErrorContext(ctx, "building the APNs request failed",
+			"reason", ReasonTransportError, "device_id", req.DeviceID)
 		return Response{Reason: ReasonTransportError}, false
 	}
 
@@ -346,9 +350,10 @@ func (c *Client) attempt(ctx context.Context, req Request) (Response, bool) {
 	if err != nil {
 		reason := transportReason(err)
 		// The error text carries the request URL, and the request URL carries a
-		// device token. It goes to the log, never to a caller.
+		// device token, so the raw error is deliberately omitted from the log
+		// as well as from callers. The classified reason is the diagnosis.
 		c.log.WarnContext(ctx, "the APNs request failed",
-			"reason", reason, "device_id", req.DeviceID, "error", err)
+			"reason", reason, "device_id", req.DeviceID)
 		return Response{Reason: reason}, false
 	}
 	defer func() {

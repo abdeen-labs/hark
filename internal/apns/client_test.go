@@ -1,9 +1,12 @@
 package apns
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -435,6 +438,101 @@ func TestClientCanceledContext(t *testing.T) {
 	response := client.Push(ctx, alertRequest())
 	if response.Reason != ReasonCanceled {
 		t.Errorf("reason = %q, want %q", response.Reason, ReasonCanceled)
+	}
+}
+
+// hostileTransport fails every request with an error that spells out the full
+// request URL, which is net/http's worst case: http.Client.Do wraps transport
+// errors in *url.Error, whose text quotes the URL, and the APNs URL carries the
+// device token.
+type hostileTransport struct{}
+
+func (hostileTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return nil, fmt.Errorf("connection reset by peer talking to %s", req.URL.String())
+}
+
+// TestClientTransportErrorLogOmitsToken is the regression for the leak: a
+// transport failure whose error deliberately quotes the tokenized URL must
+// still produce a log with the stable reason and device id, and nothing else.
+func TestClientTransportErrorLogOmitsToken(t *testing.T) {
+	const sentinelToken = "feedfacecafef00d00112233445566778899aabbccddeeff0011223344556677"
+
+	var logs bytes.Buffer
+	fake := newFakeAPNs(t)
+	client := newTestClient(t, fake, func(cfg *Config) {
+		cfg.HTTPClient = &http.Client{Transport: hostileTransport{}}
+		cfg.Logger = slog.New(slog.NewTextHandler(&logs, nil))
+	})
+
+	req := alertRequest()
+	req.Token = sentinelToken
+	response := client.Push(context.Background(), req)
+
+	if response.Status != 0 {
+		t.Errorf("status = %d, want 0 — nothing was received", response.Status)
+	}
+	if response.Reason != ReasonTransportError {
+		t.Fatalf("reason = %q, want %q", response.Reason, ReasonTransportError)
+	}
+
+	logged := logs.String()
+	if !strings.Contains(logged, ReasonTransportError) {
+		t.Errorf("the log does not carry the stable reason:\n%s", logged)
+	}
+	if !strings.Contains(logged, req.DeviceID) {
+		t.Errorf("the log does not carry the device id:\n%s", logged)
+	}
+	for _, secret := range []string{
+		sentinelToken,
+		devicePath + sentinelToken,
+		client.host + devicePath + sentinelToken,
+	} {
+		if strings.Contains(logged, secret) {
+			t.Errorf("the log quotes %q:\n%s", secret, logged)
+		}
+	}
+}
+
+// TestClientRequestBuildTokenNeverLogged covers the branch before the wire: a
+// host that cannot parse makes http.NewRequestWithContext fail, and that parse
+// error quotes the whole URL, token included. The log must not.
+func TestClientRequestBuildTokenNeverLogged(t *testing.T) {
+	const sentinelToken = "feedfacecafef00d00112233445566778899aabbccddeeff0011223344556677"
+
+	var logs bytes.Buffer
+	_, pemKey := testKey(t)
+	client, err := NewClient(Config{
+		KeyID:       "ABCDE12345",
+		TeamID:      "TEAM123456",
+		PrivateKey:  pemKey,
+		BundleID:    "dev.abdeen.hark",
+		Environment: EnvironmentSandbox,
+		// The control character makes url.Parse refuse the URL inside
+		// http.NewRequestWithContext, before any connection is attempted.
+		Host:   "https://api.sandbox.push.apple.com\n",
+		Logger: slog.New(slog.NewTextHandler(&logs, nil)),
+	})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	req := alertRequest()
+	req.Token = sentinelToken
+	response := client.Push(context.Background(), req)
+
+	if response.Reason != ReasonTransportError {
+		t.Fatalf("reason = %q, want %q", response.Reason, ReasonTransportError)
+	}
+
+	logged := logs.String()
+	if !strings.Contains(logged, "building the APNs request failed") {
+		t.Fatalf("the request-construction branch did not log:\n%s", logged)
+	}
+	if !strings.Contains(logged, req.DeviceID) {
+		t.Errorf("the log does not carry the device id:\n%s", logged)
+	}
+	if strings.Contains(logged, sentinelToken) {
+		t.Errorf("the log quotes the device token:\n%s", logged)
 	}
 }
 

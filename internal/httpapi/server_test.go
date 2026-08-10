@@ -251,6 +251,45 @@ func TestPanicBecomes500(t *testing.T) {
 	}
 }
 
+// TestPanicPathIsRedacted holds the recovery log to the same rule as the access
+// log: a handler that panics mid-webhook must not write the URL credential into
+// the one log line operators will certainly read.
+func TestPanicPathIsRedacted(t *testing.T) {
+	const sentinelToken = "harkhook_PANICSENTINELq8Zt3vXy1LmNoP2Rs4TuVwAbCd"
+
+	var logs bytes.Buffer
+	rt := newRouter()
+	rt.handleFunc(http.MethodPost, "/v1/hooks/{token}", func(http.ResponseWriter, *http.Request) {
+		panic("hook exploded")
+	})
+	h := Chain(rt.handler(),
+		RequestID,
+		WithLogger(slog.New(slog.NewTextHandler(&logs, nil))),
+		Recover,
+	)
+
+	rec := do(t, h, http.MethodPost, "/v1/hooks/"+sentinelToken, strings.NewReader(`{"body":"hi"}`))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	if got := decodeError(t, rec); got.Error.Code != CodeInternal {
+		t.Errorf("code = %q, want %q", got.Error.Code, CodeInternal)
+	}
+
+	logged := logs.String()
+	if !strings.Contains(logged, "hook exploded") {
+		t.Errorf("panic was not logged:\n%s", logged)
+	}
+	if !strings.Contains(logged, "/v1/hooks/{token}") {
+		t.Errorf("logs do not carry the redacted placeholder path:\n%s", logged)
+	}
+	// Both the recovery line and the access line are in this buffer, and the
+	// stack is attached to the recovery line; the token may appear in none of it.
+	if strings.Contains(logged, sentinelToken) {
+		t.Errorf("the webhook token leaked into the logs:\n%s", logged)
+	}
+}
+
 func TestRequestWithoutCredentialsIsAnonymous(t *testing.T) {
 	rec := do(t, newTestServer(t, stubPinger{}), http.MethodGet, "/v1/auth/session", nil)
 
