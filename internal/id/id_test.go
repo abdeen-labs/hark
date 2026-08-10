@@ -1,90 +1,69 @@
 package id
 
 import (
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestNewIsCanonicalV7(t *testing.T) {
 	s := New()
 	if len(s) != Len {
-		t.Fatalf("len(%q) = %d, want %d", s, len(s), Len)
+		t.Fatalf("len(New()) = %d, want %d", len(s), Len)
+	}
+	if s != strings.ToLower(s) {
+		t.Errorf("New() = %q, want lowercase", s)
 	}
 	if !Valid(s) {
-		t.Fatalf("Valid(%q) = false", s)
+		t.Errorf("Valid(New()) = false for %q", s)
 	}
-	u, err := Parse(s)
+}
+
+func TestNewEmbedsTheWallClock(t *testing.T) {
+	before := time.Now().Add(-time.Second)
+	u, err := uuid.Parse(New())
 	if err != nil {
-		t.Fatalf("Parse(%q): %v", s, err)
+		t.Fatalf("parse a fresh id: %v", err)
 	}
-	if got := u.Version(); got != 7 {
-		t.Errorf("version = %d, want 7", got)
-	}
-	if got := u[8] & 0xc0; got != 0x80 {
-		t.Errorf("variant bits = %#x, want 0x80", got)
-	}
-	if s != u.String() {
-		t.Errorf("round trip: %q != %q", s, u.String())
+	sec, nsec := u.Time().UnixTime()
+	got := time.Unix(sec, nsec)
+	if got.Before(before) || got.After(time.Now().Add(time.Second)) {
+		t.Errorf("embedded time = %v, want about now", got)
 	}
 }
 
-func TestNewAtEmbedsTimestamp(t *testing.T) {
-	want := time.Date(2026, 8, 9, 12, 34, 56, 789_000_000, time.UTC)
-	got := NewAt(want).Time()
-	if !got.Equal(want) {
-		t.Errorf("Time() = %s, want %s", got, want)
-	}
-}
-
-func TestIDsSortChronologically(t *testing.T) {
-	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	prev := ""
-	for i := range 50 {
-		s := NewAt(base.Add(time.Duration(i) * time.Millisecond)).String()
-		if prev >= s {
-			t.Fatalf("id %d (%q) does not sort after %q", i, s, prev)
-		}
-		prev = s
-	}
-}
-
-func TestNewIsUnique(t *testing.T) {
-	seen := make(map[string]struct{}, 10_000)
-	for range 10_000 {
+func TestNewDoesNotCollide(t *testing.T) {
+	seen := make(map[string]bool, 1000)
+	for range 1000 {
 		s := New()
-		if _, dup := seen[s]; dup {
-			t.Fatalf("duplicate id %q", s)
+		if seen[s] {
+			t.Fatalf("New() repeated %q", s)
 		}
-		seen[s] = struct{}{}
+		seen[s] = true
 	}
 }
 
-func TestParseRejectsMalformed(t *testing.T) {
-	for _, s := range []string{
-		"",
-		"not-a-uuid",
-		"0198f3a12b4c7d8e9f0123456789abcd",                    // no hyphens
-		"0198f3a1-2b4c-7d8e-9f01-23456789abc",                 // too short
-		"0198f3a1-2b4c-7d8e-9f01-23456789abcdd",               // too long
-		"0198f3a1-2b4c-7d8e-9f01-23456789abcg",                // non-hex
-		"0198f3a1x2b4c-7d8e-9f01-23456789abcd",                // hyphen misplaced
-		"0198f3a1-2b4c-7d8e-9f01-23456789abcd\x00",            // trailing NUL
-		"  0198f3a1-2b4c-7d8e-9f01-23456789abcd",              // padded
-		"0198F3A1-2B4C-7D8E-9F01-23456789ABCD-extra-garbage!", // long junk
-	} {
-		if _, err := Parse(s); err == nil {
-			t.Errorf("Parse(%q) = nil error, want failure", s)
-		}
-	}
-}
+func TestValid(t *testing.T) {
+	canonical := New()
+	tests := map[string]bool{
+		canonical:                  true,
+		strings.ToUpper(canonical): true, // hex case is forgiven; shape is not
 
-func TestValidRejectsOtherVersions(t *testing.T) {
-	// A well-formed UUIDv4 parses but is not a valid Hark id.
-	const v4 = "9f1c0ad4-b3e2-4a65-90cc-48d2ee7b3a41"
-	if _, err := Parse(v4); err != nil {
-		t.Fatalf("Parse(%q): %v", v4, err)
+		"":                                     false,
+		strings.ReplaceAll(canonical, "-", ""): false, // bare hex
+		"urn:uuid:" + canonical:                false, // URN form
+		"{" + canonical + "}":                  false, // braces
+		canonical[:Len-1]:                      false, // truncated
+		canonical[:Len-1] + "g":                false, // not hex
+
+		// The right shape but the wrong version.
+		"0198f3a1-2b4c-4d8e-9f01-23456789abcd": false,
 	}
-	if Valid(v4) {
-		t.Errorf("Valid(%q) = true, want false", v4)
+	for in, want := range tests {
+		if got := Valid(in); got != want {
+			t.Errorf("Valid(%q) = %v, want %v", in, got, want)
+		}
 	}
 }

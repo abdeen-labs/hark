@@ -103,10 +103,16 @@ func (c SessionCookie) Clear(w http.ResponseWriter) {
 type authenticator struct {
 	resolver CredentialResolver
 	cookie   SessionCookie
-	// origin is the one browser origin allowed to make a state-changing request
-	// with the ambient cookie, e.g. "https://hark.example.com".
+	// origin is the configured public origin, e.g. "https://hark.example.com".
+	// It is kept for the refusal message; the judgment itself is crossOrigin's.
 	origin string
-	now    func() time.Time
+	// crossOrigin decides whether a state-changing request made with the
+	// ambient cookie came from this application. It is the standard library's
+	// CSRF check: Sec-Fetch-Site where the browser sends it, the Origin header
+	// against the request's own host for older browsers, and no headers at all
+	// means no browser and nothing ambient to ride.
+	crossOrigin *http.CrossOriginProtection
+	now         func() time.Time
 }
 
 // Authenticate resolves a session cookie, a bearer session token, or a bearer
@@ -123,18 +129,28 @@ type authenticator struct {
 //     routes and can still sign in.
 //
 // Cookie-authenticated unsafe methods additionally have to come from the app's
-// own origin. That is the CSRF gate: SameSite=Lax already blocks the common
-// cases, and this closes the rest without a token round-trip. Bearer callers
-// skip it — nothing is ambient about a header a client had to set.
+// own origin, as judged by [http.CrossOriginProtection]. That is the CSRF
+// gate: SameSite=Lax already blocks the common cases, and this closes the rest
+// without a token round-trip. Bearer callers skip it — nothing is ambient
+// about a header a client had to set.
 func Authenticate(resolver CredentialResolver, publicURL *url.URL, now func() time.Time) Middleware {
 	if now == nil {
 		now = time.Now
 	}
 	a := &authenticator{
-		resolver: resolver,
-		cookie:   NewSessionCookie(publicURL),
-		origin:   originOf(publicURL),
-		now:      now,
+		resolver:    resolver,
+		cookie:      NewSessionCookie(publicURL),
+		origin:      originOf(publicURL),
+		crossOrigin: http.NewCrossOriginProtection(),
+		now:         now,
+	}
+	// The configured origin is trusted on top of the library's own same-host
+	// check, so a deployment reached through a second hostname still accepts
+	// its real public origin.
+	if a.origin != "" {
+		if err := a.crossOrigin.AddTrustedOrigin(a.origin); err != nil {
+			panic("httpapi: the public URL is not a valid origin: " + err.Error())
+		}
 	}
 	return a.middleware
 }
@@ -158,7 +174,8 @@ func (a *authenticator) middleware(next http.Handler) http.Handler {
 
 		// The CSRF gate runs before the lookup, so a forged cross-origin write
 		// costs no database work and cannot slide a session's expiry forward.
-		if !safeMethod(r.Method) && !a.originAllowed(r) {
+		// Safe methods pass through inside Check.
+		if err := a.crossOrigin.Check(r); err != nil {
 			WriteError(w, r, http.StatusForbidden, CodeOriginNotAllowed,
 				"A cookie-authenticated request must come from this application's own origin"+
 					a.originSuffix()+"; present an Authorization header instead.")
@@ -226,35 +243,11 @@ func (a *authenticator) fail(w http.ResponseWriter, r *http.Request, err error) 
 		"Credentials could not be checked right now.")
 }
 
-// originAllowed reports whether a cookie-authenticated write may proceed.
-//
-// It fails closed: an unconfigured public origin matches nothing, so a
-// misconfigured deployment refuses cross-origin writes rather than accepting
-// them all.
-func (a *authenticator) originAllowed(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		// No Origin means no browser, and therefore no ambient-credential
-		// attack to defend against: curl and native clients land here.
-		return true
-	}
-	return a.origin != "" && strings.EqualFold(origin, a.origin)
-}
-
 func (a *authenticator) originSuffix() string {
 	if a.origin == "" {
 		return ""
 	}
 	return " (" + a.origin + ")"
-}
-
-func safeMethod(method string) bool {
-	switch method {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-		return true
-	default:
-		return false
-	}
 }
 
 func originOf(u *url.URL) string {

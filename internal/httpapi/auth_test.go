@@ -277,18 +277,36 @@ func TestSessionCookieNaming(t *testing.T) {
 	}
 }
 
-// TestCookieWritesRequireTheAppOrigin is the CSRF gate. SameSite=Lax already
-// stops most of it; this closes cross-origin fetches that carry the cookie.
+// TestCookieWritesRequireTheAppOrigin is the CSRF gate, judged by the standard
+// library's http.CrossOriginProtection. SameSite=Lax already stops most of it;
+// this closes cross-origin fetches that carry the cookie. Modern browsers are
+// judged by Sec-Fetch-Site — which marks a scheme downgrade cross-site — and
+// older ones by their Origin header against the request's host and the
+// configured public origin.
 func TestCookieWritesRequireTheAppOrigin(t *testing.T) {
 	tests := map[string]struct {
-		origin string
-		want   int
+		origin       string
+		secFetchSite string
+		want         int
 	}{
-		"same origin":      {testOrigin, http.StatusNoContent},
-		"no origin":        {"", http.StatusNoContent},
-		"foreign origin":   {"https://evil.example", http.StatusForbidden},
-		"sneaky subdomain": {"https://hark.example.com.evil.example", http.StatusForbidden},
-		"scheme downgrade": {"http://hark.example.com", http.StatusForbidden},
+		"same origin":      {testOrigin, "", http.StatusNoContent},
+		"no origin":        {"", "", http.StatusNoContent},
+		"foreign origin":   {"https://evil.example", "", http.StatusForbidden},
+		"sneaky subdomain": {"https://hark.example.com.evil.example", "", http.StatusForbidden},
+		"scheme downgrade": {"http://hark.example.com", "", http.StatusForbidden},
+
+		// Fetch metadata is judged where the browser sends it — and a
+		// cross-site marking is refused even with no Origin at all, which the
+		// old hand-rolled gate would have waved through.
+		"cross-site metadata, no origin":      {"", "cross-site", http.StatusForbidden},
+		"cross-site metadata, foreign origin": {"https://evil.example", "cross-site", http.StatusForbidden},
+		"same-origin metadata":                {"", "same-origin", http.StatusNoContent},
+		"direct navigation (none)":            {"", "none", http.StatusNoContent},
+
+		// The configured public origin is trusted outright. A browser cannot
+		// forge Origin, so this combination only ever describes our own page,
+		// however the fetch metadata got mangled on the way.
+		"cross-site metadata, trusted origin": {testOrigin, "cross-site", http.StatusNoContent},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -299,6 +317,9 @@ func TestCookieWritesRequireTheAppOrigin(t *testing.T) {
 			req.AddCookie(&http.Cookie{Name: "__Host-hark_session", Value: auth.NewSessionToken()})
 			if tc.origin != "" {
 				req.Header.Set("Origin", tc.origin)
+			}
+			if tc.secFetchSite != "" {
+				req.Header.Set("Sec-Fetch-Site", tc.secFetchSite)
 			}
 			rec := h.send(t, req)
 

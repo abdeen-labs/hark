@@ -14,8 +14,9 @@ import (
 //
 // The choice over a pure same-site-plus-Origin check is deliberate, and it is
 // belt and braces rather than a replacement: internal/httpapi already refuses a
-// cookie-authenticated unsafe method whose Origin is not this deployment's, and
-// the session cookie is SameSite=Lax. What that pair does not cover is sign-in,
+// cookie-authenticated unsafe method whose fetch metadata or Origin header
+// marks it cross-origin, and the session cookie is SameSite=Lax. What that
+// pair does not cover is sign-in,
 // where the browser holds no session cookie yet and so nothing triggers the
 // origin gate — a forged sign-in would log the owner into an attacker's
 // account, and every page they then look at would be the attacker's. The

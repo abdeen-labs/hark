@@ -364,10 +364,13 @@ person and satisfies every scope check.
 ### Cross-origin requests
 
 A state-changing request (anything other than `GET`, `HEAD`, `OPTIONS`)
-authenticated by the **cookie** must carry no `Origin` header or one that
-matches the server's public origin exactly; otherwise it is refused with
-`403 origin_not_allowed`. This is the CSRF gate, and together with
-`SameSite=Lax` it is why no CSRF token is needed.
+authenticated by the **cookie** must come from this application itself, or it
+is refused with `403 origin_not_allowed`. The judgment is the browser's own
+fetch metadata: a `Sec-Fetch-Site` of `same-origin` or `none` passes, and
+anything else is refused. Browsers too old to send it are judged by their
+`Origin` header, which must match the request's host or the server's public
+origin; no `Origin` at all means no browser and passes. This is the CSRF
+gate, and together with `SameSite=Lax` it is why no CSRF token is needed.
 
 Requests authenticated by an `Authorization` header skip the check entirely —
 nothing is ambient about a header a client had to set — so native and
