@@ -19,6 +19,8 @@ var templateFS embed.FS
 var (
 	tmplLogin     = mustParse("login.html")
 	tmplOverview  = mustParse("overview.html")
+	tmplServices  = mustParse("services.html")
+	tmplService   = mustParse("service.html")
 	tmplDevices   = mustParse("devices.html")
 	tmplTokens    = mustParse("tokens.html")
 	tmplTest      = mustParse("test.html")

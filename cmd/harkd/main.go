@@ -159,6 +159,7 @@ func serveCommand(ctx context.Context, args []string) error {
 	admin := dashboard.New(dashboard.Options{
 		Auth:                  authService,
 		Store:                 store,
+		Secrets:               secrets,
 		Push:                  sender,
 		PublicURL:             cfg.PublicURL,
 		TrustedClientIPHeader: cfg.TrustedClientIPHeader,

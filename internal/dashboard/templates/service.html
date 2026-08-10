@@ -1,0 +1,75 @@
+{{define "content"}}
+<h1 class="page-title">{{.Service.Title}}</h1>
+<p class="muted page-lede">Created <time datetime="{{iso .Service.CreatedAt}}" title="{{when .Service.CreatedAt}}">{{ago .Service.CreatedAt}}</time>
+  · updated <time datetime="{{iso .Service.UpdatedAt}}" title="{{when .Service.UpdatedAt}}">{{ago .Service.UpdatedAt}}</time>
+  · <a href="{{.Paths.Services}}">all services</a></p>
+
+<section class="plate plate--accent">
+  <h2 class="plate__title">Webhook URL</h2>
+  {{with .WebhookURL}}
+  <p class="muted">Anything holding this URL can send to your devices. If it leaks, rotate it.</p>
+  <div class="secret">
+    <code class="secret__value">{{.}}</code>
+    <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
+  </div>
+  {{else}}
+  <p class="muted">The stored URL could not be read back. The service still works for whatever
+    holds its token — rotate to mint a URL you can see.</p>
+  {{end}}
+  <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/rotate"
+        data-confirm="Rotate this webhook URL? The current one stops working immediately.">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <button class="btn" type="submit">Rotate URL</button>
+  </form>
+</section>
+
+<section class="plate">
+  <h2 class="plate__title">Defaults</h2>
+  <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+    <div class="row">
+      <label class="field">
+        <span class="field__label">Title</span>
+        <input class="input" type="text" name="title" value="{{.Form.Title}}"
+               maxlength="80" required>
+      </label>
+      <label class="field field--tight">
+        <span class="field__label">Default priority</span>
+        <select class="input" name="priority">
+          {{$form := .Form}}
+          {{range .Priorities}}
+          <option value="{{.}}"{{if eq $form.Priority .}} selected{{end}}>{{title .}}</option>
+          {{end}}
+        </select>
+      </label>
+    </div>
+
+    <div class="row">
+      <label class="field">
+        <span class="field__label">Avatar image URL <span class="muted">(optional)</span></span>
+        <input class="input" type="url" name="image_url" value="{{.Form.ImageURL}}"
+               placeholder="https://example.com/logo.png" maxlength="2048">
+      </label>
+      <label class="field">
+        <span class="field__label">Tap destination <span class="muted">(optional)</span></span>
+        <input class="input" type="text" name="url" value="{{.Form.URL}}"
+               placeholder="https://ci.example.com or an app deep link" maxlength="2048">
+      </label>
+    </div>
+
+    <button class="btn btn--primary" type="submit">Save defaults</button>
+  </form>
+</section>
+
+<section class="plate">
+  <h2 class="plate__title">Delete</h2>
+  <p class="muted">Deleting a service takes its history with it: every delivery, every question it
+    asked, and every Live Activity it ran.</p>
+  <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/delete"
+        data-confirm="Delete {{.Service.Title}}? Its whole delivery history goes with it.">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <button class="btn btn--danger" type="submit">Delete service</button>
+  </form>
+</section>
+{{end}}

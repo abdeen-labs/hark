@@ -1,0 +1,77 @@
+{{define "content"}}
+<h1 class="page-title">Services</h1>
+<p class="muted page-lede">A service is a webhook source. Its URL is its only credential, and its
+  title, avatar, tap destination and priority fill in whatever a request leaves out.</p>
+
+<section class="plate">
+  <h2 class="plate__title">New service</h2>
+  <form method="post" action="{{.Paths.Services}}" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+    <div class="row">
+      <label class="field">
+        <span class="field__label">Title</span>
+        <input class="input" type="text" name="title" value="{{.Form.Title}}"
+               placeholder="CI" maxlength="80" required>
+      </label>
+      <label class="field field--tight">
+        <span class="field__label">Default priority</span>
+        <select class="input" name="priority">
+          {{$form := .Form}}
+          {{range .Priorities}}
+          <option value="{{.}}"{{if eq $form.Priority .}} selected{{end}}>{{title .}}</option>
+          {{end}}
+        </select>
+      </label>
+    </div>
+
+    <div class="row">
+      <label class="field">
+        <span class="field__label">Avatar image URL <span class="muted">(optional)</span></span>
+        <input class="input" type="url" name="image_url" value="{{.Form.ImageURL}}"
+               placeholder="https://example.com/logo.png" maxlength="2048">
+      </label>
+      <label class="field">
+        <span class="field__label">Tap destination <span class="muted">(optional)</span></span>
+        <input class="input" type="text" name="url" value="{{.Form.URL}}"
+               placeholder="https://ci.example.com or an app deep link" maxlength="2048">
+      </label>
+    </div>
+
+    <button class="btn btn--primary" type="submit">Create service</button>
+  </form>
+</section>
+
+<section class="plate">
+  <h2 class="plate__title">Existing services</h2>
+  {{if .Services}}
+  <div class="scroll">
+    <table class="table">
+      <thead>
+        <tr><th>Service</th><th>Priority</th><th>Tap destination</th><th>Created</th><th class="cell--right">Actions</th></tr>
+      </thead>
+      <tbody>
+        {{range .Services}}
+        <tr>
+          <td>
+            {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="" loading="lazy">{{end}}{{.Title}}
+          </td>
+          <td><span class="pill pill--kind">{{title .Priority}}</span></td>
+          <td>{{with text .URL}}<span class="mono muted">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+          <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
+          <td class="cell--right">
+            {{with .WebhookURL}}
+            <button class="btn btn--ghost" type="button" data-copy="{{.}}">Copy URL</button>
+            {{end}}
+            <a class="btn" href="{{$.Paths.Services}}/{{.ID}}">Manage</a>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="empty">No services yet. Create one and point any webhook at its URL.</p>
+  {{end}}
+</section>
+{{end}}

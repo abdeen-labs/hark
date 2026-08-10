@@ -208,12 +208,24 @@ func (v *validator) httpsURL(field string, value *string) *string {
 	if raw == nil {
 		return nil
 	}
-	u, err := url.Parse(*raw)
-	if err != nil || u.Scheme != "https" || u.Host == "" || !publicHost(u.Hostname()) {
+	if !publicHTTPSURL(*raw) {
 		v.add(field, "must be a public HTTPS URL")
 		return nil
 	}
 	return raw
+}
+
+func publicHTTPSURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && u.Scheme == "https" && u.Host != "" && publicHost(u.Hostname())
+}
+
+// ValidAvatarURL reports whether raw — trimmed, non-empty — is acceptable as
+// an image_url: public HTTPS, within length. It is exported because the
+// embedded dashboard holds its service forms to the same rule the API applies,
+// rather than growing a second opinion on what an avatar may point at.
+func ValidAvatarURL(raw string) bool {
+	return raw != "" && utf8.RuneCountInString(raw) <= maxURLLen && publicHTTPSURL(raw)
 }
 
 // linkURL validates a tap destination.
@@ -226,12 +238,22 @@ func (v *validator) linkURL(field string, value *string) *string {
 	if raw == nil {
 		return nil
 	}
-	u, err := url.Parse(*raw)
-	if err != nil || u.Scheme == "" || !linkSchemeAllowed(u.Scheme) {
+	if !tapURL(*raw) {
 		v.add(field, "must be a web URL or an app deep link")
 		return nil
 	}
 	return raw
+}
+
+func tapURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && u.Scheme != "" && linkSchemeAllowed(u.Scheme)
+}
+
+// ValidTapURL reports whether raw — trimmed, non-empty — is acceptable as a
+// tap destination. Exported for the dashboard, like [ValidAvatarURL].
+func ValidTapURL(raw string) bool {
+	return raw != "" && utf8.RuneCountInString(raw) <= maxURLLen && tapURL(raw)
 }
 
 // blockedLinkSchemes execute script or carry inline content. A notification

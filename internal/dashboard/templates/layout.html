@@ -20,6 +20,7 @@
     <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark</a>
     <nav class="nav" aria-label="Sections">
       <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
+      <a href="{{.Paths.Services}}"{{if eq .Section "services"}} aria-current="page"{{end}}>Services</a>
       <a href="{{.Paths.Devices}}"{{if eq .Section "devices"}} aria-current="page"{{end}}>Devices</a>
       <a href="{{.Paths.Tokens}}"{{if eq .Section "tokens"}} aria-current="page"{{end}}>Tokens</a>
       <a href="{{.Paths.Test}}"{{if eq .Section "test"}} aria-current="page"{{end}}>Send a test</a>

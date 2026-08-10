@@ -12,6 +12,7 @@ import (
 
 	"github.com/abdeen-labs/hark/internal/auth"
 	"github.com/abdeen-labs/hark/internal/db"
+	"github.com/abdeen-labs/hark/internal/secret"
 )
 
 // fakeAuth stands in for *auth.Service. Every test in this file exercises the
@@ -92,11 +93,16 @@ func newTestDashboard(t *testing.T) (*Dashboard, *fakeAuth) {
 	d := New(Options{
 		Auth:                  service,
 		Store:                 db.New(nil),
+		Secrets:               testKeeper(),
 		PublicURL:             &url.URL{Scheme: "https", Host: "hark.example.com"},
 		TrustedClientIPHeader: "X-Real-Ip",
 		Version:               "test",
 	})
 	return d, service
+}
+
+func testKeeper() *secret.Keeper {
+	return secret.NewKeeper([]byte("test-root-key-long-enough-for-real"))
 }
 
 // signedIn returns a request carrying the account owner's session, as
@@ -162,7 +168,10 @@ func TestRootRedirectsToTheDashboard(t *testing.T) {
 func TestSignedOutPagesRedirectToSignIn(t *testing.T) {
 	d, _ := newTestDashboard(t)
 
-	for _, path := range []string{pathHome, pathDevices, pathTokens, pathTest, pathAuthorize} {
+	for _, path := range []string{
+		pathHome, pathServices, pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+		pathDevices, pathTokens, pathTest, pathAuthorize,
+	} {
 		rec := send(d, request(http.MethodGet, path, ""))
 		if rec.Code != http.StatusSeeOther {
 			t.Errorf("GET %s: status = %d, want %d", path, rec.Code, http.StatusSeeOther)
@@ -202,6 +211,10 @@ func TestFormsRequireACSRFToken(t *testing.T) {
 	paths := []string{
 		pathLogin,
 		pathLogout,
+		pathServices,
+		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/rotate",
+		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathDevices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathTokens,
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/revoke",
@@ -405,7 +418,7 @@ func TestCSRFCookieTakesTheHostPrefixOverHTTPS(t *testing.T) {
 	}
 
 	plain := New(Options{
-		Auth: &fakeAuth{}, Store: db.New(nil),
+		Auth: &fakeAuth{}, Store: db.New(nil), Secrets: testKeeper(),
 		PublicURL: &url.URL{Scheme: "http", Host: "localhost:8080"},
 	})
 	if strings.HasPrefix(plain.csrf.name, "__Host-") || plain.csrf.secure {
@@ -541,6 +554,43 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			},
 		}},
 		"authorize/empty": {tmplAuthorize, authorizePage{view: frame}},
+		"services": {tmplServices, servicesPage{
+			view:       frame,
+			Priorities: db.Priorities,
+			Form:       serviceForm{Title: "<script>alert(1)</script>", Priority: db.PriorityNormal},
+			Services: []serviceRow{
+				{
+					Service: db.Service{
+						ID: "svc-1", Title: "<script>alert(1)</script>",
+						ImageURL: ptr("https://example.com/logo.png"), URL: ptr("https://example.com/run"),
+						Priority: db.PriorityTimeSensitive, CreatedAt: now, UpdatedAt: now,
+					},
+					WebhookURL: ptr("https://hark.example.com/v1/hooks/harkhook_notarealtoken"),
+				},
+				{
+					Service: db.Service{ID: "svc-2", Title: "ci", Priority: db.PriorityNormal, CreatedAt: now, UpdatedAt: now},
+					// A ciphertext that would not open: the row renders without a copy button.
+					WebhookURL: nil,
+				},
+			},
+		}},
+		"service": {tmplService, servicePage{
+			view: frame,
+			Service: db.Service{
+				ID: "svc-1", Title: "<script>alert(1)</script>",
+				ImageURL: ptr("https://example.com/logo.png"), URL: ptr("https://example.com/run"),
+				Priority: db.PriorityCritical, CreatedAt: now, UpdatedAt: now,
+			},
+			WebhookURL: ptr("https://hark.example.com/v1/hooks/harkhook_notarealtoken"),
+			Priorities: db.Priorities,
+			Form:       serviceForm{Title: "CI", ImageURL: "https://example.com/logo.png", Priority: db.PriorityCritical},
+		}},
+		"service/unreadable": {tmplService, servicePage{
+			view:       frame,
+			Service:    db.Service{ID: "svc-2", Title: "ci", Priority: db.PriorityNormal, CreatedAt: now, UpdatedAt: now},
+			Priorities: db.Priorities,
+			Form:       serviceForm{Title: "ci", Priority: db.PriorityNormal},
+		}},
 		"test": {tmplTest, testPage{
 			view:       frame,
 			Devices:    []db.Device{{ID: "dev-1", Name: ptr("iPhone"), Active: true}, {ID: "dev-2"}},

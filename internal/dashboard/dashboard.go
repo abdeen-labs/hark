@@ -33,6 +33,7 @@ import (
 	"github.com/abdeen-labs/hark/internal/db"
 	"github.com/abdeen-labs/hark/internal/httpapi"
 	"github.com/abdeen-labs/hark/internal/push"
+	"github.com/abdeen-labs/hark/internal/secret"
 )
 
 // Authenticator is the part of *auth.Service the dashboard uses.
@@ -74,6 +75,11 @@ type Options struct {
 	Auth Authenticator
 	// Store is read directly for everything the pages show. Required.
 	Store *db.Store
+	// Secrets seals and opens webhook tokens, so the services pages can mint a
+	// credential and read a stored one back. Required, and necessarily the same
+	// keeper internal/httpapi holds: a token sealed by one must open under the
+	// other.
+	Secrets *secret.Keeper
 	// Push delivers the test notification. A nil Sender becomes push.Noop,
 	// which reports every send as a provider failure rather than a success.
 	Push push.Sender
@@ -94,13 +100,14 @@ type Options struct {
 // hardcoded href in a template is the thing that silently breaks when the
 // prefix moves.
 const (
-	pathHome    = httpapi.DashboardPrefix
-	pathLogin   = httpapi.DashboardPrefix + "/login"
-	pathLogout  = httpapi.DashboardPrefix + "/logout"
-	pathDevices = httpapi.DashboardPrefix + "/devices"
-	pathTokens  = httpapi.DashboardPrefix + "/tokens"
-	pathTest    = httpapi.DashboardPrefix + "/test"
-	pathAssets  = httpapi.DashboardPrefix + "/assets"
+	pathHome     = httpapi.DashboardPrefix
+	pathLogin    = httpapi.DashboardPrefix + "/login"
+	pathLogout   = httpapi.DashboardPrefix + "/logout"
+	pathServices = httpapi.DashboardPrefix + "/services"
+	pathDevices  = httpapi.DashboardPrefix + "/devices"
+	pathTokens   = httpapi.DashboardPrefix + "/tokens"
+	pathTest     = httpapi.DashboardPrefix + "/test"
+	pathAssets   = httpapi.DashboardPrefix + "/assets"
 
 	// pathAuthorize is the device-grant approval screen, and pathDocs the
 	// published API contract. Both sit outside the dashboard's prefix because
@@ -128,8 +135,8 @@ type Dashboard struct {
 
 // paths is the link table handed to every template.
 type paths struct {
-	Home, Login, Logout, Devices, Tokens, Test string
-	Authorize, Docs                            string
+	Home, Login, Logout, Services, Devices, Tokens, Test string
+	Authorize, Docs                                      string
 }
 
 // New builds the dashboard handler.
@@ -144,6 +151,9 @@ func New(opts Options) *Dashboard {
 	if opts.Store == nil {
 		panic("dashboard: Options.Store is required")
 	}
+	if opts.Secrets == nil {
+		panic("dashboard: Options.Secrets is required")
+	}
 	if opts.Push == nil {
 		opts.Push = push.Noop{}
 	}
@@ -157,7 +167,7 @@ func New(opts Options) *Dashboard {
 		logins:  newLimiter(loginWindow),
 		paths: paths{
 			Home: pathHome, Login: pathLogin, Logout: pathLogout,
-			Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
+			Services: pathServices, Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
 			Authorize: pathAuthorize, Docs: pathDocs,
 		},
 	}
@@ -180,6 +190,13 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathLogin, d.showLogin)
 	d.mux.HandleFunc("POST "+pathLogin, d.submitLogin)
 	d.mux.HandleFunc("POST "+pathLogout, d.form(d.submitLogout))
+
+	d.mux.HandleFunc("GET "+pathServices, d.page(d.showServices))
+	d.mux.HandleFunc("POST "+pathServices, d.form(d.createService))
+	d.mux.HandleFunc("GET "+pathServices+"/{id}", d.page(d.showService))
+	d.mux.HandleFunc("POST "+pathServices+"/{id}", d.form(d.updateService))
+	d.mux.HandleFunc("POST "+pathServices+"/{id}/rotate", d.form(d.rotateWebhookToken))
+	d.mux.HandleFunc("POST "+pathServices+"/{id}/delete", d.form(d.deleteService))
 
 	d.mux.HandleFunc("GET "+pathDevices, d.page(d.showDevices))
 	d.mux.HandleFunc("POST "+pathDevices+"/{id}/delete", d.form(d.deleteDevice))
@@ -399,6 +416,10 @@ var notices = map[string]notice{
 	"signed_out":      {Kind: noticeOK, Message: "Signed out."},
 	"client_approved": {Kind: noticeOK, Message: "Client authorized. It collects its token on its next poll — go back to the terminal it is waiting in."},
 	"client_denied":   {Kind: noticeOK, Message: "Request denied. The client is told to stop polling and start again."},
+	"service_created": {Kind: noticeOK, Message: "Service created. Copy the webhook URL below and point something at it."},
+	"service_updated": {Kind: noticeOK, Message: "Service updated. New deliveries pick up these defaults."},
+	"service_deleted": {Kind: noticeOK, Message: "Service deleted, along with everything it ever delivered."},
+	"webhook_rotated": {Kind: noticeOK, Message: "Webhook URL rotated. The previous one has already stopped working."},
 }
 
 // notice is the one banner a page can carry.
