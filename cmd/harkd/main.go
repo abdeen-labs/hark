@@ -34,6 +34,7 @@ import (
 	"github.com/abdeen-labs/hark/internal/dashboard"
 	"github.com/abdeen-labs/hark/internal/db"
 	"github.com/abdeen-labs/hark/internal/httpapi"
+	"github.com/abdeen-labs/hark/internal/maintenance"
 	"github.com/abdeen-labs/hark/internal/push"
 	"github.com/abdeen-labs/hark/internal/secret"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -152,6 +153,15 @@ func serveCommand(ctx context.Context, args []string) error {
 		Logger:  log,
 	})
 
+	// Every push appends a diagnostic attempt row and nothing reads one back at
+	// request time, so this worker is the table's retention policy: prune what
+	// is older than the configured window at boot, then daily.
+	attemptPruner := maintenance.NewAttemptPruner(maintenance.Options{
+		Attempts:      store.Attempts,
+		RetentionDays: cfg.APNsAttemptRetentionDays,
+		Logger:        log,
+	})
+
 	// The admin UI is compiled into this binary and mounted on the site root.
 	// It shares this process's auth service, store and push transport rather
 	// than calling the API over HTTP, and serves inside the API's middleware
@@ -201,15 +211,19 @@ func serveCommand(ctx context.Context, args []string) error {
 	}
 	log.Info("listening", "addr", ln.Addr().String(), "public_url", cfg.PublicURL.String())
 
-	// The worker stops on the same signal the server does. A request still in
+	// The workers stop on the same signal the server does. A callback still in
 	// flight is abandoned — the attempt is recorded, and the row it belongs to
-	// is retried on schedule after the next boot — and the process waits for it
-	// to unwind so nothing writes to a pool that is about to close.
+	// is retried on schedule after the next boot — and the process waits for
+	// both to unwind so nothing touches a pool that is about to close.
 	var background sync.WaitGroup
-	background.Add(1)
+	background.Add(2)
 	go func() {
 		defer background.Done()
 		callbackWorker.Run(ctx)
+	}()
+	go func() {
+		defer background.Done()
+		attemptPruner.Run(ctx)
 	}()
 
 	err = serve(ctx, log, srv, ln, cfg.ShutdownTimeout)

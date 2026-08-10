@@ -52,6 +52,18 @@ const (
 	DefaultRequesterRatePerMinute = 300
 	DefaultAccountRatePerMinute   = 1500
 
+	// DefaultAPNsAttemptRetentionDays is how many days of APNs delivery-attempt
+	// rows the daily maintenance pruner keeps. The rows are diagnostic-only —
+	// nothing reads them at request time — so a month of "why did this Live
+	// Activity never appear" is plenty.
+	DefaultAPNsAttemptRetentionDays = 30
+	// MinAPNsAttemptRetentionDays and MaxAPNsAttemptRetentionDays bound the
+	// override: at least one day so the pruner never eats what was just written,
+	// at most ten years so a typo'd value fails at boot instead of quietly
+	// meaning "forever".
+	MinAPNsAttemptRetentionDays = 1
+	MaxAPNsAttemptRetentionDays = 3650
+
 	// MinSecretKeyLen is the shortest accepted HARK_SECRET_KEY. The key is the
 	// root of every derived encryption and MAC key, so it must carry real
 	// entropy; 32 characters is the floor for a base64url-encoded 24-byte
@@ -78,6 +90,11 @@ type Config struct {
 	// header"; per-client rate limiting is then disabled rather than keyed off
 	// a spoofable value.
 	TrustedClientIPHeader string
+
+	// APNsAttemptRetentionDays is how many days of APNs delivery-attempt audit
+	// rows the daily maintenance pruner keeps. It governs only that diagnostic
+	// table, never notification or event history.
+	APNsAttemptRetentionDays int
 
 	Database  Database
 	Admin     Admin
@@ -159,6 +176,9 @@ func Load(getenv Getenv) (*Config, error) {
 		SecretKey:             l.secretKey("HARK_SECRET_KEY"),
 		TrustedClientIPHeader: strings.TrimSpace(l.str("HARK_TRUSTED_CLIENT_IP_HEADER", "")),
 
+		APNsAttemptRetentionDays: l.intInRange("HARK_APNS_ATTEMPT_RETENTION_DAYS",
+			DefaultAPNsAttemptRetentionDays, MinAPNsAttemptRetentionDays, MaxAPNsAttemptRetentionDays),
+
 		Database: Database{
 			URL:             l.databaseURL("DATABASE_URL"),
 			MaxConns:        int32(l.positiveInt("HARK_DB_MAX_CONNS", DefaultDBMaxConns)),
@@ -226,6 +246,7 @@ func (c *Config) LogValue() slog.Value {
 		slog.Bool("apns_configured", c.APNs.Configured()),
 		slog.String("apns_environment", c.APNs.Environment),
 		slog.String("apns_bundle_id", c.APNs.BundleID),
+		slog.Int("apns_attempt_retention_days", c.APNsAttemptRetentionDays),
 		slog.Int("rate_limit_requester_per_minute", c.RateLimit.RequesterPerMinute),
 		slog.Int("rate_limit_account_per_minute", c.RateLimit.AccountPerMinute),
 	)
@@ -325,6 +346,23 @@ func (l *loader) positiveInt(key string, fallback int) int {
 	n, err := strconv.Atoi(v)
 	if err != nil || n <= 0 {
 		l.errorf("%s: must be a positive integer, got %q", key, v)
+		return fallback
+	}
+	return n
+}
+
+// intInRange accepts an integer in the closed range [lo, hi]. Everything else —
+// zero, negative, fractional, non-numeric, out of range — is one error naming
+// the variable and the range, so a mistake fails at boot rather than becoming a
+// surprising duration later.
+func (l *loader) intInRange(key string, fallback, lo, hi int) int {
+	v := l.raw(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < lo || n > hi {
+		l.errorf("%s: must be an integer between %d and %d, got %q", key, lo, hi, v)
 		return fallback
 	}
 	return n

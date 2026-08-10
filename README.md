@@ -273,6 +273,7 @@ that plainly meant pushes to work does not start pretending otherwise.
 | `HARK_APNS_PRIVATE_KEY_FILE` | *(unset)* | Alternative to the above: a path to the `.p8` file. Setting both is an error. |
 | `HARK_APNS_BUNDLE_ID` | `dev.abdeen.hark` | Base of the APNs topic. Live Activities are sent to `<bundle id>.push-type.liveactivity`. |
 | `HARK_APNS_ENVIRONMENT` | `sandbox` | `sandbox` or `production`. One host per process: a Live Activity token minted in the other environment is refused rather than routed. |
+| `HARK_APNS_ATTEMPT_RETENTION_DAYS` | `30` | How many days of APNs delivery-attempt rows to keep. The rows are diagnostic-only — an audit trail of individual push calls that nothing reads at request time — and a background worker deletes older ones at boot and then daily. 1–3650; notification and event history are untouched. |
 
 The connection is HTTP/2 with provider-token (JWT) authentication; one token is
 cached process-wide and re-minted every 50 minutes. Nothing is retried, with one

@@ -80,6 +80,10 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.RateLimit.AccountPerMinute != DefaultAccountRatePerMinute {
 		t.Errorf("RateLimit = %+v", cfg.RateLimit)
 	}
+	if cfg.APNsAttemptRetentionDays != DefaultAPNsAttemptRetentionDays {
+		t.Errorf("APNsAttemptRetentionDays = %d, want %d",
+			cfg.APNsAttemptRetentionDays, DefaultAPNsAttemptRetentionDays)
+	}
 }
 
 func TestLoadOverrides(t *testing.T) {
@@ -96,6 +100,7 @@ func TestLoadOverrides(t *testing.T) {
 		"HARK_DB_AUTO_MIGRATE":                 "false",
 		"HARK_RATE_LIMIT_REQUESTER_PER_MINUTE": "50",
 		"HARK_RATE_LIMIT_ACCOUNT_PER_MINUTE":   "500",
+		"HARK_APNS_ATTEMPT_RETENTION_DAYS":     "90",
 		"HARK_ADMIN_USERNAME":                  "operator",
 		"HARK_ADMIN_PASSWORD":                  "hunter2hunter2",
 		"HARK_ADMIN_EMAIL":                     "Ops@Example.COM",
@@ -128,20 +133,41 @@ func TestLoadOverrides(t *testing.T) {
 	if !cfg.Admin.Seedable() {
 		t.Error("Admin.Seedable() = false with a password set")
 	}
+	if cfg.APNsAttemptRetentionDays != 90 {
+		t.Errorf("APNsAttemptRetentionDays = %d, want 90", cfg.APNsAttemptRetentionDays)
+	}
+}
+
+func TestAPNsAttemptRetentionBounds(t *testing.T) {
+	for _, bad := range []string{"0", "-7", "3651", "many", "1.5"} {
+		t.Run(bad, func(t *testing.T) {
+			_, err := Load(env(map[string]string{"HARK_APNS_ATTEMPT_RETENTION_DAYS": bad}))
+			if err == nil {
+				t.Fatalf("Load accepted %q, want an error", bad)
+			}
+			for _, want := range []string{"HARK_APNS_ATTEMPT_RETENTION_DAYS", "between 1 and 3650"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error does not mention %q:\n%v", want, err)
+				}
+			}
+		})
+	}
 }
 
 func TestLoadReportsEveryProblemAtOnce(t *testing.T) {
 	_, err := Load(env(map[string]string{
-		"DATABASE_URL":        "",
-		"HARK_SECRET_KEY":     "too-short",
-		"HARK_ENV":            "staging",
-		"HARK_ADMIN_USERNAME": "no",
-		"HARK_LOG_LEVEL":      "loud",
+		"DATABASE_URL":                     "",
+		"HARK_SECRET_KEY":                  "too-short",
+		"HARK_ENV":                         "staging",
+		"HARK_ADMIN_USERNAME":              "no",
+		"HARK_LOG_LEVEL":                   "loud",
+		"HARK_APNS_ATTEMPT_RETENTION_DAYS": "0",
 	}))
 	if err == nil {
 		t.Fatal("Load succeeded, want error")
 	}
-	for _, want := range []string{"DATABASE_URL", "HARK_SECRET_KEY", "HARK_ENV", "HARK_ADMIN_USERNAME", "HARK_LOG_LEVEL"} {
+	for _, want := range []string{"DATABASE_URL", "HARK_SECRET_KEY", "HARK_ENV",
+		"HARK_ADMIN_USERNAME", "HARK_LOG_LEVEL", "HARK_APNS_ATTEMPT_RETENTION_DAYS"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not mention %s:\n%v", want, err)
 		}
@@ -269,6 +295,19 @@ func TestLogValueRedactsSecrets(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "xxxxx") {
 		t.Errorf("LogValue did not redact the DSN password:\n%s", rendered)
+	}
+}
+
+// TestLogValueIncludesAttemptRetention pins the retention window into the
+// startup configuration line: it is not a secret, and an operator reading the
+// boot log should see the window that is actually in force.
+func TestLogValueIncludesAttemptRetention(t *testing.T) {
+	cfg, err := Load(env(map[string]string{"HARK_APNS_ATTEMPT_RETENTION_DAYS": "45"}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if rendered := cfg.LogValue().String(); !strings.Contains(rendered, "apns_attempt_retention_days=45") {
+		t.Errorf("LogValue does not carry the retention window:\n%s", rendered)
 	}
 }
 

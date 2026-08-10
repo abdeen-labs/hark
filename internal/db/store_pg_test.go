@@ -1425,8 +1425,75 @@ func TestDeliveryAttemptAndTokenAssociation(t *testing.T) {
 		t.Errorf("a synthetic failure stored status %v, want NULL", *attempts[0].APNsStatus)
 	}
 
-	if n, err := s.Attempts.DeleteBefore(ctx, now.Add(time.Hour)); err != nil || n != 4 {
-		t.Fatalf("DeleteBefore = (%d, %v), want (4, nil)", n, err)
+}
+
+// TestAttemptPruningCutoffBoundary pins the retention semantics the daily
+// pruner relies on: DeleteBefore is strictly exclusive, so a row created
+// exactly at the cutoff survives, and repeating the same delete — as two
+// replicas running the pruner would — finds nothing left to remove.
+func TestAttemptPruningCutoffBoundary(t *testing.T) {
+	ctx, s := requireStore(t)
+	user := mustUser(ctx, t, s, "ali")
+	tok := mustToken(ctx, t, s, user.ID)
+	device := mustDevice(ctx, t, s, user.ID, "aaaa")
+	now := Millis(time.Now())
+
+	started, err := s.Activities.Start(ctx, StartActivityParams{
+		ID: id.New(), UserID: user.ID, RequesterTokenID: &tok.ID,
+		SchemaVersion: LiveActivitySchemaVersion, Props: props("Deploy", "Building"),
+		ExpiresAt: now.Add(time.Hour), OperationID: id.New(),
+		Targets: []ActivityTarget{{
+			DeliveryID: id.New(), DeviceID: device.ID,
+			Environment: EnvironmentSandbox, Purpose: PurposeTask,
+		}},
+		Now: now,
+	})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	delivery := started.Deliveries[0]
+
+	cutoff := now.Add(-24 * time.Hour)
+	record := func(name string, at time.Time, seq int) {
+		t.Helper()
+		if _, err := s.Attempts.Insert(ctx, CreateAttemptParams{
+			ID: id.New(), ActivityID: started.Activity.ID, DeliveryID: delivery.ID,
+			OperationID: started.Operation.ID, RequesterTokenID: &tok.ID,
+			Event: OperationUpdate, Sequence: seq, APNsStatus: ptr(0),
+			APNsReason: ptr(ReasonProviderNotConfigured), Now: at,
+		}); err != nil {
+			t.Fatalf("insert the %s attempt: %v", name, err)
+		}
+	}
+	record("older", cutoff.Add(-time.Millisecond), 0)
+	record("boundary", cutoff, 1)
+	record("newer", cutoff.Add(time.Millisecond), 2)
+
+	if n, err := s.Attempts.DeleteBefore(ctx, cutoff); err != nil || n != 1 {
+		t.Fatalf("DeleteBefore = (%d, %v), want (1, nil): only the strictly older row goes", n, err)
+	}
+
+	remaining, err := s.Attempts.ListForActivity(ctx, started.Activity.ID, 10)
+	if err != nil {
+		t.Fatalf("list attempts: %v", err)
+	}
+	if len(remaining) != 2 {
+		t.Fatalf("%d attempts remain, want the boundary and newer rows", len(remaining))
+	}
+	// Newest first: the row after the cutoff, then the row exactly at it.
+	if remaining[0].Sequence != 2 || remaining[1].Sequence != 1 {
+		t.Errorf("remaining sequences = (%d, %d), want (2, 1)",
+			remaining[0].Sequence, remaining[1].Sequence)
+	}
+	if !remaining[1].CreatedAt.Equal(cutoff) {
+		t.Errorf("the row at the cutoff was touched: created_at = %s, want %s",
+			remaining[1].CreatedAt, cutoff)
+	}
+
+	// The identical delete again removes nothing: pruning is idempotent, so
+	// concurrent replicas repeating a cutoff are safe.
+	if n, err := s.Attempts.DeleteBefore(ctx, cutoff); err != nil || n != 0 {
+		t.Fatalf("repeat DeleteBefore = (%d, %v), want (0, nil)", n, err)
 	}
 }
 
