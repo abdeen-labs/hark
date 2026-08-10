@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
@@ -89,17 +90,40 @@ struct SettingsView: View {
         }
     }
 
+    /// A label/value row. Long-press copies the value; text selection inside a
+    /// List row loses the gesture fight with the row itself, so the context
+    /// menu is the copy affordance. A mono value is an identifier that never
+    /// fits beside its label — it gets the full row width and wraps.
     private func row(label: String, value: String, mono: Bool = false) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(Axis.textSecondary)
-            Spacer()
-            Text(value)
-                .font(mono ? .caption.monospaced() : .subheadline)
-                .foregroundStyle(Axis.textPrimary)
-                .multilineTextAlignment(.trailing)
-                .textSelection(.enabled)
+        Group {
+            if mono {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(label)
+                        .font(.subheadline)
+                        .foregroundStyle(Axis.textSecondary)
+                    Text(value)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(Axis.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(label)
+                        .font(.subheadline)
+                        .foregroundStyle(Axis.textSecondary)
+                    Spacer()
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(Axis.textPrimary)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button("Copy", systemImage: "doc.on.doc") {
+                UIPasteboard.general.string = value
+            }
         }
     }
 
