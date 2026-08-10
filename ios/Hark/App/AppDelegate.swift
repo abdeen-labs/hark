@@ -76,31 +76,39 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
-/// The notification-center delegate. Its methods are nonisolated — the
-/// framework calls them from its own queue — and everything Sendable is
-/// extracted before hopping to the main actor.
+/// The notification-center delegate. The completion-handler variants are
+/// implemented deliberately: the async forms let the compiler-generated thunk
+/// invoke UIKit's completion on a background executor, and the didReceive
+/// completion drives UIKit's snapshot/state-restoration pass, which asserts
+/// off the main thread. Everything Sendable is extracted before hopping to
+/// the main actor, and the handler is always called from there.
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationDelegate()
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
     }
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         let payload = HarkPushPayload.from(userInfo: response.notification.request.content.userInfo)
         let actionIdentifier = response.actionIdentifier
         let userText = (response as? UNTextInputNotificationResponse)?.userText
 
-        await AppModel.shared.handleNotificationResponse(
-            payload: payload,
-            actionIdentifier: actionIdentifier,
-            userText: userText
-        )
+        Task { @MainActor in
+            await AppModel.shared.handleNotificationResponse(
+                payload: payload,
+                actionIdentifier: actionIdentifier,
+                userText: userText
+            )
+            completionHandler()
+        }
     }
 }
