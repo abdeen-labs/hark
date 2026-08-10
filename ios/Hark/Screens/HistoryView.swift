@@ -179,9 +179,7 @@ struct HistoryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
-                Image(systemName: kindIcon)
-                    .font(.caption)
-                    .foregroundStyle(kindTint)
+                sourceBadge
                 Text(item.sourceName ?? item.title ?? "Hark")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Axis.textSecondary)
@@ -215,6 +213,32 @@ struct HistoryRow: View {
             }
         }
         .padding(.vertical, 3)
+    }
+
+    /// The sender's avatar when it has one, otherwise the kind glyph. A URL
+    /// that fails to load falls back to the glyph rather than leaving a hole.
+    private var sourceBadge: some View {
+        Group {
+            if let url = item.sourceImageUrl.flatMap(URL.init(string:)) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let image) = phase {
+                        image.resizable().scaledToFill()
+                    } else {
+                        kindGlyph
+                    }
+                }
+                .frame(width: 18, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            } else {
+                kindGlyph
+            }
+        }
+    }
+
+    private var kindGlyph: some View {
+        Image(systemName: kindIcon)
+            .font(.caption)
+            .foregroundStyle(kindTint)
     }
 
     private var kindIcon: String {
