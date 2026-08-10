@@ -6,8 +6,10 @@ server is one Go binary over PostgreSQL: the API, the admin dashboard and the
 published contract all come out of a single process, with no build step and no
 assets to deploy alongside it.
 
-This repository is a private, single-user deployment: one account, seeded at
-boot, with no sign-up surface, no billing, and no analytics of any kind.
+Hark is free and open source, and built to be self-hosted. Every deployment
+is single-user by design: one account, seeded at boot, with no sign-up
+surface, no billing, and no analytics of any kind. The instance Abdeen Labs
+runs is an internal tool, not a hosted service — to use Hark, run your own.
 
 * **API contract:** [`docs/api.md`](docs/api.md) — the document iOS and CLI
   clients are built from. It is compiled into the binary and served as a
@@ -345,3 +347,9 @@ new name.
 
 Every endpoint added or changed must be documented in [`docs/api.md`](docs/api.md)
 in the same change.
+
+---
+
+## License
+
+[MIT](LICENSE).

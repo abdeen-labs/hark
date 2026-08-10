@@ -5,7 +5,7 @@
     "version": "1",
     "summary": "Turn webhook and agent requests into iOS notifications, approval prompts, and Live Activities.",
     "description": "The structured companion to the canonical Markdown contract. Hark is single-user: sessions represent the owner, scoped API tokens represent software, and webhook tokens represent services.",
-    "license": { "name": "Private deployment" }
+    "license": { "name": "MIT", "identifier": "MIT" }
   },
   "externalDocs": { "description": "Complete API contract and examples", "url": "/docs" },
   "servers": [{ "url": "/", "description": "This Hark deployment" }],
