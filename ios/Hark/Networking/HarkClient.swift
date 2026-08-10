@@ -131,6 +131,40 @@ nonisolated struct HarkClient: Sendable {
         return try await send("GET", "/v1/interactions", query: query)
     }
 
+    /// Fetches the complete interactions snapshot for one status, following
+    /// `next_cursor` until the server reports no more pages.
+    func allInteractions(status: String = "pending") async throws -> [InboxEntry] {
+        try await Self.collectInteractions { cursor in
+            try await self.interactions(status: status, cursor: cursor)
+        }
+    }
+
+    /// Drains a keyset-paginated interactions listing: a nil cursor first,
+    /// then every `next_cursor` the server hands back until it returns none.
+    /// Order is first-seen, entries are deduplicated by ID across page
+    /// boundaries, and a cursor the server repeats fails closed rather than
+    /// looping forever. Any page's error propagates; no partial array is
+    /// ever returned.
+    static func collectInteractions(
+        fetchPage: (String?) async throws -> InteractionsPage
+    ) async throws -> [InboxEntry] {
+        var entries: [InboxEntry] = []
+        var seenIDs = Set<String>()
+        var seenCursors = Set<String>()
+        var cursor: String?
+        while true {
+            let page = try await fetchPage(cursor)
+            for entry in page.interactions where seenIDs.insert(entry.id).inserted {
+                entries.append(entry)
+            }
+            guard let next = page.nextCursor else { return entries }
+            guard seenCursors.insert(next).inserted else {
+                throw HarkClientError.invalidResponse
+            }
+            cursor = next
+        }
+    }
+
     func interaction(id: String, waitSeconds: Int = 0) async throws -> APIInteraction {
         var query: [URLQueryItem] = []
         if waitSeconds > 0 {

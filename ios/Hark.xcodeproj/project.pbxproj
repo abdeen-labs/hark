@@ -26,6 +26,13 @@
 			remoteGlobalIDString = 4B4100000000000000000041;
 			remoteInfo = HarkWidgets;
 		};
+		4B4100000000000000000076 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E46D339F302940C100A5E9D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E46D33A6302940C100A5E9D8;
+			remoteInfo = Hark;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +51,7 @@
 /* Begin PBXFileReference section */
 		4B4100000000000000000001 /* HarkNSE.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HarkNSE.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B4100000000000000000002 /* HarkWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HarkWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4B4100000000000000000070 /* HarkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HarkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E46D33A7302940C100A5E9D8 /* Hark.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hark.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -93,6 +101,11 @@
 			path = HarkWidgets;
 			sourceTree = "<group>";
 		};
+		4B4100000000000000000071 /* HarkTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HarkTests;
+			sourceTree = "<group>";
+		};
 		E46D33A9302940C100A5E9D8 /* Hark */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -114,6 +127,11 @@
 			files = (
 			);
 		};
+		4B4100000000000000000074 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		E46D33A4302940C100A5E9D8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -129,6 +147,7 @@
 				4B4100000000000000000010 /* HarkShared */,
 				4B4100000000000000000011 /* HarkNSE */,
 				4B4100000000000000000012 /* HarkWidgets */,
+				4B4100000000000000000071 /* HarkTests */,
 				E46D33A8302940C100A5E9D8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -139,6 +158,7 @@
 				E46D33A7302940C100A5E9D8 /* Hark.app */,
 				4B4100000000000000000001 /* HarkNSE.appex */,
 				4B4100000000000000000002 /* HarkWidgets.appex */,
+				4B4100000000000000000070 /* HarkTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -184,6 +204,27 @@
 			productReference = 4B4100000000000000000002 /* HarkWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		4B4100000000000000000072 /* HarkTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4B410000000000000000007A /* Build configuration list for PBXNativeTarget "HarkTests" */;
+			buildPhases = (
+				4B4100000000000000000073 /* Sources */,
+				4B4100000000000000000074 /* Frameworks */,
+				4B4100000000000000000075 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4B4100000000000000000077 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4B4100000000000000000071 /* HarkTests */,
+			);
+			name = HarkTests;
+			productName = HarkTests;
+			productReference = 4B4100000000000000000070 /* HarkTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		E46D33A6302940C100A5E9D8 /* Hark */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E46D33B2302940C200A5E9D8 /* Build configuration list for PBXNativeTarget "Hark" */;
@@ -224,6 +265,10 @@
 					4B4100000000000000000041 = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					4B4100000000000000000072 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = E46D33A6302940C100A5E9D8;
+					};
 					E46D33A6302940C100A5E9D8 = {
 						CreatedOnToolsVersion = 27.0;
 					};
@@ -246,6 +291,7 @@
 				E46D33A6302940C100A5E9D8 /* Hark */,
 				4B4100000000000000000040 /* HarkNSE */,
 				4B4100000000000000000041 /* HarkWidgets */,
+				4B4100000000000000000072 /* HarkTests */,
 			);
 		};
 /* End PBXProject section */
@@ -257,6 +303,11 @@
 			);
 		};
 		4B4100000000000000000047 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		4B4100000000000000000075 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -279,6 +330,11 @@
 			files = (
 			);
 		};
+		4B4100000000000000000073 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		E46D33A3302940C100A5E9D8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -296,6 +352,11 @@
 			isa = PBXTargetDependency;
 			target = 4B4100000000000000000041 /* HarkWidgets */;
 			targetProxy = 4B4100000000000000000051 /* PBXContainerItemProxy */;
+		};
+		4B4100000000000000000077 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E46D33A6302940C100A5E9D8 /* Hark */;
+			targetProxy = 4B4100000000000000000076 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -421,6 +482,56 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4B4100000000000000000078 /* Debug configuration for PBXNativeTarget "HarkTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 38U4X64GHV;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.abdeen.hark.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Hark.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Hark";
+			};
+			name = Debug;
+		};
+		4B4100000000000000000079 /* Release configuration for PBXNativeTarget "HarkTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 38U4X64GHV;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 3.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.abdeen.hark.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Hark.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Hark";
 			};
 			name = Release;
 		};
@@ -647,6 +758,14 @@
 			buildConfigurations = (
 				4B4100000000000000000063 /* Debug configuration for PBXNativeTarget "HarkWidgets" */,
 				4B4100000000000000000064 /* Release configuration for PBXNativeTarget "HarkWidgets" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		4B410000000000000000007A /* Build configuration list for PBXNativeTarget "HarkTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B4100000000000000000078 /* Debug configuration for PBXNativeTarget "HarkTests" */,
+				4B4100000000000000000079 /* Release configuration for PBXNativeTarget "HarkTests" */,
 			);
 			defaultConfigurationName = Release;
 		};

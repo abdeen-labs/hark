@@ -375,8 +375,8 @@ final class AppModel {
     func refreshInbox() async {
         guard phase == .signedIn else { return }
         do {
-            let page = try await client.interactions(status: "pending")
-            inbox = page.interactions
+            let pending = try await client.allInteractions(status: "pending")
+            inbox = pending
             inboxError = nil
             updateBadge()
         } catch let error as HarkClientError where error.isUnauthorized {
