@@ -348,6 +348,13 @@ new name.
 Every endpoint added or changed must be documented in [`docs/api.md`](docs/api.md)
 in the same change.
 
+The dashboard's one third-party asset, htmx, is vendored — no npm, no build
+step. Its exact version and digests are pinned in
+[`internal/dashboard/assets/htmx.provenance.json`](internal/dashboard/assets/htmx.provenance.json);
+`sh scripts/vendor-htmx.sh --verify` checks the checked-in files against those
+pins offline, and `--refresh` re-fetches the pinned tarball. See
+[`third_party/htmx/README.md`](third_party/htmx/README.md).
+
 ---
 
 ## License

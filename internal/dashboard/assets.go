@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//go:embed assets/app.css assets/app.js assets/docs.css assets/docs.js assets/htmx.min.js
+//go:embed assets/app.css assets/app.js assets/docs.css assets/docs.js assets/htmx.min.js assets/htmx.provenance.json
 var assetFS embed.FS
 
 // asset is one embedded static file, served from a URL that contains a digest
@@ -25,9 +25,11 @@ type asset struct {
 
 // assetLinks are the URLs the layout links to. Docs is the extra sheet the
 // contract page loads on top of the shared one, so the dashboard does not carry
-// styles for elements it never renders. HTMX is a vendored copy of htmx 2.0.8
-// (from the npm registry, unmodified), whose hx-boost is what turns a nav
-// click into a fetch and a swap instead of a document teardown.
+// styles for elements it never renders. HTMX is a vendored copy of htmx from
+// the npm registry, unmodified — the authoritative version, tarball, and
+// digest live in assets/htmx.provenance.json, which a test binds to the
+// embedded bytes — whose hx-boost is what turns a nav click into a fetch and
+// a swap instead of a document teardown.
 type assetLinks struct {
 	CSS    string
 	JS     string

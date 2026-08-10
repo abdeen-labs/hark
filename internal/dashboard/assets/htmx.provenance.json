@@ -1,0 +1,15 @@
+{
+  "package": "htmx.org",
+  "version": "2.0.8",
+  "registry": "https://registry.npmjs.org",
+  "tarball_url": "https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.8.tgz",
+  "tarball_integrity": "sha512-fm297iru0iWsNJlBrjvtN7V9zjaxd+69Oqjh4F/Vq9Wwi2kFisLcrLCiv5oBX0KLfOX/zG8AUo9ROMU5XUB44Q==",
+  "tarball_shasum": "8ac8ba87c141b7bfda7576117476062eeb4aceda",
+  "artifact_path": "package/dist/htmx.min.js",
+  "installed_path": "internal/dashboard/assets/htmx.min.js",
+  "artifact_sha256": "22283ef68cb7545914f0a88a1bdedc7256a703d1d580c1d255217d0a50d31313",
+  "license": "0BSD",
+  "license_artifact_path": "package/LICENSE",
+  "license_installed_path": "third_party/htmx/LICENSE",
+  "license_sha256": "d3d2456f76414f2456104660ebd65aff1c04cd7966b942bdabd63f3cdb316a38"
+}
