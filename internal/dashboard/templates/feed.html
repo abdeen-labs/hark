@@ -5,6 +5,7 @@
   {{range .}}
   <li class="feed__item">
     <div class="feed__head">
+      {{with text .SourceImageURL}}<img class="avatar" src="{{.}}" alt="" loading="lazy">{{end}}
       <span class="feed__source">{{.SourceName}}</span>
       <span class="pill pill--kind">{{title .Kind}}</span>
       {{with text .Status}}<span class="pill pill--{{.}}">{{title .}}</span>{{end}}
