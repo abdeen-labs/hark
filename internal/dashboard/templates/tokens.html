@@ -71,7 +71,7 @@
             {{else if .RevokedAt}}<span class="pill pill--failed">Revoked</span>
             {{else}}<span class="pill pill--expired">Expired</span>{{end}}
           </td>
-          <td>
+          <td class="cell--wrap">
             {{range .Scopes}}<span class="pill pill--kind mono">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}
           </td>
           <td><time datetime="{{iso .LastUsedAt}}" title="{{when .LastUsedAt}}">{{ago .LastUsedAt}}</time></td>

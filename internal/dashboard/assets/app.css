@@ -300,6 +300,9 @@ code, .mono, .num { font-family: var(--mono); font-size: 0.92em; }
 .table td.cell--clamp,
 .table td.cell--clamp > .block { overflow: hidden; text-overflow: ellipsis; }
 
+/* A cell of pills wraps into rows rather than stretching the whole table. */
+.table td.cell--wrap { white-space: normal; max-width: 28rem; }
+
 /* A service's avatar, inline before its title. The background holds the square
  * while the image loads — or fails to. */
 .avatar {
