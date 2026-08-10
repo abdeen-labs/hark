@@ -1,0 +1,22 @@
+# Hark
+
+> Hark turns webhook and agent API calls into iOS notifications, Live Activities, and approval prompts that can be answered from the Lock Screen.
+
+Hark is a self-hosted, single-user Go service backed by PostgreSQL. Its JSON API is versioned under `/v1`; identifiers are UUIDv7, timestamps are RFC 3339 UTC, and errors use a stable `error.code` envelope. Sessions represent the owner. Scoped `hark_…` API tokens represent software. Webhook URLs carry a service token in their path.
+
+## Documentation
+
+- [Complete API contract](/docs.md): Canonical, detailed Markdown reference with conventions, authentication, endpoint request and response examples, push payloads, callbacks, and dashboard behavior.
+- [OpenAPI 3.1 contract](/openapi.json): Structured operation, authentication, parameter, request, response, and schema definitions for client generation and validation.
+- [Human-readable API docs](/docs): Searchable HTML rendering of the canonical contract.
+- [Readiness probe](/healthz): Public instance and database health.
+
+## Important rules
+
+- Send JSON with `Content-Type: application/json`; unknown request fields are rejected.
+- Use `Authorization: Bearer <credential>` unless an operation explicitly uses a webhook token, device code, or response capability.
+- A session may manage credentials. An API token cannot mint or widen credentials.
+- API-token operations declare their required scopes in the OpenAPI `x-hark-scopes` extension.
+- Use an `Idempotency-Key` when sending notifications, interactions, webhook events, or starting Live Activities.
+- Treat cursors as opaque and branch on stable `error.code` values, not human messages.
+- A `201` delivery response means Hark recorded and attempted the request; inspect its status/count fields to learn what APNs accepted.

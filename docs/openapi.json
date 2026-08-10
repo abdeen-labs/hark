@@ -1,0 +1,635 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Hark HTTP API",
+    "version": "1",
+    "summary": "Turn webhook and agent requests into iOS notifications, approval prompts, and Live Activities.",
+    "description": "The structured companion to the canonical Markdown contract. Hark is single-user: sessions represent the owner, scoped API tokens represent software, and webhook tokens represent services.",
+    "license": { "name": "Private deployment" }
+  },
+  "externalDocs": { "description": "Complete API contract and examples", "url": "/docs" },
+  "servers": [{ "url": "/", "description": "This Hark deployment" }],
+  "tags": [
+    { "name": "Health" },
+    { "name": "Authentication" },
+    { "name": "Tokens" },
+    { "name": "Services" },
+    { "name": "Devices" },
+    { "name": "Notifications" },
+    { "name": "Interactions" },
+    { "name": "Live Activities" },
+    { "name": "Events" },
+    { "name": "History" },
+    { "name": "Webhooks" }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": ["Health"], "summary": "Check instance readiness", "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": { "description": "The instance and database are ready.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } },
+          "503": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": ["Authentication"], "summary": "Exchange the owner password for a session", "operationId": "login",
+        "security": [], "x-hark-auth": "public",
+        "requestBody": { "$ref": "#/components/requestBodies/Login" },
+        "responses": { "200": { "$ref": "#/components/responses/Login" }, "401": { "$ref": "#/components/responses/Error" }, "429": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": ["Authentication"], "summary": "Retire the presented session or API token", "operationId": "logout",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token",
+        "responses": { "204": { "description": "Credential retired." }, "401": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/session": {
+      "get": {
+        "tags": ["Authentication"], "summary": "Describe the current principal", "operationId": "getCurrentSession",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "401": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/password": {
+      "post": {
+        "tags": ["Authentication"], "summary": "Change the owner password", "operationId": "changePassword",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "requestBody": { "$ref": "#/components/requestBodies/ChangePassword" },
+        "responses": { "204": { "description": "Password changed; other sessions retired." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/device/code": {
+      "post": {
+        "tags": ["Authentication"], "summary": "Start a device authorization grant", "operationId": "createDeviceCode",
+        "security": [], "x-hark-auth": "public",
+        "requestBody": { "$ref": "#/components/requestBodies/DeviceCode" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/device/token": {
+      "post": {
+        "tags": ["Authentication"], "summary": "Poll a device authorization grant", "operationId": "pollDeviceToken",
+        "security": [], "x-hark-auth": "device_code_in_body",
+        "requestBody": { "$ref": "#/components/requestBodies/DeviceToken" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/device/requests/{user_code}": {
+      "parameters": [{ "$ref": "#/components/parameters/UserCode" }],
+      "get": {
+        "tags": ["Authentication"], "summary": "Describe a device authorization request", "operationId": "getDeviceRequest",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/device/requests/{user_code}/approve": {
+      "parameters": [{ "$ref": "#/components/parameters/UserCode" }],
+      "post": {
+        "tags": ["Authentication"], "summary": "Approve a device authorization request", "operationId": "approveDeviceRequest",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/auth/device/requests/{user_code}/deny": {
+      "parameters": [{ "$ref": "#/components/parameters/UserCode" }],
+      "post": {
+        "tags": ["Authentication"], "summary": "Deny a device authorization request", "operationId": "denyDeviceRequest",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/tokens": {
+      "get": {
+        "tags": ["Tokens"], "summary": "List API tokens", "operationId": "listTokens",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "post": {
+        "tags": ["Tokens"], "summary": "Create an API token", "operationId": "createToken",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "requestBody": { "$ref": "#/components/requestBodies/CreateToken" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/tokens/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "delete": {
+        "tags": ["Tokens"], "summary": "Revoke an API token", "operationId": "revokeToken",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "204": { "description": "Token revoked." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/services": {
+      "get": {
+        "tags": ["Services"], "summary": "List webhook services", "operationId": "listServices",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:read"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "post": {
+        "tags": ["Services"], "summary": "Create a webhook service", "operationId": "createService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:write"],
+        "requestBody": { "$ref": "#/components/requestBodies/CreateService" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/services/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "get": {
+        "tags": ["Services"], "summary": "Get a webhook service", "operationId": "getService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:read"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "patch": {
+        "tags": ["Services"], "summary": "Update a webhook service", "operationId": "updateService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:write"],
+        "requestBody": { "$ref": "#/components/requestBodies/UpdateService" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "delete": {
+        "tags": ["Services"], "summary": "Delete a webhook service", "operationId": "deleteService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:write"],
+        "responses": { "204": { "description": "Service deleted." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/services/{id}/webhook-token": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "post": {
+        "tags": ["Services"], "summary": "Rotate a service webhook token", "operationId": "rotateServiceWebhookToken",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/devices": {
+      "get": {
+        "tags": ["Devices"], "summary": "List registered devices", "operationId": "listDevices",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["devices:read"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "post": {
+        "tags": ["Devices"], "summary": "Register or refresh a device", "operationId": "registerDevice",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "requestBody": { "$ref": "#/components/requestBodies/RegisterDevice" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/devices/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "get": {
+        "tags": ["Devices"], "summary": "Get a registered device", "operationId": "getDevice",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["devices:read"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "delete": {
+        "tags": ["Devices"], "summary": "Unregister a device", "operationId": "deleteDevice",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "204": { "description": "Device unregistered." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/devices/{id}/push-to-start-token": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "put": {
+        "tags": ["Devices"], "summary": "Register a device push-to-start token", "operationId": "putPushToStartToken",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "requestBody": { "$ref": "#/components/requestBodies/PushToken" },
+        "responses": { "204": { "description": "Token registered." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/devices/{id}/activity-update-token": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "put": {
+        "tags": ["Devices"], "summary": "Register a Live Activity update token", "operationId": "putActivityUpdateToken",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "requestBody": { "$ref": "#/components/requestBodies/ActivityUpdateToken" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/activity-deliveries/{id}/update-token": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "put": {
+        "tags": ["Devices"], "summary": "Register a delivery update token using its capability", "operationId": "putDeliveryUpdateToken",
+        "security": [], "x-hark-auth": "capability_in_body",
+        "requestBody": { "$ref": "#/components/requestBodies/DeliveryUpdateToken" },
+        "responses": { "204": { "description": "Token registered." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/notifications": {
+      "post": {
+        "tags": ["Notifications"], "summary": "Send a notification", "operationId": "sendNotification",
+        "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["notifications:send"],
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/Notification" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/interactions": {
+      "get": {
+        "tags": ["Interactions"], "summary": "List interactions", "operationId": "listInteractions",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:read"],
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Status" }],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "post": {
+        "tags": ["Interactions"], "summary": "Send an approval, yes/no, or reply prompt", "operationId": "createInteraction",
+        "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["interactions:create", "notifications:send"],
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/Interaction" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/interactions/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "get": {
+        "tags": ["Interactions"], "summary": "Get an interaction", "operationId": "getInteraction",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:read"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/interactions/{id}/response": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "post": {
+        "tags": ["Interactions"], "summary": "Answer an interaction", "operationId": "respondToInteraction",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }, {}], "x-hark-auth": "session_or_response_token_in_body",
+        "requestBody": { "$ref": "#/components/requestBodies/InteractionResponse" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/interactions/{id}/cancel": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "post": {
+        "tags": ["Interactions"], "summary": "Cancel a pending interaction", "operationId": "cancelInteraction",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:create"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/activities": {
+      "get": {
+        "tags": ["Live Activities"], "summary": "List Live Activities", "operationId": "listActivities",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["activities:read"],
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Status" }],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "post": {
+        "tags": ["Live Activities"], "summary": "Start a Live Activity", "operationId": "startActivity",
+        "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["activities:write"],
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/StartActivity" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/activities/{identifier}": {
+      "parameters": [{ "$ref": "#/components/parameters/Identifier" }],
+      "get": {
+        "tags": ["Live Activities"], "summary": "Get a Live Activity", "operationId": "getActivity",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["activities:read"],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "patch": {
+        "tags": ["Live Activities"], "summary": "Update a Live Activity", "operationId": "updateActivity",
+        "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["activities:write"],
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/UpdateActivity" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/activities/{identifier}/end": {
+      "parameters": [{ "$ref": "#/components/parameters/Identifier" }],
+      "post": {
+        "tags": ["Live Activities"], "summary": "End a Live Activity", "operationId": "endActivity",
+        "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["activities:write"],
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/EndActivity" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "tags": ["Events"], "summary": "List webhook deliveries", "operationId": "listEvents",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["events:read"],
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/events/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "delete": {
+        "tags": ["Events"], "summary": "Delete a webhook delivery", "operationId": "deleteEvent",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "204": { "description": "Event deleted." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/history": {
+      "get": {
+        "tags": ["History"], "summary": "List unified account history", "operationId": "listHistory",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Kind" }],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/history/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/HistoryID" }],
+      "delete": {
+        "tags": ["History"], "summary": "Delete one history entry", "operationId": "deleteHistoryItem",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "responses": { "204": { "description": "History item deleted." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/hooks/{token}": {
+      "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }],
+      "post": {
+        "tags": ["Webhooks"], "summary": "Send a webhook notification or question", "operationId": "sendWebhook",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/Webhook" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/hooks/{token}/events/{event_id}": {
+      "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/EventID" }],
+      "get": {
+        "tags": ["Webhooks"], "summary": "Poll a webhook delivery and its response", "operationId": "getWebhookEvent",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/hooks/{token}/events/{event_id}/cancel": {
+      "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/EventID" }],
+      "post": {
+        "tags": ["Webhooks"], "summary": "Cancel a webhook question", "operationId": "cancelWebhookEvent",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/hooks/{token}/activities": {
+      "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }],
+      "post": {
+        "tags": ["Webhooks", "Live Activities"], "summary": "Start a service-owned Live Activity", "operationId": "startWebhookActivity",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/StartActivity" },
+        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/hooks/{token}/activities/{identifier}": {
+      "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/Identifier" }],
+      "get": {
+        "tags": ["Webhooks", "Live Activities"], "summary": "Get a service-owned Live Activity", "operationId": "getWebhookActivity",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "patch": {
+        "tags": ["Webhooks", "Live Activities"], "summary": "Update a service-owned Live Activity", "operationId": "updateWebhookActivity",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/UpdateActivity" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/v1/hooks/{token}/activities/{identifier}/end": {
+      "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/Identifier" }],
+      "post": {
+        "tags": ["Webhooks", "Live Activities"], "summary": "End a service-owned Live Activity", "operationId": "endWebhookActivity",
+        "security": [], "x-hark-auth": "webhook_token_in_path",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": { "$ref": "#/components/requestBodies/EndActivity" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "description": "A harksess_ session or a scoped hark_ API token, as allowed by the operation." },
+      "sessionBearer": { "type": "http", "scheme": "bearer", "description": "The account owner's harksess_ session token." },
+      "apiToken": { "type": "http", "scheme": "bearer", "description": "A scoped hark_ API token. Required scopes are listed in x-hark-scopes." },
+      "sessionCookie": { "type": "apiKey", "in": "cookie", "name": "hark_session", "description": "The session cookie. HTTPS deployments use the name __Host-hark_session." }
+    },
+    "parameters": {
+      "ID": { "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/UUID" } },
+      "EventID": { "name": "event_id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/UUID" } },
+      "HistoryID": { "name": "id", "in": "path", "required": true, "description": "Composite <source>:<UUID> history identifier.", "schema": { "type": "string" } },
+      "Identifier": { "name": "identifier", "in": "path", "required": true, "description": "A caller-supplied activity key or an activity UUID.", "schema": { "type": "string", "minLength": 1, "maxLength": 100 } },
+      "UserCode": { "name": "user_code", "in": "path", "required": true, "schema": { "type": "string", "examples": ["K7QM-3XPD"] } },
+      "WebhookToken": { "name": "token", "in": "path", "required": true, "description": "Secret service webhook token. Do not log the complete URL.", "schema": { "type": "string", "writeOnly": true } },
+      "Limit": { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+      "Cursor": { "name": "cursor", "in": "query", "required": false, "description": "Opaque next_cursor from the previous page.", "schema": { "type": "string" } },
+      "Status": { "name": "status", "in": "query", "required": false, "schema": { "type": "string" } },
+      "Kind": { "name": "kind", "in": "query", "required": false, "schema": { "type": "string", "enum": ["all", "notification", "response", "live_activity"], "default": "all" } },
+      "IdempotencyKey": { "name": "Idempotency-Key", "in": "header", "required": false, "description": "1-128 printable ASCII characters. Replays the first response for the same requester and payload.", "schema": { "type": "string", "minLength": 1, "maxLength": 128 } }
+    },
+    "requestBodies": {
+      "Login": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } } },
+      "ChangePassword": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChangePasswordRequest" } } } },
+      "DeviceCode": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceCodeRequest" } } } },
+      "DeviceToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceTokenRequest" } } } },
+      "CreateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTokenRequest" } } } },
+      "CreateService": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateServiceRequest" } } } },
+      "UpdateService": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateServiceRequest" } } } },
+      "RegisterDevice": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterDeviceRequest" } } } },
+      "PushToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PushTokenRequest" } } } },
+      "ActivityUpdateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActivityUpdateTokenRequest" } } } },
+      "DeliveryUpdateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeliveryUpdateTokenRequest" } } } },
+      "Notification": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationRequest" } } } },
+      "Interaction": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InteractionRequest" } } } },
+      "InteractionResponse": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InteractionResponseRequest" } } } },
+      "StartActivity": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StartActivityRequest" } } } },
+      "UpdateActivity": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateActivityRequest" } } } },
+      "EndActivity": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EndActivityRequest" } } } },
+      "Webhook": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookRequest" } } } }
+    },
+    "responses": {
+      "Error": { "description": "Error response. Branch on error.code; message is not stable.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+      "JSONDocument": { "description": "Success. The complete response shape and examples are in /docs.md.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JSONDocument" } } } },
+      "Login": { "description": "Session created. The same token is also set as a cookie.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } } }
+    },
+    "schemas": {
+      "UUID": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "examples": ["0198f3a1-2b4c-7d8e-9f01-23456789abcd"] },
+      "Timestamp": { "type": "string", "format": "date-time", "examples": ["2026-08-09T12:34:56.789Z"] },
+      "Priority": { "type": "string", "enum": ["normal", "time_sensitive", "critical"] },
+      "Scope": { "type": "string", "enum": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "services:read", "services:write"] },
+      "InteractionKind": { "type": "string", "enum": ["approval", "yes_no", "reply"] },
+      "JSONDocument": { "type": "object", "description": "A JSON response documented field-by-field in the canonical Markdown contract.", "additionalProperties": true },
+      "Health": {
+        "type": "object", "additionalProperties": false, "required": ["status", "database"],
+        "properties": { "status": { "const": "ok" }, "database": { "const": "ok" }, "version": { "type": "string" } }
+      },
+      "FieldError": {
+        "type": "object", "additionalProperties": false, "required": ["field", "message"],
+        "properties": { "field": { "type": "string" }, "message": { "type": "string" } }
+      },
+      "Error": {
+        "type": "object", "additionalProperties": false, "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "description": "Stable machine-readable code." },
+          "message": { "type": "string", "description": "Human-readable, unstable English message." },
+          "fields": { "type": "array", "items": { "$ref": "#/components/schemas/FieldError" } }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object", "additionalProperties": false, "required": ["error"],
+        "properties": { "error": { "$ref": "#/components/schemas/Error" } }
+      },
+      "User": {
+        "type": "object", "additionalProperties": false, "required": ["id", "username", "display_name", "email", "created_at"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/UUID" }, "username": { "type": "string" }, "display_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" }, "created_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "Session": {
+        "type": "object", "additionalProperties": false, "required": ["id", "created_at", "expires_at"],
+        "properties": { "id": { "$ref": "#/components/schemas/UUID" }, "created_at": { "$ref": "#/components/schemas/Timestamp" }, "expires_at": { "$ref": "#/components/schemas/Timestamp" } }
+      },
+      "LoginRequest": {
+        "type": "object", "additionalProperties": false, "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 3, "maxLength": 30, "pattern": "^[A-Za-z0-9_.]+$" },
+          "password": { "type": "string", "minLength": 12, "maxLength": 256, "writeOnly": true }
+        }
+      },
+      "LoginResponse": {
+        "type": "object", "additionalProperties": false, "required": ["token", "expires_at", "user", "session"],
+        "properties": {
+          "token": { "type": "string", "writeOnly": true }, "expires_at": { "$ref": "#/components/schemas/Timestamp" },
+          "user": { "$ref": "#/components/schemas/User" }, "session": { "$ref": "#/components/schemas/Session" }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object", "additionalProperties": false, "required": ["current_password", "new_password"],
+        "properties": {
+          "current_password": { "type": "string", "writeOnly": true },
+          "new_password": { "type": "string", "minLength": 12, "maxLength": 256, "writeOnly": true }
+        }
+      },
+      "DeviceCodeRequest": {
+        "type": "object", "additionalProperties": false, "required": ["client_name", "scopes"],
+        "properties": {
+          "client_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "scopes": { "type": "array", "minItems": 1, "maxItems": 9, "items": { "$ref": "#/components/schemas/Scope" } },
+          "token_expires_in_seconds": { "type": ["integer", "null"], "minimum": 3600, "maximum": 31536000, "default": 7776000 }
+        }
+      },
+      "DeviceTokenRequest": {
+        "type": "object", "additionalProperties": false, "required": ["device_code"],
+        "properties": { "device_code": { "type": "string", "writeOnly": true } }
+      },
+      "CreateTokenRequest": {
+        "type": "object", "additionalProperties": false, "required": ["name", "scopes"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "scopes": { "type": "array", "minItems": 1, "maxItems": 9, "items": { "$ref": "#/components/schemas/Scope" } },
+          "expires_in_seconds": { "type": ["integer", "null"], "minimum": 3600, "maximum": 31536000 }
+        }
+      },
+      "CreateServiceRequest": {
+        "type": "object", "additionalProperties": false, "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "image_url": { "type": ["string", "null"], "format": "uri" }, "url": { "type": ["string", "null"], "format": "uri" },
+          "priority": { "$ref": "#/components/schemas/Priority" }
+        }
+      },
+      "UpdateServiceRequest": {
+        "type": "object", "additionalProperties": false, "minProperties": 1,
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "image_url": { "type": ["string", "null"], "format": "uri" }, "url": { "type": ["string", "null"], "format": "uri" },
+          "priority": { "$ref": "#/components/schemas/Priority" }
+        }
+      },
+      "RegisterDeviceRequest": {
+        "type": "object", "additionalProperties": false, "required": ["apns_token"],
+        "properties": {
+          "apns_token": { "type": "string", "minLength": 32, "maxLength": 400, "pattern": "^[0-9A-Fa-f]+$", "writeOnly": true },
+          "name": { "type": ["string", "null"], "maxLength": 80 },
+          "interaction_schema_version": { "type": ["integer", "null"], "enum": [1, null] },
+          "live_activity_interaction_version": { "type": ["integer", "null"], "enum": [1, null] }
+        }
+      },
+      "PushTokenRequest": {
+        "type": "object", "additionalProperties": false, "required": ["token", "environment"],
+        "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512, "pattern": "^[0-9A-Fa-f]+$", "writeOnly": true }, "environment": { "type": "string", "enum": ["sandbox", "production"] }, "schema_version": { "type": "integer", "const": 1 } }
+      },
+      "ActivityUpdateTokenRequest": {
+        "type": "object", "additionalProperties": false, "required": ["update_token", "environment"],
+        "properties": { "update_token": { "type": "string", "minLength": 32, "maxLength": 512, "pattern": "^[0-9A-Fa-f]+$", "writeOnly": true }, "native_activity_id": { "type": "string", "maxLength": 200 }, "activity_id": { "$ref": "#/components/schemas/UUID" }, "environment": { "type": "string", "enum": ["sandbox", "production"] }, "schema_version": { "type": "integer", "const": 1 } }
+      },
+      "DeliveryUpdateTokenRequest": {
+        "type": "object", "additionalProperties": false, "required": ["registration_token", "update_token"],
+        "properties": { "registration_token": { "type": "string", "writeOnly": true }, "native_activity_id": { "type": "string", "maxLength": 200 }, "update_token": { "type": "string", "minLength": 32, "maxLength": 512, "pattern": "^[0-9A-Fa-f]+$", "writeOnly": true } }
+      },
+      "NotificationRequest": {
+        "type": "object", "additionalProperties": false, "required": ["body"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 }, "body": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "image_url": { "type": ["string", "null"], "format": "uri" }, "url": { "type": ["string", "null"], "format": "uri" },
+          "priority": { "$ref": "#/components/schemas/Priority" },
+          "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }
+        }
+      },
+      "Callback": {
+        "type": "object", "additionalProperties": false, "required": ["url", "token"],
+        "properties": { "url": { "type": "string", "format": "uri" }, "token": { "type": "string", "minLength": 16, "maxLength": 512, "writeOnly": true } }
+      },
+      "InteractionRequest": {
+        "type": "object", "additionalProperties": false, "required": ["kind", "title", "prompt"],
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/InteractionKind" }, "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "prompt": { "type": "string", "minLength": 1, "maxLength": 2000 }, "presentation": { "type": "string", "enum": ["notification", "live_activity"], "default": "notification" },
+          "style": { "type": "string", "enum": ["approval", "shell", "verdict", "signal"] }, "primary_label": { "type": "string", "minLength": 1, "maxLength": 24 }, "secondary_label": { "type": "string", "minLength": 1, "maxLength": 24 },
+          "expires_in_seconds": { "type": "integer", "minimum": 30, "maximum": 86400, "default": 900 },
+          "image_url": { "type": ["string", "null"], "format": "uri" }, "url": { "type": ["string", "null"], "format": "uri" },
+          "priority": { "$ref": "#/components/schemas/Priority" }, "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }
+        }
+      },
+      "InteractionResponseRequest": {
+        "type": "object", "additionalProperties": false, "required": ["action", "device_id", "action_digest"],
+        "properties": {
+          "action": { "type": "string", "enum": ["approve", "deny", "yes", "no", "reply"] }, "text": { "type": ["string", "null"], "minLength": 1, "maxLength": 4000 },
+          "device_id": { "$ref": "#/components/schemas/UUID" }, "action_digest": { "type": "string" }, "response_token": { "type": "string", "writeOnly": true }
+        }
+      },
+      "ActivityState": {
+        "type": "object", "additionalProperties": false, "required": ["headline", "detail", "progress"],
+        "properties": {
+          "headline": { "type": "string", "minLength": 1, "maxLength": 80 }, "detail": { "type": "string", "maxLength": 200 },
+          "progress": { "type": "number", "minimum": 0, "maximum": 1 }, "status": { "type": "string", "maxLength": 40 },
+          "updated_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "StartActivityRequest": {
+        "type": "object", "additionalProperties": false, "required": ["title", "status"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1, "maxLength": 100 }, "replace": { "type": "boolean", "default": false },
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 }, "status": { "type": "string", "minLength": 1, "maxLength": 60 }, "detail": { "type": "string", "minLength": 1, "maxLength": 240 }, "progress": { "type": "number", "minimum": 0, "maximum": 1 },
+          "symbol": { "type": "string", "enum": ["terminal", "code", "build", "success", "warning"], "default": "terminal" }, "privacy_mode": { "type": "string", "enum": ["standard", "private"], "default": "standard" }, "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$", "default": "#E13B3B" }, "style": { "type": "string", "enum": ["standard", "ring", "hero", "terminal", "steps"], "default": "standard" },
+          "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } },
+          "expires_in_seconds": { "type": "integer", "minimum": 60, "maximum": 28800, "default": 28800 }, "stale_after_seconds": { "type": "integer", "minimum": 0, "maximum": 28800, "default": 14400 }
+        }
+      },
+      "UpdateActivityRequest": {
+        "type": "object", "additionalProperties": false, "minProperties": 1,
+        "properties": { "title": { "type": "string", "minLength": 1, "maxLength": 80 }, "status": { "type": "string", "minLength": 1, "maxLength": 60 }, "detail": { "type": ["string", "null"], "minLength": 1, "maxLength": 240 }, "progress": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }, "symbol": { "type": "string", "enum": ["terminal", "code", "build", "success", "warning"] }, "privacy_mode": { "type": "string", "enum": ["standard", "private"] }, "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }, "style": { "type": "string", "enum": ["standard", "ring", "hero", "terminal", "steps"] }, "stale_after_seconds": { "type": "integer", "minimum": 0, "maximum": 28800 }, "if_sequence": { "type": "integer", "minimum": 0 } }
+      },
+      "EndActivityRequest": {
+        "type": "object", "additionalProperties": false,
+        "properties": { "status": { "type": "string", "minLength": 1, "maxLength": 60, "default": "Complete" }, "detail": { "type": ["string", "null"], "minLength": 1, "maxLength": 240 }, "progress": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }, "symbol": { "type": "string", "enum": ["terminal", "code", "build", "success", "warning"], "default": "success" }, "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }, "dismiss_after_seconds": { "type": "integer", "minimum": 0, "maximum": 14400, "default": 0 }, "if_sequence": { "type": "integer", "minimum": 0 } }
+      },
+      "WebhookResponseOptions": {
+        "type": "object", "additionalProperties": false, "required": ["kind"],
+        "properties": { "kind": { "$ref": "#/components/schemas/InteractionKind" }, "expires_in_seconds": { "type": "integer", "minimum": 30, "maximum": 86400, "default": 900 }, "correlation_id": { "type": "string", "maxLength": 100 }, "callback": { "$ref": "#/components/schemas/Callback" } }
+      },
+      "WebhookRequest": {
+        "type": "object", "additionalProperties": false, "required": ["body"],
+        "properties": {
+          "body": { "type": "string", "minLength": 1, "maxLength": 2000 }, "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "image_url": { "type": "string", "format": "uri" }, "url": { "type": "string", "format": "uri" }, "priority": { "$ref": "#/components/schemas/Priority" },
+          "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }, "response": { "$ref": "#/components/schemas/WebhookResponseOptions" }
+        }
+      }
+    }
+  }
+}

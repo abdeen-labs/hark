@@ -143,6 +143,21 @@ type page struct {
 	etag string
 }
 
+// buildPublicDocs prepares every public representation once. A deployment
+// therefore serves bytes from the exact build it is running, with no files to
+// copy and no per-request parsing.
+func (d *Dashboard) buildPublicDocs() {
+	d.docs = d.buildDocs()
+	d.docsMarkdown = newPage([]byte(docs.APIContract))
+	d.openAPI = newPage([]byte(docs.OpenAPIContract))
+	d.llms = newPage([]byte(docs.LLMsContract))
+}
+
+func newPage(body []byte) page {
+	sum := sha256.Sum256(body)
+	return page{body: body, etag: `"` + hex.EncodeToString(sum[:])[:16] + `"`}
+}
+
 // buildDocs renders the contract page into bytes. It is called from [New], and
 // panics for the same reason [New] does: a template that cannot execute is a
 // wiring mistake, and the first request is the wrong place to learn about it.
@@ -160,24 +175,39 @@ func (d *Dashboard) buildDocs() page {
 		panic("dashboard: render the contract page: " + err.Error())
 	}
 
-	sum := sha256.Sum256(buf.Bytes())
-	return page{body: buf.Bytes(), etag: `"` + hex.EncodeToString(sum[:])[:16] + `"`}
+	return newPage(buf.Bytes())
 }
 
 // showDocs serves the cached page.
 func (d *Dashboard) showDocs(w http.ResponseWriter, r *http.Request) {
+	d.servePublicDoc(w, r, d.docs, "text/html; charset=utf-8")
+}
+
+func (d *Dashboard) showDocsMarkdown(w http.ResponseWriter, r *http.Request) {
+	d.servePublicDoc(w, r, d.docsMarkdown, "text/markdown; charset=utf-8")
+}
+
+func (d *Dashboard) showOpenAPI(w http.ResponseWriter, r *http.Request) {
+	d.servePublicDoc(w, r, d.openAPI, "application/vnd.oai.openapi+json;version=3.1")
+}
+
+func (d *Dashboard) showLLMs(w http.ResponseWriter, r *http.Request) {
+	d.servePublicDoc(w, r, d.llms, "text/plain; charset=utf-8")
+}
+
+func (d *Dashboard) servePublicDoc(w http.ResponseWriter, r *http.Request, p page, contentType string) {
 	h := w.Header()
-	h.Set("Content-Type", "text/html; charset=utf-8")
-	h.Set("ETag", d.docs.etag)
+	h.Set("Content-Type", contentType)
+	h.Set("ETag", p.etag)
 	// Public, and cacheable for a few minutes rather than forever: the page is
 	// a build artifact at a fixed URL, so a deployment that has just shipped a
 	// contract change must not keep answering with the previous one. The ETag
 	// is what makes the revalidation after that cheap.
 	h.Set("Cache-Control", "public, max-age=300")
 
-	if match := r.Header.Get("If-None-Match"); match != "" && strings.Contains(match, d.docs.etag) {
+	if match := r.Header.Get("If-None-Match"); match != "" && strings.Contains(match, p.etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	_, _ = w.Write(d.docs.body)
+	_, _ = w.Write(p.body)
 }

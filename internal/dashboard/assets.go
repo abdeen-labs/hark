@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//go:embed assets/app.css assets/app.js assets/docs.css
+//go:embed assets/app.css assets/app.js assets/docs.css assets/docs.js
 var assetFS embed.FS
 
 // asset is one embedded static file, served from a URL that contains a digest
@@ -27,9 +27,10 @@ type asset struct {
 // contract page loads on top of the shared one, so the dashboard does not carry
 // styles for elements it never renders.
 type assetLinks struct {
-	CSS  string
-	JS   string
-	Docs string
+	CSS    string
+	JS     string
+	Docs   string
+	DocsJS string
 }
 
 var (
@@ -37,9 +38,10 @@ var (
 	// startup; nothing writes to it afterwards.
 	files  = map[string]asset{}
 	assets = assetLinks{
-		CSS:  mustLoadAsset("app.css", "text/css; charset=utf-8"),
-		JS:   mustLoadAsset("app.js", "text/javascript; charset=utf-8"),
-		Docs: mustLoadAsset("docs.css", "text/css; charset=utf-8"),
+		CSS:    mustLoadAsset("app.css", "text/css; charset=utf-8"),
+		JS:     mustLoadAsset("app.js", "text/javascript; charset=utf-8"),
+		Docs:   mustLoadAsset("docs.css", "text/css; charset=utf-8"),
+		DocsJS: mustLoadAsset("docs.js", "text/javascript; charset=utf-8"),
 	}
 )
 

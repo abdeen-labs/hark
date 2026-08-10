@@ -1,9 +1,12 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+
+	contractdocs "github.com/abdeen-labs/hark/docs"
 )
 
 func TestTheContractIsServedToAnybody(t *testing.T) {
@@ -38,6 +41,9 @@ func TestTheContractRendersTheMarkdown(t *testing.T) {
 		"the outline":            `href="#authentication"`,
 		"the Axis stylesheet":    assets.CSS,
 		"the contract's own CSS": assets.Docs,
+		"the docs behavior":      assets.DocsJS,
+		"search":                 `data-docs-search`,
+		"the OpenAPI link":       pathOpenAPI,
 		"a link back":            pathHome,
 	} {
 		if !strings.Contains(body, want) {
@@ -50,6 +56,43 @@ func TestTheContractRendersTheMarkdown(t *testing.T) {
 	// that notices if that ever changes.
 	if strings.Contains(body, "<script>alert") {
 		t.Errorf("the renderer passed through raw HTML:\n%s", body)
+	}
+}
+
+func TestMachineReadableContractsArePublicAndVerbatim(t *testing.T) {
+	d, _ := newTestDashboard(t)
+
+	for _, tt := range []struct {
+		path        string
+		contentType string
+		body        string
+	}{
+		{pathDocsMD, "text/markdown; charset=utf-8", contractdocs.APIContract},
+		{pathOpenAPI, "application/vnd.oai.openapi+json;version=3.1", contractdocs.OpenAPIContract},
+		{pathLLMs, "text/plain; charset=utf-8", contractdocs.LLMsContract},
+	} {
+		rec := send(d, request(http.MethodGet, tt.path, ""))
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET %s: status = %d, want 200", tt.path, rec.Code)
+			continue
+		}
+		if got := rec.Header().Get("Content-Type"); got != tt.contentType {
+			t.Errorf("GET %s: Content-Type = %q, want %q", tt.path, got, tt.contentType)
+		}
+		if got := rec.Body.String(); got != tt.body {
+			t.Errorf("GET %s did not serve the embedded contract verbatim", tt.path)
+		}
+		if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "public") {
+			t.Errorf("GET %s: Cache-Control = %q, want public", tt.path, got)
+		}
+		if rec.Header().Get("ETag") == "" {
+			t.Errorf("GET %s has no ETag", tt.path)
+		}
+	}
+
+	var spec any
+	if err := json.Unmarshal([]byte(contractdocs.OpenAPIContract), &spec); err != nil {
+		t.Fatalf("served OpenAPI contract is invalid JSON: %v", err)
 	}
 }
 

@@ -19,24 +19,47 @@
   <div class="topbar__inner">
     <a class="brand" href="{{.Paths.Docs}}"><span class="brand__mark" aria-hidden="true"></span>Hark</a>
     <nav class="nav" aria-label="Sections">
-      <a href="{{.Paths.Docs}}" aria-current="page">API</a>
+      <a href="{{.Paths.Docs}}" aria-current="page">Docs</a>
       <a href="{{.Paths.Home}}">Dashboard</a>
+    </nav>
+    <nav class="docs-formats" aria-label="Documentation formats">
+      <a href="{{.Paths.DocsMarkdown}}">Markdown</a>
+      <a href="{{.Paths.OpenAPI}}">OpenAPI</a>
+      <a href="{{.Paths.LLMs}}">llms.txt</a>
     </nav>
   </div>
 </header>
 
 <div class="docs">
   <nav class="toc" aria-label="Contents">
-    <p class="toc__title">Contents</p>
+    <label class="docs-search">
+      <span class="visually-hidden">Search documentation</span>
+      <input type="search" placeholder="Search docs" autocomplete="off" data-docs-search>
+      <kbd>/</kbd>
+    </label>
+    <p class="toc__result" role="status" aria-live="polite" data-docs-result></p>
+    <p class="toc__title">On this page</p>
     <ul class="toc__list">
       {{range .Contents}}
       <li class="toc__item toc__item--h{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>
       {{end}}
     </ul>
   </nav>
-  <article class="prose">{{.Body}}</article>
+  <main>
+    <aside class="docs-intro" aria-label="Documentation formats">
+      <p><strong>Build against Hark.</strong> Read the guide here, or give a tool the same contract in a format it understands.</p>
+      <div class="docs-intro__links">
+        <a href="{{.Paths.DocsMarkdown}}">Raw Markdown</a>
+        <a href="{{.Paths.OpenAPI}}">OpenAPI 3.1 JSON</a>
+        <a href="{{.Paths.LLMs}}">llms.txt</a>
+      </div>
+    </aside>
+    <article class="prose" data-docs-body>{{.Body}}</article>
+    <p class="docs-empty" hidden data-docs-empty>No sections match that search.</p>
+  </main>
 </div>
 
 <footer class="footer">Hark{{if .Version}} · {{.Version}}{{end}}</footer>
+<script src="{{.Assets.DocsJS}}" defer></script>
 </body>
 </html>{{end}}

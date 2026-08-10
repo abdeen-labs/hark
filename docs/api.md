@@ -13,6 +13,71 @@ app, the web dashboard, `harkctl` — are built from this document.
 
 ---
 
+## Start here
+
+Hark has two credentials because it separates people from software: a
+**session** represents the account owner, while an **API token** represents a
+CLI, agent or automation with an explicit set of scopes. Sign in once to mint a
+token; use that token for normal API work.
+
+### Send your first notification
+
+Set the origin of your deployment, then exchange the owner's password for a
+session:
+
+```sh
+export HARK_URL='http://localhost:8080'
+
+curl --fail-with-body "$HARK_URL/v1/auth/login" \
+  --header 'Content-Type: application/json' \
+  --data '{"username":"admin","password":"correct horse battery staple"}'
+```
+
+Copy the response's `token` value. Use that session to create a narrowly scoped
+API token:
+
+```sh
+export HARK_SESSION='harksess_…'
+
+curl --fail-with-body "$HARK_URL/v1/tokens" \
+  --header "Authorization: Bearer $HARK_SESSION" \
+  --header 'Content-Type: application/json' \
+  --data '{"name":"quickstart","scopes":["notifications:send"]}'
+```
+
+The `secret` in this response is shown only once. Save it and send:
+
+```sh
+export HARK_TOKEN='hark_…'
+
+curl --fail-with-body "$HARK_URL/v1/notifications" \
+  --header "Authorization: Bearer $HARK_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: first-notification' \
+  --data '{"title":"Hark is ready","body":"Your first API notification arrived."}'
+```
+
+A successful request is `201 Created`. Read `notification.accepted_count` and
+`message` in the response rather than treating HTTP success as proof that APNs
+accepted a push: a server with no registered phone or no APNs credentials still
+records the request honestly.
+
+### Pick the right entry point
+
+| You are building | Start with | Credential |
+| --- | --- | --- |
+| An agent, CLI or CI job | [`POST /v1/notifications`](#post-v1notifications), then [interactions](#interactions) or [Live Activities](#live-activities) | Scoped API token |
+| A service that can only call a URL | [Create a service](#post-v1services), then call its [`/v1/hooks/{token}`](#post-v1hookstoken) URL | Webhook token in the URL |
+| An iOS client | [Session authentication](#session), then [register the device](#post-v1devices) | Session |
+| A headless client that needs owner approval | [Device authorization](#post-v1authdevicecode) | Device grant, then API token |
+
+For generated clients and validators use the [OpenAPI 3.1 document](/openapi.json).
+For agents and other text-oriented tools use the [raw Markdown](/docs.md) or
+the discovery index at [`/llms.txt`](/llms.txt). All formats ship in the same
+binary as this page.
+
+---
+
 ## Conventions
 
 ### Base URL and versioning
@@ -2235,13 +2300,6 @@ just passed. The outcome is the same for the phone either way.
 
 ### The webhook Live Activity routes
 
-```
-POST   /v1/hooks/{token}/activities
-GET    /v1/hooks/{token}/activities/{identifier}
-PATCH  /v1/hooks/{token}/activities/{identifier}
-POST   /v1/hooks/{token}/activities/{identifier}/end
-```
-
 Identical to the [Live Activity endpoints](#live-activities) — same request
 fields, same envelopes, same conflicts — with the service as the requester
 instead of an API token. An integration that can only hold a URL drives a card
@@ -2249,6 +2307,28 @@ exactly the way an agent does.
 
 A service can only see and drive the activities it started: keys are unique per
 requester, so the same key means different things to different senders.
+
+#### `POST /v1/hooks/{token}/activities`
+
+Starts a service-owned Live Activity. Same request and response as
+[`POST /v1/activities`](#post-v1activities). Honours `Idempotency-Key`.
+
+#### `GET /v1/hooks/{token}/activities/{identifier}`
+
+Reads one Live Activity started by this service. Same response as
+[`GET /v1/activities/{identifier}`](#get-v1activitiesidentifier).
+
+#### `PATCH /v1/hooks/{token}/activities/{identifier}`
+
+Updates one Live Activity started by this service. Same request and response as
+[`PATCH /v1/activities/{identifier}`](#patch-v1activitiesidentifier). Honours
+`Idempotency-Key`.
+
+#### `POST /v1/hooks/{token}/activities/{identifier}/end`
+
+Ends one Live Activity started by this service. Same request and response as
+[`POST /v1/activities/{identifier}/end`](#post-v1activitiesidentifierend).
+Honours `Idempotency-Key`.
 
 ---
 
@@ -2275,6 +2355,9 @@ the binary — templates, two stylesheets and a few lines of JavaScript, via
 | `GET` | `/cli/authorize` | The [device-grant approval screen](#get-cliauthorize). |
 | `POST` | `/cli/authorize` | Records Approve or Deny, or looks up a typed code. |
 | `GET` | `/docs` | This document, [rendered](#get-docs). The one page with no credential. |
+| `GET` | `/docs.md` | This contract as raw Markdown. Public. |
+| `GET` | `/openapi.json` | The OpenAPI 3.1 contract. Public. |
+| `GET` | `/llms.txt` | A compact discovery index for agents. Public. |
 | `GET` | `/dashboard/assets/{file}` | The stylesheets and script, at content-hashed URLs. |
 
 **This is not client surface.** Every page answers in HTML, including its
@@ -2391,3 +2474,16 @@ startup, so the page and the build serving it are always the same document.
 The response is `text/html; charset=utf-8` with
 `Cache-Control: public, max-age=300` and an `ETag`; a conditional `GET` gets
 `304`.
+
+The same build publishes three machine-facing representations with the same
+public caching and authentication behavior:
+
+| Path | Content type | Use |
+| --- | --- | --- |
+| `/docs.md` | `text/markdown` | The complete canonical prose and examples without HTML chrome. |
+| `/openapi.json` | `application/vnd.oai.openapi+json` | OpenAPI 3.1 operations, security requirements, request schemas and stable error envelope. Hark-specific authorization details use `x-hark-auth` and `x-hark-scopes`. |
+| `/llms.txt` | `text/plain` | A small discovery document pointing an agent at the appropriate contract. |
+
+The OpenAPI document and Markdown are complementary: OpenAPI is for discovery,
+generation and validation; this contract remains authoritative for behavioral
+rules such as delivery semantics, idempotency, callbacks and push payloads.

@@ -10,9 +10,12 @@ This repository is a private, single-user deployment: one account, seeded at
 boot, with no sign-up surface, no billing, and no analytics of any kind.
 
 * **API contract:** [`docs/api.md`](docs/api.md) — the document iOS and CLI
-  clients are built from. It is compiled into the binary and served as a page
-  at [`/docs`](#the-published-contract), which needs no credential. It also
-  documents the embedded [dashboard](docs/api.md#dashboard).
+  clients are built from. It is compiled into the binary and served as a
+  searchable page at [`/docs`](#the-published-contract), which needs no
+  credential. Machines get the same contract as raw Markdown at `/docs.md`, as
+  OpenAPI 3.1 at [`/openapi.json`](docs/openapi.json), and through the compact
+  [`/llms.txt`](docs/llms.txt) discovery index. It also documents the embedded
+  [dashboard](docs/api.md#dashboard).
 
 ---
 
@@ -53,12 +56,19 @@ API does too; see [`docs/api.md`](docs/api.md#dashboard).
 
 ### The published contract
 
-<http://localhost:8080/docs> renders [`docs/api.md`](docs/api.md). It is the one
-page that needs no credential at all — the route is mounted outside the server's
-authentication middleware, so nothing is read off the request — because a
-contract you have to sign in to read is a contract nobody can write a client
-against. The markdown is embedded at build time and rendered once at startup, so
-the page and the binary serving it are always the same document.
+<http://localhost:8080/docs> renders [`docs/api.md`](docs/api.md) with search,
+an endpoint outline, and copyable examples. The machine-facing forms are:
+
+| URL | Format | Best for |
+| --- | --- | --- |
+| <http://localhost:8080/docs.md> | Markdown | Agents and source ingestion |
+| <http://localhost:8080/openapi.json> | OpenAPI 3.1 JSON | Client generation, discovery, validation |
+| <http://localhost:8080/llms.txt> | Plain text | Agent discovery |
+
+All four need no credential at all — the routes are mounted outside the
+server's authentication middleware, so nothing is read off the request. The
+files are embedded at build time and the HTML is rendered once at startup, so
+every representation and the binary serving it always ship together.
 
 ### Locally, against your own PostgreSQL
 
@@ -157,8 +167,8 @@ internal/dashboard/   The embedded admin UI and the /docs page: html/template,
                       two stylesheets, no build step.
 internal/httpapi/     Route table, middleware chain, JSON and error envelope.
 internal/id/          UUIDv7 generation and validation.
-docs/                 The API contract, and the embed directive that compiles
-                      it into the binary.
+docs/                 The Markdown, OpenAPI and llms.txt contracts, and the
+                      embed directive that compiles them into the binary.
 ```
 
 Dependencies are deliberately few: the standard library, `jackc/pgx/v5` for

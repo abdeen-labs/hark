@@ -200,6 +200,9 @@ func TestDashboardMount(t *testing.T) {
 		{http.MethodGet, DeviceVerificationPath},
 		{http.MethodPost, DeviceVerificationPath},
 		{http.MethodGet, DocsPath},
+		{http.MethodGet, DocsMarkdownPath},
+		{http.MethodGet, OpenAPIPath},
+		{http.MethodGet, LLMsPath},
 	}
 	for _, route := range dashboardPaths {
 		rec := do(t, h, route.method, route.path, nil)
@@ -247,18 +250,20 @@ func TestTheContractIsServedOutsideTheCredentialChain(t *testing.T) {
 		})
 	})
 
-	req := httptest.NewRequest(http.MethodGet, DocsPath, nil)
-	req.Header.Set("Authorization", "Bearer not-a-credential")
-	if rec := send(t, h, req); rec.Code != http.StatusOK {
-		t.Fatalf("GET %s with a junk credential: status = %d, want 200", DocsPath, rec.Code)
+	for _, path := range []string{DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer not-a-credential")
+		if rec := send(t, h, req); rec.Code != http.StatusOK {
+			t.Errorf("GET %s with a junk credential: status = %d, want 200", path, rec.Code)
+		}
 	}
-	if served != 1 {
-		t.Fatalf("the page was served %d times, want once", served)
+	if served != 4 {
+		t.Fatalf("the public documents were served %d times, want four", served)
 	}
 
 	// The same header on an API route is refused, which is what makes the line
 	// above mean anything.
-	req = httptest.NewRequest(http.MethodGet, APIPrefix+"/interactions", nil)
+	req := httptest.NewRequest(http.MethodGet, APIPrefix+"/interactions", nil)
 	req.Header.Set("Authorization", "Bearer not-a-credential")
 	if rec := send(t, h, req); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("GET /v1/interactions with the same header: status = %d, want 401", rec.Code)
@@ -270,7 +275,7 @@ func TestTheContractIsServedOutsideTheCredentialChain(t *testing.T) {
 func TestWithoutADashboardTheRootIs404(t *testing.T) {
 	h := newTestServer(t, stubPinger{})
 
-	for _, path := range []string{"/", DashboardPrefix, DeviceVerificationPath, DocsPath} {
+	for _, path := range []string{"/", DashboardPrefix, DeviceVerificationPath, DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
 		rec := do(t, h, http.MethodGet, path, nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("GET %s: status = %d, want 404", path, rec.Code)

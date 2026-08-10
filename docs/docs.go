@@ -17,3 +17,15 @@ import _ "embed"
 //
 //go:embed api.md
 var APIContract string
+
+// OpenAPIContract is the OpenAPI 3.1 representation of the HTTP surface,
+// served verbatim at /openapi.json.
+//
+//go:embed openapi.json
+var OpenAPIContract string
+
+// LLMsContract is the small discovery document served at /llms.txt. Its links
+// are root-relative so the same embedded bytes are correct on every deploy.
+//
+//go:embed llms.txt
+var LLMsContract string

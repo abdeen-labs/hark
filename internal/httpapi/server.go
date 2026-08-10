@@ -37,6 +37,15 @@ const DashboardPrefix = "/dashboard"
 // something the deployment says about itself.
 const DocsPath = "/docs"
 
+// DocsMarkdownPath, OpenAPIPath and LLMsPath are the machine-facing forms of
+// the same public contract. They deliberately sit beside DocsPath rather than
+// under /v1: they describe the API, they are not versioned API operations.
+const (
+	DocsMarkdownPath = "/docs.md"
+	OpenAPIPath      = "/openapi.json"
+	LLMsPath         = "/llms.txt"
+)
+
 // Pinger reports whether a datastore is reachable. *pgxpool.Pool satisfies it.
 type Pinger interface {
 	Ping(ctx context.Context) error
@@ -169,7 +178,9 @@ func New(opts Options) http.Handler {
 	// there is no principal for anything downstream to find.
 	root := http.NewServeMux()
 	root.Handle("/", handler)
-	root.Handle(DocsPath, Chain(opts.Dashboard, base...))
+	for _, publicDoc := range []string{DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
+		root.Handle(publicDoc, Chain(opts.Dashboard, base...))
+	}
 	return root
 }
 

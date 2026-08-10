@@ -117,6 +117,9 @@ const (
 	// it cannot drift apart.
 	pathAuthorize = httpapi.DeviceVerificationPath
 	pathDocs      = httpapi.DocsPath
+	pathDocsMD    = httpapi.DocsMarkdownPath
+	pathOpenAPI   = httpapi.OpenAPIPath
+	pathLLMs      = httpapi.LLMsPath
 )
 
 // Dashboard is the HTTP handler. Build it with [New].
@@ -130,13 +133,16 @@ type Dashboard struct {
 	// docs is the API contract, rendered once at construction. It is the one
 	// page with no per-request state in it at all, so it is bytes rather than a
 	// template.
-	docs page
+	docs         page
+	docsMarkdown page
+	openAPI      page
+	llms         page
 }
 
 // paths is the link table handed to every template.
 type paths struct {
 	Home, Login, Logout, Services, Devices, Tokens, Test string
-	Authorize, Docs                                      string
+	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs         string
 }
 
 // New builds the dashboard handler.
@@ -168,10 +174,11 @@ func New(opts Options) *Dashboard {
 		paths: paths{
 			Home: pathHome, Login: pathLogin, Logout: pathLogout,
 			Services: pathServices, Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
-			Authorize: pathAuthorize, Docs: pathDocs,
+			Authorize: pathAuthorize, Docs: pathDocs, DocsMarkdown: pathDocsMD,
+			OpenAPI: pathOpenAPI, LLMs: pathLLMs,
 		},
 	}
-	d.docs = d.buildDocs()
+	d.buildPublicDocs()
 	d.routes()
 	return d
 }
@@ -218,6 +225,9 @@ func (d *Dashboard) routes() {
 	// it, so it is registered raw: no session gate, no CSRF token, nothing to
 	// read off the request at all.
 	d.mux.HandleFunc("GET "+pathDocs, d.showDocs)
+	d.mux.HandleFunc("GET "+pathDocsMD, d.showDocsMarkdown)
+	d.mux.HandleFunc("GET "+pathOpenAPI, d.showOpenAPI)
+	d.mux.HandleFunc("GET "+pathLLMs, d.showLLMs)
 
 	d.mux.HandleFunc("GET "+pathAssets+"/{file}", d.showAsset)
 
