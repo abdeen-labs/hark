@@ -19,6 +19,7 @@ var templateFS embed.FS
 var (
 	tmplLogin     = mustParse("login.html")
 	tmplOverview  = mustParse("overview.html")
+	tmplHistory   = mustParse("history.html")
 	tmplServices  = mustParse("services.html")
 	tmplService   = mustParse("service.html")
 	tmplDevices   = mustParse("devices.html")
@@ -34,9 +35,11 @@ var (
 			ParseFS(templateFS, "templates/docs.html"))
 )
 
+// mustParse builds one page's template set: the shared layout, the feed item
+// markup the overview and the history both draw, and the page itself.
 func mustParse(page string) *template.Template {
 	return template.Must(template.New(page).Funcs(funcs).
-		ParseFS(templateFS, "templates/layout.html", "templates/"+page))
+		ParseFS(templateFS, "templates/layout.html", "templates/feed.html", "templates/"+page))
 }
 
 // funcs are the handful of helpers the templates need. Everything else is a

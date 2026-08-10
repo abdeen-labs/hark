@@ -223,6 +223,11 @@ code, .mono, .num { font-family: var(--mono); font-size: 0.92em; }
 .plate--accent { border-color: var(--danger-line); background: var(--accent-soft); }
 .plate__title { font-size: 15px; margin-bottom: 0.75rem; }
 
+/* A plate whose title shares its line with a link out — "Everything →". */
+.plate__head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.plate__more { color: var(--ink-faint); font-size: 12px; white-space: nowrap; }
+.plate__more:hover { color: var(--accent-text); }
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
@@ -249,6 +254,21 @@ code, .mono, .num { font-family: var(--mono); font-size: 0.92em; }
 .empty { color: var(--ink-faint); margin: 0; }
 .status-code { font-family: var(--mono); color: var(--accent-text); margin: 0 0 0.25rem; }
 
+/* Filters and pager ------------------------------------------------------- */
+
+.filters { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 1.25rem; }
+.filters a {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  color: var(--ink-subtle);
+  font-size: 13px;
+}
+.filters a:hover { background: var(--surface-hover); color: var(--ink); text-decoration: none; }
+.filters a[aria-current="page"] { border-color: var(--accent); background: var(--accent-wash); color: var(--ink); }
+
+.pager { display: flex; gap: 0.5rem; }
+
 /* Tables ------------------------------------------------------------------ */
 
 .scroll { overflow-x: auto; }
@@ -273,6 +293,12 @@ code, .mono, .num { font-family: var(--mono); font-size: 0.92em; }
 .table tbody tr:last-child th { border-bottom: 0; }
 .table tbody tr:hover { background: var(--surface-muted); }
 .table th.cell--right, .table td.cell--right { text-align: right; }
+
+/* A cell holding free text inside a nowrap table: it ends in an ellipsis
+ * rather than deciding the table's width. The full value is in its title. */
+.table td.cell--clamp { max-width: 40ch; }
+.table td.cell--clamp,
+.table td.cell--clamp > .block { overflow: hidden; text-overflow: ellipsis; }
 
 /* A service's avatar, inline before its title. The background holds the square
  * while the image loads — or fails to. */
@@ -399,6 +425,20 @@ textarea.input { resize: vertical; }
 }
 
 .failures { margin: 0.5rem 0 0; padding-left: 1.1rem; color: var(--danger); font-size: 12px; }
+
+/* The confirmation dialog ------------------------------------------------- */
+
+.confirm {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-plate);
+  background: var(--surface);
+  color: var(--ink-muted);
+}
+.confirm::backdrop { background: color-mix(in srgb, #000 55%, transparent); }
+.confirm__message { margin: 0 0 1.1rem; color: var(--ink); }
+.confirm__actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 /* Narrow viewports tighten the gutters. The tables keep their nowrap and scroll
  * inside .scroll instead of wrapping: a column of broken words is harder to

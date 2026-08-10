@@ -1,0 +1,28 @@
+{{define "content"}}
+<h1 class="page-title">History</h1>
+<p class="muted page-lede">Everything that has reached this account, newest first. The overview shows
+  the last few of these; this is all of them.</p>
+
+<nav class="filters" aria-label="Filter by kind">
+  <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}>All</a>
+  <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}>Notifications</a>
+  <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}>Responses</a>
+  <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}>Live Activities</a>
+</nav>
+
+<section class="plate">
+  {{if .Items}}
+  {{template "feed-list" .Items}}
+  {{else}}
+  <p class="empty">{{if eq .Filter "all"}}Nothing has been delivered yet.{{else}}Nothing of this kind
+    has been delivered{{if .Newest}} this far back{{end}}.{{end}}</p>
+  {{end}}
+</section>
+
+{{if or .Older .Newest}}
+<nav class="pager" aria-label="Pages">
+  {{with .Newest}}<a class="btn" href="{{.}}">← Newest</a>{{end}}
+  {{with .Older}}<a class="btn" href="{{.}}">Older →</a>{{end}}
+</nav>
+{{end}}
+{{end}}

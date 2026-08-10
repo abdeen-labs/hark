@@ -141,6 +141,9 @@
 .toc__item--h2 a { margin-top: 0.5rem; color: var(--ink); font-weight: 500; }
 .toc__item--h3 a { padding-left: 1rem; font-family: var(--mono); font-size: 12px; }
 
+/* The entry being read, marked by the scroll-spy. */
+.toc__item a[aria-current] { background: var(--accent-wash); color: var(--ink); }
+
 /* Prose ------------------------------------------------------------------- */
 
 .prose {
@@ -263,6 +266,22 @@
   overflow-wrap: normal;
   white-space: pre;
 }
+
+/* Syntax colors, on chroma's classes. Only tokens the contract's three fence
+ * languages — json, http, sh — actually produce, all spelled in Axis vars so
+ * both palettes come out of the same rules. Strings borrow jade and numbers
+ * amber as reading colors, not as status. */
+.chroma .nt { color: var(--ink); }                                          /* JSON keys */
+.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }     /* strings */
+.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--warn); }   /* numbers */
+.chroma .k, .chroma .kc, .chroma .kd, .chroma .kr { color: var(--accent-text); }
+.chroma .c, .chroma .c1, .chroma .cm { color: var(--ink-faint); font-style: italic; }
+.chroma .nf, .chroma .nb, .chroma .nn { color: var(--ink); font-weight: 500; } /* methods, paths, builtins */
+.chroma .nv, .chroma .no, .chroma .na { color: var(--ink-subtle); }
+.chroma .o, .chroma .p { color: var(--ink-subtle); }
+/* Chroma marks what its lexer could not place; that is its problem, not the
+ * reader's. */
+.chroma .err { color: inherit; background: none; }
 
 .code-copy {
   position: absolute;

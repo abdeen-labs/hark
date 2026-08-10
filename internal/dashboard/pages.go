@@ -1,9 +1,13 @@
 package dashboard
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -43,28 +47,32 @@ type overviewStats struct {
 	LiveActivities         int
 }
 
-func (d *Dashboard) showOverview(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+// loadOverview assembles the overview's data. It is shared by the full page
+// and the live fragment, which is the point: whatever the poll swaps in is the
+// same markup a reload would have drawn. It reports false after answering the
+// request itself.
+func (d *Dashboard) loadOverview(w http.ResponseWriter, r *http.Request, p *auth.Principal) (overviewPage, bool) {
 	ctx, userID, now := r.Context(), p.UserID(), d.opts.Auth.Now()
 
 	devices, err := d.opts.Store.Devices.ListForUser(ctx, userID)
 	if err != nil {
 		d.fail(w, r, "listing devices failed", err)
-		return
+		return overviewPage{}, false
 	}
 	tokens, err := d.opts.Auth.ListAPITokens(ctx, userID)
 	if err != nil {
 		d.fail(w, r, "listing API tokens failed", err)
-		return
+		return overviewPage{}, false
 	}
 	activities, err := d.opts.Store.Activities.ListLiveForUser(ctx, userID, now, overviewActivities)
 	if err != nil {
 		d.fail(w, r, "listing live activities failed", err)
-		return
+		return overviewPage{}, false
 	}
 	history, err := d.opts.Store.Feed.List(ctx, userID, db.FeedFilterAll, db.Cursor{}, overviewHistory)
 	if err != nil {
 		d.fail(w, r, "listing history failed", err)
-		return
+		return overviewPage{}, false
 	}
 
 	page := overviewPage{
@@ -87,7 +95,118 @@ func (d *Dashboard) showOverview(w http.ResponseWriter, r *http.Request, p *auth
 			page.Stats.ActiveTokens++
 		}
 	}
+	return page, true
+}
+
+func (d *Dashboard) showOverview(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	page, ok := d.loadOverview(w, r, p)
+	if !ok {
+		return
+	}
 	d.render(w, r, http.StatusOK, tmplOverview, page)
+}
+
+// liveOverview answers the overview's poll with the page's dynamic half, bare.
+//
+// The ETag is a digest of the rendered bytes, and the script sends it back as
+// If-None-Match, so a poll that would change nothing costs a 304 and no swap.
+// The relative times participate in the digest deliberately: once a minute
+// they move, the bytes change, and the swap is what keeps "3m ago" honest on a
+// page nobody reloads.
+func (d *Dashboard) liveOverview(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	page, ok := d.loadOverview(w, r, p)
+	if !ok {
+		return
+	}
+
+	var buf bytes.Buffer
+	if err := tmplOverview.ExecuteTemplate(&buf, "overview-live", page); err != nil {
+		d.fail(w, r, "rendering the overview fragment failed", err)
+		return
+	}
+	sum := sha256.Sum256(buf.Bytes())
+	etag := `"` + hex.EncodeToString(sum[:])[:16] + `"`
+
+	h := w.Header()
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	// The browser's cache stays out of it: the script holds the previous tag
+	// and sends it itself, so no-store never has anything stale to serve.
+	h.Set("Cache-Control", "no-store")
+	h.Set("ETag", etag)
+	if match := r.Header.Get("If-None-Match"); strings.Contains(match, etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	_, _ = buf.WriteTo(w)
+}
+
+// historyPageSize is how much of the archive one page shows. Deeper is a
+// click, not a scroll: fifty rows is already a screenful of reading.
+const historyPageSize = 50
+
+// historyPage is the account's full archive, paged.
+type historyPage struct {
+	view
+	Items  []db.FeedItem
+	Filter string
+	// Older is the next page's URL, and Newest the way back to the top of the
+	// current filter. Either is empty when there is nowhere to go.
+	Older  string
+	Newest string
+}
+
+// historyURL spells one page of the archive: the path alone for the default
+// view, and only otherwise a query.
+func historyURL(filter string, after db.Cursor) string {
+	q := url.Values{}
+	if filter != db.FeedFilterAll {
+		q.Set("kind", filter)
+	}
+	if !after.IsZero() {
+		q.Set("after", after.String())
+	}
+	if len(q) == 0 {
+		return pathHistory
+	}
+	return pathHistory + "?" + q.Encode()
+}
+
+func (d *Dashboard) showHistory(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	query := r.URL.Query()
+	filter := query.Get("kind")
+	if filter == "" {
+		filter = db.FeedFilterAll
+	}
+	if !db.ValidFeedFilter(filter) {
+		d.renderError(w, r, http.StatusNotFound, "There is no such filter.")
+		return
+	}
+	cursor, err := db.ParseCursor(query.Get("after"))
+	if err != nil {
+		// Cursors only ever come from this page's own Older link, so a bad one
+		// is a mangled paste rather than anything worth explaining.
+		d.renderError(w, r, http.StatusNotFound, "That page address is not valid.")
+		return
+	}
+
+	feed, err := d.opts.Store.Feed.List(r.Context(), p.UserID(), filter, cursor, historyPageSize)
+	if err != nil {
+		d.fail(w, r, "listing history failed", err)
+		return
+	}
+
+	page := historyPage{
+		view:   d.newView(r, p, "History", "history"),
+		Items:  feed.Items,
+		Filter: filter,
+	}
+	if feed.HasMore() {
+		page.Older = historyURL(filter, feed.Next)
+	}
+	if !cursor.IsZero() {
+		page.Newest = historyURL(filter, db.Cursor{})
+	}
+	d.render(w, r, http.StatusOK, tmplHistory, page)
 }
 
 // devicesPage lists the phones registered to the account.

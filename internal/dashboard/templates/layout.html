@@ -20,6 +20,7 @@
     <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark</a>
     <nav class="nav" aria-label="Sections">
       <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
+      <a href="{{.Paths.History}}"{{if eq .Section "history"}} aria-current="page"{{end}}>History</a>
       <a href="{{.Paths.Services}}"{{if eq .Section "services"}} aria-current="page"{{end}}>Services</a>
       <a href="{{.Paths.Devices}}"{{if eq .Section "devices"}} aria-current="page"{{end}}>Devices</a>
       <a href="{{.Paths.Tokens}}"{{if eq .Section "tokens"}} aria-current="page"{{end}}>Tokens</a>
@@ -41,6 +42,20 @@
 </main>
 
 <footer class="footer">Hark{{if .Version}} · {{.Version}}{{end}}</footer>
+
+{{/* The confirmation every data-confirm form opens instead of window.confirm.
+     It submits nothing itself: method="dialog" only closes it, and the script
+     reads which button did. */}}
+<dialog class="confirm" data-confirm-dialog>
+  <form method="dialog">
+    <p class="confirm__message" data-confirm-message></p>
+    <div class="confirm__actions">
+      <button class="btn" value="cancel" autofocus>Cancel</button>
+      <button class="btn btn--danger" value="confirm">Confirm</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="{{.Assets.JS}}" defer></script>
 </body>
 </html>{{end}}

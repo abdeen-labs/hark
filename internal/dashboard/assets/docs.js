@@ -73,6 +73,28 @@ if (search && body) {
   });
 }
 
+// The outline follows the reader. A heading crossing the band under the sticky
+// topbar marks its own entry; the band's bottom margin keeps the mark on what
+// is being read rather than on whatever just scrolled into the viewport's tail.
+const toc = document.querySelector(".toc");
+if (toc && body) {
+  const linkFor = new Map(
+    [...toc.querySelectorAll("a")].map((link) => [link.hash.slice(1), link]),
+  );
+  let current = null;
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const link = linkFor.get(entry.target.id);
+      if (!link || link === current) continue;
+      if (current) current.removeAttribute("aria-current");
+      link.setAttribute("aria-current", "true");
+      current = link;
+    }
+  }, { rootMargin: "-72px 0px -75% 0px" });
+  for (const heading of body.querySelectorAll("h2, h3")) observer.observe(heading);
+}
+
 // Examples are intentionally plain preformatted text in the source. Enhance
 // them with a local copy control while leaving the document fully useful when
 // scripts are disabled or clipboard permission is refused.

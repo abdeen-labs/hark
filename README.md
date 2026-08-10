@@ -49,8 +49,9 @@ curl -s localhost:8080/healthz
 
 The admin UI is compiled into the binary and served on the site root: open
 <http://localhost:8080/> and sign in with the account below. It is a single-user
-admin surface — the account's devices, its API tokens, what has reached the
-account recently, a form that sends a test push, and the screen at
+admin surface — a live overview that updates as deliveries land, the full paged
+history, the account's webhook services with each one's recent deliveries, its
+devices, its API tokens, a form that sends a test push, and the screen at
 `/cli/authorize` where a command-line client is let in. Everything it does, the
 API does too; see [`docs/api.md`](docs/api.md#dashboard).
 

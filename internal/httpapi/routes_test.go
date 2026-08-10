@@ -192,6 +192,8 @@ func TestDashboardMount(t *testing.T) {
 		{http.MethodGet, "/"},
 		{http.MethodGet, DashboardPrefix},
 		{http.MethodGet, DashboardPrefix + "/"},
+		{http.MethodGet, DashboardPrefix + "/history"},
+		{http.MethodGet, DashboardPrefix + "/live/overview"},
 		{http.MethodGet, DashboardPrefix + "/devices"},
 		{http.MethodPost, DashboardPrefix + "/tokens"},
 		{http.MethodGet, DashboardPrefix + "/assets/app.css"},

@@ -169,7 +169,8 @@ func TestSignedOutPagesRedirectToSignIn(t *testing.T) {
 	d, _ := newTestDashboard(t)
 
 	for _, path := range []string{
-		pathHome, pathServices, pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+		pathHome, pathHistory, pathLiveOverview,
+		pathServices, pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
 		pathDevices, pathTokens, pathTest, pathAuthorize,
 	} {
 		rec := send(d, request(http.MethodGet, path, ""))
@@ -179,6 +180,38 @@ func TestSignedOutPagesRedirectToSignIn(t *testing.T) {
 		}
 		if location := rec.Header().Get("Location"); !strings.HasPrefix(location, pathLogin) {
 			t.Errorf("GET %s: Location = %q, want the sign-in page", path, location)
+		}
+	}
+}
+
+// TestHistoryRejectsJunkInput covers the two query parameters the archive
+// takes. Both are only ever written by this page's own links, so anything else
+// is answered before the store is reached — which is also what lets this test
+// run without one.
+func TestHistoryRejectsJunkInput(t *testing.T) {
+	d, _ := newTestDashboard(t)
+
+	for _, target := range []string{
+		pathHistory + "?kind=everything",
+		pathHistory + "?after=not-a-cursor",
+	} {
+		rec := send(d, signedIn(http.MethodGet, target, ""))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET %s: status = %d, want 404", target, rec.Code)
+		}
+	}
+}
+
+func TestHistoryURLSpellsThePage(t *testing.T) {
+	after := db.Cursor{Time: time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC), ID: "event:1"}
+	tests := map[string]string{
+		historyURL(db.FeedFilterAll, db.Cursor{}):          pathHistory,
+		historyURL(db.FeedFilterNotification, db.Cursor{}): pathHistory + "?kind=notification",
+		historyURL(db.FeedFilterAll, after):                pathHistory + "?after=" + after.String(),
+	}
+	for got, want := range tests {
+		if got != want {
+			t.Errorf("historyURL = %q, want %q", got, want)
 		}
 	}
 }
@@ -512,6 +545,22 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 				{ID: "response:2", Kind: db.FeedKindResponse, SourceName: "agent", Title: "Deploy?", Result: ptr("approved"), CreatedAt: now},
 			},
 		}},
+		"history": {tmplHistory, historyPage{
+			view:   frame,
+			Filter: db.FeedFilterNotification,
+			Older:  pathHistory + "?after=abc&kind=notification",
+			Newest: pathHistory + "?kind=notification",
+			Items: []db.FeedItem{
+				{
+					ID: "event:1", Kind: db.FeedKindNotification, SourceName: "<script>alert(1)</script>",
+					Title: "Build failed", Detail: ptr("main @ abc1234"),
+					Status: ptr(db.EventFailed), Error: ptr("BadDeviceToken"),
+					Priority: ptr(db.PriorityTimeSensitive), CreatedAt: now,
+				},
+				{ID: "live_activity:2", Kind: db.FeedKindLiveActivity, SourceName: "deploy-bot", Title: "Deploy", Result: ptr("update"), CreatedAt: now},
+			},
+		}},
+		"history/empty": {tmplHistory, historyPage{view: frame, Filter: db.FeedFilterAll}},
 		"devices": {tmplDevices, devicesPage{
 			view: frame,
 			Devices: []db.Device{
@@ -584,6 +633,17 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			WebhookURL: ptr("https://hark.example.com/v1/hooks/harkhook_notarealtoken"),
 			Priorities: db.Priorities,
 			Form:       serviceForm{Title: "CI", ImageURL: "https://example.com/logo.png", Priority: db.PriorityCritical},
+			Deliveries: []db.EventListItem{
+				{Event: db.Event{
+					ID: "evt-1", Title: "<script>alert(1)</script>", Body: "Build 4821 failed",
+					Priority: db.PriorityTimeSensitive, Status: db.EventFailed,
+					Error: ptr("BadDeviceToken"), CreatedAt: now,
+				}},
+				{Event: db.Event{
+					ID: "evt-2", Title: "Deploy", Body: "Build 4820 succeeded",
+					Priority: db.PriorityNormal, Status: db.EventAccepted, DeliveredCount: 2, CreatedAt: now,
+				}},
+			},
 		}},
 		"service/unreadable": {tmplService, servicePage{
 			view:       frame,

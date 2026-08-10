@@ -1,6 +1,12 @@
 {{define "content"}}
 <h1 class="page-title">Overview</h1>
 
+{{/* Everything inside this div is what the poll replaces: the same
+     overview-live block, rendered by /dashboard/live/overview. */}}
+<div data-live="{{.Paths.LiveOverview}}">{{template "overview-live" .}}</div>
+{{end}}
+
+{{define "overview-live"}}
 <section class="stats" aria-label="Account">
   <div class="stat">
     <span class="stat__value">{{.Stats.ActiveDevices}}<span class="stat__of">/{{.Stats.Devices}}</span></span>
@@ -42,25 +48,12 @@
 </section>
 
 <section class="plate">
-  <h2 class="plate__title">Recent deliveries</h2>
+  <div class="plate__head">
+    <h2 class="plate__title">Recent deliveries</h2>
+    <a class="plate__more" href="{{.Paths.History}}">Everything →</a>
+  </div>
   {{if .History}}
-  <ul class="feed">
-    {{range .History}}
-    <li class="feed__item">
-      <div class="feed__head">
-        <span class="feed__source">{{.SourceName}}</span>
-        <span class="pill pill--kind">{{title .Kind}}</span>
-        {{with text .Status}}<span class="pill pill--{{.}}">{{title .}}</span>{{end}}
-        {{with text .Priority}}{{if ne . "normal"}}<span class="pill pill--warn">{{title .}}</span>{{end}}{{end}}
-        <time class="feed__time" datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time>
-      </div>
-      <p class="feed__title">{{.Title}}</p>
-      {{with text .Detail}}<p class="feed__detail">{{.}}</p>{{end}}
-      {{with text .Result}}<p class="feed__meta">Result: {{title .}}</p>{{end}}
-      {{with text .Error}}<p class="feed__error">{{.}}</p>{{end}}
-    </li>
-    {{end}}
-  </ul>
+  {{template "feed-list" .History}}
   {{else}}
   <p class="empty">Nothing has been delivered yet. Point a webhook at a service, or send yourself a
     <a href="{{.Paths.Test}}">test notification</a>.</p>

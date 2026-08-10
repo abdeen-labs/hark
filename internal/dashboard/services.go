@@ -29,15 +29,20 @@ type serviceRow struct {
 	WebhookURL *string
 }
 
-// servicePage is one service: its credential, its defaults, and the two
-// destructive actions.
+// servicePage is one service: its credential, its defaults, what it delivered
+// lately, and the two destructive actions.
 type servicePage struct {
 	view
 	Service    db.Service
 	WebhookURL *string
 	Priorities []string
 	Form       serviceForm
+	Deliveries []db.EventListItem
 }
+
+// serviceDeliveries is how much of the service's log its own page shows: proof
+// the hookup works and what it said last, not the archive.
+const serviceDeliveries = 15
 
 // serviceForm is the create and edit form's state, kept so a rejected
 // submission comes back filled in. The zero value of every field means
@@ -219,12 +224,20 @@ func (d *Dashboard) renderService(
 	w http.ResponseWriter, r *http.Request, p *auth.Principal,
 	status int, svc db.Service, form serviceForm, n *notice,
 ) {
+	deliveries, err := d.opts.Store.Events.ListForService(
+		r.Context(), svc.ID, p.UserID(), db.Cursor{}, serviceDeliveries)
+	if err != nil {
+		d.fail(w, r, "listing a service's deliveries failed", err)
+		return
+	}
+
 	page := servicePage{
 		view:       d.newView(r, p, svc.Title, "services"),
 		Service:    svc,
 		WebhookURL: d.webhookURL(r, svc),
 		Priorities: db.Priorities,
 		Form:       form,
+		Deliveries: deliveries.Items,
 	}
 	if n != nil {
 		page.Notice = n

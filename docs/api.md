@@ -2335,16 +2335,24 @@ Honours `Idempotency-Key`.
 ## Dashboard
 
 The server embeds a small admin UI for the account owner. It is compiled into
-the binary — templates, two stylesheets and a few lines of JavaScript, via
+the binary — templates, two stylesheets and two small scripts, via
 `embed.FS` — and mounted outside `/v1`:
 
 | Method | Path | What it is |
 | --- | --- | --- |
 | `GET` | `/` | Redirects to `/dashboard` (`302`). |
-| `GET` | `/dashboard` | Overview: counts, running Live Activities, recent deliveries. |
+| `GET` | `/dashboard` | Overview: counts, running Live Activities, recent deliveries. Keeps itself current by polling its own fragment. |
+| `GET` | `/dashboard/live/overview` | That fragment: the overview's dynamic half, rendered bare. |
+| `GET` | `/dashboard/history` | The full archive, paged, filterable by kind (`?kind=`, `?after=`). |
 | `GET` | `/dashboard/login` | Sign-in form. The only page reachable signed out. |
 | `POST` | `/dashboard/login` | Signs in and sets the session cookie. |
 | `POST` | `/dashboard/logout` | Retires the session and clears the cookie. |
+| `GET` | `/dashboard/services` | Webhook services, and the form that creates one. |
+| `POST` | `/dashboard/services` | Creates a service. |
+| `GET` | `/dashboard/services/{id}` | One service: its webhook URL, defaults, recent deliveries. |
+| `POST` | `/dashboard/services/{id}` | Saves the defaults. |
+| `POST` | `/dashboard/services/{id}/rotate` | Replaces the webhook credential immediately. |
+| `POST` | `/dashboard/services/{id}/delete` | Deletes the service and everything it delivered. |
 | `GET` | `/dashboard/devices` | Registered phones. |
 | `POST` | `/dashboard/devices/{id}/delete` | Unregisters one. |
 | `GET` | `/dashboard/tokens` | API tokens, and the form that mints them. |

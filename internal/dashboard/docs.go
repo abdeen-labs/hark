@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/abdeen-labs/hark/docs"
+	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	gmtext "github.com/yuin/goldmark/text"
+
+	"github.com/abdeen-labs/hark/docs"
 )
 
 // The published API contract.
@@ -30,13 +33,23 @@ import (
 
 // markdown is the renderer the contract is built with: CommonMark, plus GFM
 // tables because the document is mostly tables, plus the heading ids its own
-// cross-links are written against.
+// cross-links are written against, plus syntax highlighting for the examples.
+//
+// The highlighter emits classes rather than inline styles: the stylesheet owns
+// the colors, which is what lets a payload read in Axis in both palettes —
+// and what keeps the style-src CSP directive honest, since nothing needs
+// 'unsafe-inline'.
 //
 // Raw HTML is deliberately not enabled. The source is ours today, but a
 // renderer that passes through whatever it is handed is one careless paste away
 // from putting a script tag on a public page.
 var markdown = goldmark.New(
-	goldmark.WithExtensions(extension.Table),
+	goldmark.WithExtensions(
+		extension.Table,
+		highlighting.NewHighlighting(
+			highlighting.WithFormatOptions(chromahtml.WithClasses(true)),
+		),
+	),
 	goldmark.WithParserOptions(parser.WithAutoHeadingID()),
 )
 

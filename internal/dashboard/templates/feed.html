@@ -1,0 +1,21 @@
+{{/* feed-list draws a slice of db.FeedItem. The overview and the history
+     render the same rows; only how many, and how you get more, differ. */}}
+{{define "feed-list"}}
+<ul class="feed">
+  {{range .}}
+  <li class="feed__item">
+    <div class="feed__head">
+      <span class="feed__source">{{.SourceName}}</span>
+      <span class="pill pill--kind">{{title .Kind}}</span>
+      {{with text .Status}}<span class="pill pill--{{.}}">{{title .}}</span>{{end}}
+      {{with text .Priority}}{{if ne . "normal"}}<span class="pill pill--warn">{{title .}}</span>{{end}}{{end}}
+      <time class="feed__time" datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time>
+    </div>
+    <p class="feed__title">{{.Title}}</p>
+    {{with text .Detail}}<p class="feed__detail">{{.}}</p>{{end}}
+    {{with text .Result}}<p class="feed__meta">Result: {{title .}}</p>{{end}}
+    {{with text .Error}}<p class="feed__error">{{.}}</p>{{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}

@@ -6,8 +6,9 @@
 // that are addressed from outside — the device-grant approval screen and the
 // published API contract — because they share this shell. There is no build
 // step, no npm, and no client-side framework: the templates, two stylesheets
-// and a handful of lines of JavaScript are compiled into the binary with
-// embed.FS.
+// and two small scripts are compiled into the binary with embed.FS. Even the
+// overview's liveness stays inside that shape — the page polls for a fragment
+// this same package rendered, and swaps it in whole.
 //
 // It talks to the same layers the API does rather than to the API over HTTP:
 // [Authenticator] is the slice of *auth.Service it needs, the store is read
@@ -103,11 +104,18 @@ const (
 	pathHome     = httpapi.DashboardPrefix
 	pathLogin    = httpapi.DashboardPrefix + "/login"
 	pathLogout   = httpapi.DashboardPrefix + "/logout"
+	pathHistory  = httpapi.DashboardPrefix + "/history"
 	pathServices = httpapi.DashboardPrefix + "/services"
 	pathDevices  = httpapi.DashboardPrefix + "/devices"
 	pathTokens   = httpapi.DashboardPrefix + "/tokens"
 	pathTest     = httpapi.DashboardPrefix + "/test"
 	pathAssets   = httpapi.DashboardPrefix + "/assets"
+
+	// pathLiveOverview is the overview's polling target: the same page's
+	// dynamic half, rendered bare. It is a page like any other — session-gated,
+	// same middleware — that happens to be fetched by script rather than
+	// navigated to.
+	pathLiveOverview = httpapi.DashboardPrefix + "/live/overview"
 
 	// pathAuthorize is the device-grant approval screen, and pathDocs the
 	// published API contract. Both sit outside the dashboard's prefix because
@@ -141,8 +149,9 @@ type Dashboard struct {
 
 // paths is the link table handed to every template.
 type paths struct {
-	Home, Login, Logout, Services, Devices, Tokens, Test string
-	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs         string
+	Home, Login, Logout, History, Services, Devices, Tokens, Test string
+	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs                  string
+	LiveOverview                                                  string
 }
 
 // New builds the dashboard handler.
@@ -172,10 +181,11 @@ func New(opts Options) *Dashboard {
 		csrf:    newCSRFCookie(session),
 		logins:  newLimiter(loginWindow),
 		paths: paths{
-			Home: pathHome, Login: pathLogin, Logout: pathLogout,
+			Home: pathHome, Login: pathLogin, Logout: pathLogout, History: pathHistory,
 			Services: pathServices, Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
 			Authorize: pathAuthorize, Docs: pathDocs, DocsMarkdown: pathDocsMD,
 			OpenAPI: pathOpenAPI, LLMs: pathLLMs,
+			LiveOverview: pathLiveOverview,
 		},
 	}
 	d.buildPublicDocs()
@@ -197,6 +207,9 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathLogin, d.showLogin)
 	d.mux.HandleFunc("POST "+pathLogin, d.submitLogin)
 	d.mux.HandleFunc("POST "+pathLogout, d.form(d.submitLogout))
+
+	d.mux.HandleFunc("GET "+pathHistory, d.page(d.showHistory))
+	d.mux.HandleFunc("GET "+pathLiveOverview, d.page(d.liveOverview))
 
 	d.mux.HandleFunc("GET "+pathServices, d.page(d.showServices))
 	d.mux.HandleFunc("POST "+pathServices, d.form(d.createService))
@@ -262,6 +275,9 @@ const contentSecurityPolicy = "default-src 'none'; " +
 	"style-src 'self' https://fonts.googleapis.com; " +
 	"font-src https://fonts.gstatic.com; " +
 	"script-src 'self'; " +
+	// The overview's poll for its own live fragment is the only fetch any page
+	// makes, and it goes to this origin.
+	"connect-src 'self'; " +
 	"img-src 'self' https: data:; " +
 	"form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 

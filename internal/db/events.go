@@ -144,6 +144,32 @@ func (s *Events) ListForUser(ctx context.Context, userID string, cursor Cursor, 
 	}), nil
 }
 
+// ListForService pages one service's deliveries, newest first. The user id
+// rides along in the join for the same reason it does everywhere else: a
+// service id alone must never be enough to read another account's log.
+func (s *Events) ListForService(ctx context.Context, serviceID, userID string, cursor Cursor, limit int) (Page[EventListItem], error) {
+	const q = `
+		SELECT e.id, e.service_id, e.title, e.body, e.image_url, e.url, e.priority, e.status,
+		       e.delivered_count, e.error, e.idempotency_key, e.request_hash, e.created_at,
+		       s.title AS service_title, s.image_url AS service_image_url
+		FROM events e
+		JOIN services s ON s.id = e.service_id
+		WHERE e.service_id = $1 AND s.user_id = $2
+		  AND ($3::timestamptz IS NULL OR (e.created_at, e.id) < ($3, $4))
+		ORDER BY e.created_at DESC, e.id DESC
+		LIMIT $5`
+
+	limit = ClampLimit(limit)
+	at, id := cursor.args()
+	rows, err := queryAll[EventListItem](ctx, s.q, "list service events", q, serviceID, userID, at, id, limit+1)
+	if err != nil {
+		return Page[EventListItem]{}, err
+	}
+	return paginate(rows, limit, func(e EventListItem) Cursor {
+		return Cursor{Time: e.CreatedAt, ID: e.ID}
+	}), nil
+}
+
 // CountForServiceSince counts a service's events inside the rate-limit window.
 func (s *Events) CountForServiceSince(ctx context.Context, serviceID string, since time.Time) (int, error) {
 	const q = `SELECT count(*) FROM events WHERE service_id = $1 AND created_at >= $2`

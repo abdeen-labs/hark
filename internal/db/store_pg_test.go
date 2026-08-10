@@ -707,6 +707,51 @@ func TestEventIdempotencyAndPaging(t *testing.T) {
 	}
 }
 
+func TestEventsListForService(t *testing.T) {
+	ctx, s := requireStore(t)
+	user := mustUser(ctx, t, s, "ali")
+	svc := mustService(ctx, t, s, user.ID, "Deploy bot")
+	other := mustService(ctx, t, s, user.ID, "Backups")
+	now := time.Now()
+
+	for i, serviceID := range []string{svc.ID, svc.ID, svc.ID, other.ID} {
+		if _, err := s.Events.Create(ctx, CreateEventParams{
+			ID: id.New(), ServiceID: serviceID, Title: "t", Body: "b",
+			Priority: PriorityNormal, Status: EventAccepted,
+			Now: now.Add(time.Duration(i) * time.Millisecond),
+		}); err != nil {
+			t.Fatalf("seed event: %v", err)
+		}
+	}
+
+	// Only the service's own rows, and paging walks them exactly once.
+	page, err := s.Events.ListForService(ctx, svc.ID, user.ID, Cursor{}, 2)
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if len(page.Items) != 2 || !page.HasMore() {
+		t.Fatalf("first page has %d items, more=%v", len(page.Items), page.HasMore())
+	}
+	next, err := s.Events.ListForService(ctx, svc.ID, user.ID, page.Next, 2)
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if len(next.Items) != 1 || next.HasMore() {
+		t.Fatalf("second page has %d items, more=%v", len(next.Items), next.HasMore())
+	}
+	for _, item := range append(page.Items, next.Items...) {
+		if item.ServiceID != svc.ID {
+			t.Errorf("event %s belongs to service %s", item.ID, item.ServiceID)
+		}
+	}
+
+	// A service id alone is not enough: the wrong owner reads nothing.
+	stranger := mustUser(ctx, t, s, "mallory")
+	if page, err := s.Events.ListForService(ctx, svc.ID, stranger.ID, Cursor{}, 10); err != nil || len(page.Items) != 0 {
+		t.Fatalf("foreign owner = (%d items, %v), want none", len(page.Items), err)
+	}
+}
+
 func TestInteractionResponseIsGuarded(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
