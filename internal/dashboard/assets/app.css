@@ -413,6 +413,7 @@ textarea.input { resize: vertical; }
 .notice--error { border-color: var(--danger-line); background: var(--danger-soft); }
 
 .secret { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.secret + form { margin-top: 0.75rem; }
 .secret__value {
   flex: 1 1 22rem;
   min-width: 0;
