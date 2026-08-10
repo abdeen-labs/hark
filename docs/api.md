@@ -2335,8 +2335,8 @@ Honours `Idempotency-Key`.
 ## Dashboard
 
 The server embeds a small admin UI for the account owner. It is compiled into
-the binary — templates, two stylesheets and two small scripts, via
-`embed.FS` — and mounted outside `/v1`:
+the binary — templates, two stylesheets, two small scripts and a vendored
+htmx, via `embed.FS` — and mounted outside `/v1`:
 
 | Method | Path | What it is |
 | --- | --- | --- |

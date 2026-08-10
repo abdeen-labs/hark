@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+{{/* htmx, tuned for this surface: view transitions where the browser has
+     them; no injected indicator stylesheet, which style-src 'self' would
+     refuse anyway; no history snapshots, because these pages can carry
+     secrets and the server already says no-store — back and forward re-fetch
+     instead; and every status swaps, because a 403 or a 422 here is a
+     rendered page, not a protocol error. */}}
+<meta name="htmx-config" content='{"globalViewTransitions":true,"includeIndicatorStyles":false,"historyCacheSize":0,"responseHandling":[{"code":".*","swap":true}]}'>
 <title>{{.Title}} · Hark</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23ce2020'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,7 +18,11 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap">
 <link rel="stylesheet" href="{{.Assets.CSS}}">
 </head>
-<body>
+{{/* hx-boost turns every same-origin link and form into a fetch that swaps
+     the body in place, so switching sections never tears the document down.
+     The one opt-out is the contract page, which is its own shell with its own
+     stylesheets and must load as a document. */}}
+<body hx-boost="true">
 <div class="grain" aria-hidden="true"></div>
 
 {{if .Username}}
@@ -25,7 +36,7 @@
       <a href="{{.Paths.Devices}}"{{if eq .Section "devices"}} aria-current="page"{{end}}>Devices</a>
       <a href="{{.Paths.Tokens}}"{{if eq .Section "tokens"}} aria-current="page"{{end}}>Tokens</a>
       <a href="{{.Paths.Test}}"{{if eq .Section "test"}} aria-current="page"{{end}}>Send a test</a>
-      <a href="{{.Paths.Docs}}">API</a>
+      <a href="{{.Paths.Docs}}" hx-boost="false">API</a>
     </nav>
     <form class="topbar__out" method="post" action="{{.Paths.Logout}}">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
@@ -56,6 +67,7 @@
   </form>
 </dialog>
 
+<script src="{{.Assets.HTMX}}" defer></script>
 <script src="{{.Assets.JS}}" defer></script>
 </body>
 </html>{{end}}

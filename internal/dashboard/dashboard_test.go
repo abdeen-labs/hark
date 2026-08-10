@@ -694,6 +694,9 @@ func TestTemplatesRender(t *testing.T) {
 			if !strings.Contains(body, assets.CSS) {
 				t.Errorf("the stylesheet is not linked:\n%s", body)
 			}
+			if !strings.Contains(body, assets.HTMX) || !strings.Contains(body, `hx-boost="true"`) {
+				t.Errorf("boosted navigation is not wired:\n%s", body)
+			}
 		})
 	}
 }

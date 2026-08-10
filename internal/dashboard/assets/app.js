@@ -1,35 +1,30 @@
-// The dashboard's whole client. Four behaviours that HTML alone cannot
-// express: a confirmation before a destructive submit, copying a one-time
-// secret, keeping the overview current without a reload, and keeping "3m ago"
-// true while a page sits open. Everything else is a form post and a
-// server-rendered page.
+// The dashboard's whole client, on top of a vendored htmx. hx-boost on the
+// body does the navigation — every same-origin link and form becomes a fetch
+// and a body swap — and this file adds the four behaviours that are ours: a
+// confirmation before a destructive submit, copying a one-time secret, keeping
+// the overview current without a reload, and keeping "3m ago" true while a
+// page sits open. Everything in here is delegated or re-resolved per use, so
+// content htmx swapped in five minutes ago is as covered as the first render.
 "use strict";
 
-// Destructive forms carry data-confirm, answered by the layout's <dialog>
-// instead of window.confirm. Delegated from the document so a form rendered on
-// any page — or swapped in by the live poll — is covered without wiring
-// anything up. With scripts off the form submits unconfirmed, which is the
-// same trade the old confirm() made.
-const confirmDialog = document.querySelector("[data-confirm-dialog]");
-document.addEventListener("submit", (event) => {
-  const form = event.target;
-  const message = form.dataset ? form.dataset.confirm : null;
-  if (!message || !confirmDialog) return;
+// Destructive forms carry data-confirm, answered by the layout's <dialog>.
+// htmx fires a cancellable htmx:confirm before every request it issues, which
+// is the sanctioned seam for exactly this; intercepting submit directly would
+// race the listener htmx installs on the form itself. With scripts off the
+// form submits unconfirmed, which is the same trade window.confirm made.
+document.addEventListener("htmx:confirm", (event) => {
+  const source = event.detail.elt.closest("[data-confirm]");
+  const dialog = document.querySelector("[data-confirm-dialog]");
+  if (!source || !dialog) return;
 
-  if (form.dataset.confirmed) {
-    delete form.dataset.confirmed;
-    return;
-  }
   event.preventDefault();
-
-  confirmDialog.querySelector("[data-confirm-message]").textContent = message;
-  confirmDialog.returnValue = "";
-  confirmDialog.showModal();
-  confirmDialog.addEventListener("close", () => {
-    if (confirmDialog.returnValue === "confirm") {
-      form.dataset.confirmed = "true";
-      form.requestSubmit();
-    }
+  dialog.querySelector("[data-confirm-message]").textContent = source.dataset.confirm;
+  dialog.returnValue = "";
+  dialog.showModal();
+  dialog.addEventListener("close", () => {
+    // true: the request goes out as-is, with htmx's own confirm skipped —
+    // this dialog was it.
+    if (dialog.returnValue === "confirm") event.detail.issueRequest(true);
   }, { once: true });
 });
 
@@ -57,40 +52,40 @@ document.addEventListener("click", async (event) => {
 // The overview polls for its own dynamic half. The server renders the same
 // template block the page shipped with and answers If-None-Match with a 304,
 // so a quiet account costs headers, and a delivery shows up within a poll. A
-// hidden tab does not poll at all; coming back refreshes at once.
-const live = document.querySelector("[data-live]");
-if (live) {
-  let etag = "";
-  const refresh = async () => {
-    if (document.hidden) return;
-    let res;
-    try {
-      res = await fetch(live.dataset.live, {
-        headers: etag ? { "If-None-Match": etag } : {},
-      });
-    } catch {
-      return; // Transient network trouble; the next tick tries again.
-    }
-    // A redirect means the session expired mid-poll. Navigate rather than
-    // keep polling a sign-in page: the reload lands on the form.
-    if (res.redirected) {
-      window.location.reload();
-      return;
-    }
-    if (!res.ok) return;
-    etag = res.headers.get("ETag") || "";
-    // The body is this origin's own html/template output — the same escaped
-    // markup a reload would draw — so assigning it is as safe as the page.
-    live.innerHTML = await res.text();
-  };
-  window.setInterval(refresh, 5000);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) refresh();
-  });
-}
+// hidden tab does not poll at all; coming back refreshes at once. The target
+// is looked up every tick because boosted navigation replaces it: on any page
+// without one, a tick is a no-op.
+let liveETag = "";
+const refreshLive = async () => {
+  const live = document.querySelector("[data-live]");
+  if (!live || document.hidden) return;
+  let res;
+  try {
+    res = await fetch(live.dataset.live, {
+      headers: liveETag ? { "If-None-Match": liveETag } : {},
+    });
+  } catch {
+    return; // Transient network trouble; the next tick tries again.
+  }
+  // A redirect means the session expired mid-poll. Navigate rather than keep
+  // polling a sign-in page: the reload lands on the form.
+  if (res.redirected) {
+    window.location.reload();
+    return;
+  }
+  if (!res.ok) return;
+  liveETag = res.headers.get("ETag") || "";
+  // The body is this origin's own html/template output — the same escaped
+  // markup a reload would draw — so assigning it is as safe as the page.
+  live.innerHTML = await res.text();
+};
+window.setInterval(refreshLive, 5000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshLive();
+});
 
 // Relative times tick rather than rot. The vocabulary mirrors the server's
-// formatAgo exactly — the swap above re-renders the same strings, and the two
+// formatAgo exactly — the swaps above re-render the same strings, and the two
 // must never disagree about what "3m ago" means.
 const relative = (iso) => {
   const ms = Date.parse(iso) - Date.now();
