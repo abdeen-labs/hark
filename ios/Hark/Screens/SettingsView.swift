@@ -38,7 +38,7 @@ struct SettingsView: View {
                     }
                     row(label: "Push environment", value: AppModel.apnsEnvironment)
                     if let deviceID = model.deviceID {
-                        row(label: "Device ID", value: deviceID, mono: true)
+                        IdentifierRow(label: "Device ID", value: deviceID)
                     }
                 } header: {
                     AxisSectionHeader(title: "Connection")
@@ -92,37 +92,57 @@ struct SettingsView: View {
 
     /// A label/value row. Long-press copies the value; text selection inside a
     /// List row loses the gesture fight with the row itself, so the context
-    /// menu is the copy affordance. A mono value is an identifier that never
-    /// fits beside its label — it gets the full row width and wraps.
-    private func row(label: String, value: String, mono: Bool = false) -> some View {
-        Group {
-            if mono {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(label)
-                        .font(.subheadline)
-                        .foregroundStyle(Axis.textSecondary)
-                    Text(value)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(Axis.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } else {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(label)
-                        .font(.subheadline)
-                        .foregroundStyle(Axis.textSecondary)
-                    Spacer()
-                    Text(value)
-                        .font(.subheadline)
-                        .foregroundStyle(Axis.textPrimary)
-                        .multilineTextAlignment(.trailing)
-                }
-            }
+    /// menu is the copy affordance.
+    private func row(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(Axis.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.subheadline)
+                .foregroundStyle(Axis.textPrimary)
+                .multilineTextAlignment(.trailing)
         }
         .contentShape(Rectangle())
         .contextMenu {
             Button("Copy", systemImage: "doc.on.doc") {
                 UIPasteboard.general.string = value
+            }
+        }
+    }
+
+    /// An identifier row. A UUID is recognized by its ends and rarely needs
+    /// reading whole, so it shows middle-truncated on one line and expands on
+    /// tap. Long-press copies the full value either way.
+    private struct IdentifierRow: View {
+        let label: String
+        let value: String
+
+        @State private var expanded = false
+
+        var body: some View {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label)
+                    .font(.subheadline)
+                    .foregroundStyle(Axis.textSecondary)
+                    .layoutPriority(1)
+                Spacer()
+                Text(value)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(Axis.textPrimary)
+                    .lineLimit(expanded ? nil : 1)
+                    .truncationMode(.middle)
+                    .multilineTextAlignment(.trailing)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.snappy) { expanded.toggle() }
+            }
+            .contextMenu {
+                Button("Copy", systemImage: "doc.on.doc") {
+                    UIPasteboard.general.string = value
+                }
             }
         }
     }
