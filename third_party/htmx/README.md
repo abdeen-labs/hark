@@ -26,6 +26,8 @@ provenance file.
 1. Update every field in `htmx.provenance.json` for the new version — tarball
    URL, registry integrity/shasum, and the artifact and license SHA-256s.
 2. Run `sh scripts/vendor-htmx.sh --refresh` to fetch the pinned tarball and
-   install the verified files.
+   install the verified files. Refresh checks the archive's SHA-512 integrity
+   before extraction, then checks the asset and license SHA-256s before either
+   repository file is replaced.
 3. Update the expected values in `internal/dashboard/assets_test.go`.
 4. Commit the provenance, asset, license, and test changes together.

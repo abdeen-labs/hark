@@ -41,6 +41,7 @@ field() {
 package=$(field package)
 version=$(field version)
 tarball_url=$(field tarball_url)
+tarball_integrity=$(field tarball_integrity)
 artifact_path=$(field artifact_path)
 installed_path=$(field installed_path)
 artifact_sha256=$(field artifact_sha256)
@@ -56,6 +57,19 @@ check() {
 	[ "$got" = "$3" ] || die "$1: sha256 mismatch for $2: expected $3, got $got"
 }
 
+# check_tarball authenticates the archive before tar is allowed to parse it.
+# npm integrity values are an algorithm name plus a base64-encoded digest; this
+# vendor record deliberately pins SHA-512 rather than relying on the registry's
+# older SHA-1 shasum.
+check_tarball() {
+	case $tarball_integrity in
+	sha512-?*) expected=${tarball_integrity#sha512-} ;;
+	*) die "tarball_integrity must be a non-empty sha512 value" ;;
+	esac
+	got=$(openssl dgst -sha512 -binary "$1" | base64 | tr -d '\r\n')
+	[ "$got" = "$expected" ] || die "tarball: sha512 integrity mismatch"
+}
+
 verify() {
 	check "asset" "$root/$installed_path" "$artifact_sha256"
 	check "license" "$root/$license_installed_path" "$license_sha256"
@@ -65,12 +79,15 @@ verify() {
 refresh() {
 	command -v curl >/dev/null 2>&1 || die "refresh needs curl"
 	command -v tar >/dev/null 2>&1 || die "refresh needs tar"
+	command -v openssl >/dev/null 2>&1 || die "refresh needs openssl"
+	command -v base64 >/dev/null 2>&1 || die "refresh needs base64"
 
 	tmp=$(mktemp -d)
 	trap 'rm -rf "$tmp"' EXIT INT TERM
 
 	echo "vendor-htmx: fetching $tarball_url"
 	curl -fsSL -o "$tmp/package.tgz" "$tarball_url"
+	check_tarball "$tmp/package.tgz"
 	tar -xzf "$tmp/package.tgz" -C "$tmp" "$artifact_path" "$license_artifact_path"
 
 	# Both digests are verified before either repository file is touched, so a
