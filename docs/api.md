@@ -2277,6 +2277,14 @@ Rules a receiver can rely on:
 * **2xx means delivered.** Anything else — including a redirect, which is never
   followed, because a bearer token belongs only to the host it was issued for —
   counts as a failure.
+* **Delivery goes only to public addresses.** The `callback.url` must be a
+  public HTTPS URL when the question is asked, and the same policy is enforced
+  again whenever a connection is opened: the hostname is resolved, every
+  address in the DNS answer must be public, and the socket goes to an address
+  from that answer. An answer that includes anything private, loopback,
+  link-local or otherwise unroutable — even alongside public addresses — fails
+  the attempt, which retries on the schedule below. Delivery is direct: HTTP
+  proxies configured in the server's environment are not used.
 * **Retries are bounded.** Four retries, at 30 s, 2 min, 10 min and 1 h after
   the attempt that failed. Still failing after that, the callback is abandoned
   and the answer remains readable by polling.

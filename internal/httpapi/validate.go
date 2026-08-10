@@ -1,13 +1,14 @@
 package httpapi
 
 import (
-	"net"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/abdeen-labs/hark/internal/netpolicy"
 )
 
 // Field limits. They live here rather than in the database because a value that
@@ -203,21 +204,21 @@ func (v *validator) accentColor(field string, value *string) *string {
 // accepting a private or loopback address would turn a request into one made on
 // someone else's behalf, and accepting plain HTTP would put the traffic on the
 // wire in the clear.
+//
+// What "public" means lives in [netpolicy], on purpose: the callback worker
+// enforces the same classification against every address a hostname actually
+// resolves to when it dials, and the two checks agreeing is a security
+// property, not a convenience.
 func (v *validator) httpsURL(field string, value *string) *string {
 	raw := v.optionalText(field, value, maxURLLen)
 	if raw == nil {
 		return nil
 	}
-	if !publicHTTPSURL(*raw) {
+	if !netpolicy.PublicHTTPSURL(*raw) {
 		v.add(field, "must be a public HTTPS URL")
 		return nil
 	}
 	return raw
-}
-
-func publicHTTPSURL(raw string) bool {
-	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Host != "" && publicHost(u.Hostname())
 }
 
 // ValidAvatarURL reports whether raw — trimmed, non-empty — is acceptable as
@@ -225,7 +226,7 @@ func publicHTTPSURL(raw string) bool {
 // embedded dashboard holds its service forms to the same rule the API applies,
 // rather than growing a second opinion on what an avatar may point at.
 func ValidAvatarURL(raw string) bool {
-	return raw != "" && utf8.RuneCountInString(raw) <= maxURLLen && publicHTTPSURL(raw)
+	return raw != "" && utf8.RuneCountInString(raw) <= maxURLLen && netpolicy.PublicHTTPSURL(raw)
 }
 
 // linkURL validates a tap destination.
@@ -262,36 +263,6 @@ var blockedLinkSchemes = []string{"about", "blob", "data", "file", "javascript"}
 
 func linkSchemeAllowed(scheme string) bool {
 	return !slices.Contains(blockedLinkSchemes, strings.ToLower(scheme))
-}
-
-// publicHost reports whether a host is one the open internet can reach.
-//
-// The check is deliberately conservative and name-based as well as
-// address-based: it cannot resolve DNS (that would be a request in itself, and
-// the answer could change), so it rejects the names and literals that are
-// unroutable by definition and lets everything else through.
-func publicHost(host string) bool {
-	host = strings.ToLower(strings.Trim(host, "[]"))
-	switch {
-	case host == "", host == "localhost",
-		strings.HasSuffix(host, ".localhost"), strings.HasSuffix(host, ".local"):
-		return false
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return true // a name; only the unroutable suffixes above are refused
-	}
-	return !ip.IsLoopback() && !ip.IsPrivate() && !ip.IsUnspecified() &&
-		!ip.IsLinkLocalUnicast() && !ip.IsLinkLocalMulticast() &&
-		!ip.IsInterfaceLocalMulticast() && !ip.IsMulticast() &&
-		!isSharedAddressSpace(ip)
-}
-
-// isSharedAddressSpace covers RFC 6598 carrier-grade NAT, which net.IP does not
-// classify but which is as unreachable from the internet as RFC 1918 is.
-func isSharedAddressSpace(ip net.IP) bool {
-	v4 := ip.To4()
-	return v4 != nil && v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127
 }
 
 func lengthMessage(minLen, maxLen int) string {

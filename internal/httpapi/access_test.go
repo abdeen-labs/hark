@@ -369,12 +369,15 @@ func TestPaginationRejectsForeignCursors(t *testing.T) {
 
 // TestURLValidationRefusesUnreachableHosts pins the rule that keeps a
 // notification from turning the phone, or the server, into a client of the
-// caller's own network.
+// caller's own network. The classification itself lives in netpolicy — the
+// callback worker applies the same one at dial time — and this table is what
+// proves the validator still delegates to it.
 func TestURLValidationRefusesUnreachableHosts(t *testing.T) {
 	accepted := []string{
 		"https://example.com/a.png",
 		"https://cdn.example.co.uk:8443/a.png",
 		"https://8.8.8.8/a.png",
+		"https://[2606:4700:4700::1111]/a.png",
 	}
 	for _, raw := range accepted {
 		var v validator
@@ -393,6 +396,12 @@ func TestURLValidationRefusesUnreachableHosts(t *testing.T) {
 		"https://169.254.169.254/latest/meta-data",
 		"https://100.64.0.1/a.png",
 		"https://[::1]/a.png",
+		"https://0.0.0.0/a.png",
+		"https://224.0.0.1/a.png",
+		"https://[fe80::1]/a.png",
+		"https://[fd00::1]/a.png",
+		"https://[ff02::1]/a.png",
+		"https://[::ffff:192.168.0.1]/a.png",
 		"ftp://example.com/a.png",
 	}
 	for _, raw := range refused {

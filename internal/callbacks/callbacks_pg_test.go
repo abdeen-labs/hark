@@ -3,6 +3,7 @@ package callbacks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/abdeen-labs/hark/internal/db"
 	"github.com/abdeen-labs/hark/internal/id"
+	"github.com/abdeen-labs/hark/internal/netpolicy"
 	"github.com/abdeen-labs/hark/internal/secret"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -656,6 +658,13 @@ func TestCallbackDoesNotFollowRedirects(t *testing.T) {
 
 	in := answeredWithCallback(ctx, t, store, receiver.URL, "a-secret-bearer-token")
 	worker := New(Options{Store: store, Secrets: testKeeper})
+	// The production client is the subject here — its CheckRedirect is what
+	// must refuse — but its dial policy would turn the loopback receiver away
+	// before any request existed. Removing just the dialer keeps every other
+	// production property in play; nil falls back to the transport's plain
+	// net.Dialer. The dial policy has its own tests in netpolicy and in
+	// TestDefaultClientConstruction.
+	worker.client.Transport.(*http.Transport).DialContext = nil
 
 	if _, err := worker.RunOnce(ctx); err != nil {
 		t.Fatal(err)
@@ -669,6 +678,45 @@ func TestCallbackDoesNotFollowRedirects(t *testing.T) {
 	}
 	if stored.CallbackStatus == nil || *stored.CallbackStatus != db.CallbackRetrying {
 		t.Errorf("a redirect settled as %v, want a failed attempt", stored.CallbackStatus)
+	}
+}
+
+// TestDefaultClientConstruction pins the production client's posture — the one
+// main gets by leaving Options.Client nil — without a database or a network:
+// no environment proxy, a dialer installed, TLS verification untouched,
+// redirects refused, the worker timeout applied. That the dialer is the
+// netpolicy one is then proven by behaviour rather than function identity: a
+// loopback literal must be refused with the policy's own error before any
+// socket exists.
+func TestDefaultClientConstruction(t *testing.T) {
+	w := New(Options{Store: &db.Store{}, Secrets: testKeeper})
+
+	transport, ok := w.client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("transport is %T, want *http.Transport", w.client.Transport)
+	}
+	if transport.Proxy != nil {
+		t.Error("the default client would honour proxy environment variables")
+	}
+	if transport.DialContext == nil {
+		t.Error("no dialer is installed on the default transport")
+	}
+	if transport.TLSClientConfig != nil && transport.TLSClientConfig.InsecureSkipVerify {
+		t.Error("TLS certificate verification is disabled")
+	}
+	if w.client.CheckRedirect == nil {
+		t.Error("the default client would follow redirects")
+	}
+	if w.client.Timeout != RequestTimeout {
+		t.Errorf("client timeout = %v, want %v", w.client.Timeout, RequestTimeout)
+	}
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "https://127.0.0.1:9/hook", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.client.Do(req); !errors.Is(err, netpolicy.ErrNotPublic) {
+		t.Errorf("dialing loopback failed with %v, want netpolicy.ErrNotPublic", err)
 	}
 }
 

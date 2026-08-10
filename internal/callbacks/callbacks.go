@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/abdeen-labs/hark/internal/db"
+	"github.com/abdeen-labs/hark/internal/netpolicy"
 	"github.com/abdeen-labs/hark/internal/secret"
 )
 
@@ -92,7 +93,11 @@ type Options struct {
 	Secrets *secret.Keeper
 	// Logger receives delivery outcomes. Nil discards them.
 	Logger *slog.Logger
-	// Client sends the requests. Nil builds one that refuses redirects.
+	// Client sends the requests. Nil builds the production client: it refuses
+	// redirects, ignores proxy environment variables, and opens sockets only
+	// to public addresses approved by [netpolicy] at dial time. A non-nil
+	// Client is a trusted override — tests use one to reach loopback
+	// receivers — and bypasses that dial policy entirely.
 	Client *http.Client
 	// Now is the clock, for tests. Nil uses time.Now. Deliveries run
 	// concurrently, so it is called from more than one goroutine.
@@ -144,8 +149,21 @@ func New(opts Options) *Worker {
 		opts.Now = time.Now
 	}
 	if opts.Client == nil {
+		// The default transport's pooling and timeouts are kept by cloning it —
+		// never by mutating the shared global — and then two things change.
+		// Proxy goes: an environment proxy would resolve and connect to the
+		// target itself, outside the dial policy below. And every socket is
+		// opened by the netpolicy dialer, which resolves the hostname once,
+		// requires every address in the answer to be public, and dials one of
+		// those vetted literals. TLS is deliberately untouched: the handshake
+		// still verifies the certificate against the URL's hostname, even
+		// though the socket underneath was dialed by IP.
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.Proxy = nil
+		transport.DialContext = (&netpolicy.Dialer{}).DialContext
 		opts.Client = &http.Client{
-			Timeout: RequestTimeout,
+			Timeout:   RequestTimeout,
+			Transport: transport,
 			// A redirect is not followed: the bearer token is the receiver's own
 			// credential, and a 302 to somewhere else would hand it over.
 			CheckRedirect: func(*http.Request, []*http.Request) error {
