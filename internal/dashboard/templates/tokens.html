@@ -38,12 +38,16 @@
 
     <fieldset class="field">
       <legend class="field__label">Scopes</legend>
+      <p class="field__hint">Choose only what this token needs. You can revoke it at any time.</p>
       <div class="checks">
         {{$form := .Form}}
         {{range .Scopes}}
-        <label class="check">
+        <label class="check check--scope">
           <input type="checkbox" name="scopes" value="{{.}}"{{if has $form.Scopes .}} checked{{end}}>
-          <span class="mono">{{.}}</span>
+          <span class="check__copy">
+            <span class="mono check__name">{{.}}</span>
+            <span class="check__description">{{scopeDescription .}}</span>
+          </span>
         </label>
         {{end}}
       </div>

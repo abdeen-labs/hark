@@ -29,6 +29,36 @@ var Scopes = []string{
 	ScopeServicesRead, ScopeServicesWrite,
 }
 
+// ScopeDescription explains a scope in the language shown to the person
+// granting it. Keep these descriptions about capabilities rather than HTTP
+// methods: they appear on both the token form and the device-grant approval
+// screen, where a person should not have to consult the API contract to make a
+// security decision.
+func ScopeDescription(scope string) string {
+	switch scope {
+	case ScopeActivitiesRead:
+		return "View Live Activities and their delivery state."
+	case ScopeActivitiesWrite:
+		return "Start, update, and end Live Activities."
+	case ScopeDevicesRead:
+		return "View registered devices and their capabilities."
+	case ScopeEventsRead:
+		return "View webhook notification delivery history and errors."
+	case ScopeInteractionsNew:
+		return "Ask questions and cancel pending questions; asking also needs notifications:send."
+	case ScopeInteractionsRead:
+		return "View questions, their status, and their answers."
+	case ScopeNotificationsNew:
+		return "Send one-shot push notifications."
+	case ScopeServicesRead:
+		return "View configured webhook services and their defaults; webhook credentials stay hidden."
+	case ScopeServicesWrite:
+		return "Create, change, and delete webhook services and their related history."
+	default:
+		return ""
+	}
+}
+
 // ValidScope reports whether s is a known scope.
 func ValidScope(s string) bool { return slices.Contains(Scopes, s) }
 

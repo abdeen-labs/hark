@@ -61,10 +61,11 @@ func TestApprovalPageShowsWhatTheClientIsAskingFor(t *testing.T) {
 
 	body := rec.Body.String()
 	for _, want := range []string{
-		"harkctl on studio",      // who is asking
-		db.ScopeNotificationsNew, // and for what
-		"ABCD-EFGH",              // which request this is
-		`value="approve"`,        // the two decisions
+		"harkctl on studio",                           // who is asking
+		db.ScopeNotificationsNew,                      // and for what
+		db.ScopeDescription(db.ScopeNotificationsNew), // what that permission means
+		"ABCD-EFGH",                                   // which request this is
+		`value="approve"`,                             // the two decisions
 		`value="deny"`,
 	} {
 		if !strings.Contains(body, want) {

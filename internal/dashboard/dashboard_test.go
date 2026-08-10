@@ -235,6 +235,23 @@ func TestAnAPITokenIsNotASession(t *testing.T) {
 	}
 }
 
+func TestTokenPageExplainsEveryScope(t *testing.T) {
+	d, _ := newTestDashboard(t)
+	rec := send(d, signedIn(http.MethodGet, pathTokens, ""))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
+	}
+
+	body := rec.Body.String()
+	for _, scope := range db.Scopes {
+		for _, want := range []string{scope, db.ScopeDescription(scope)} {
+			if !strings.Contains(body, want) {
+				t.Errorf("the token page does not show %q", want)
+			}
+		}
+	}
+}
+
 // TestFormsRequireACSRFToken walks every mutating route without a token. The
 // handlers behind them are never reached, which is also why none of them needs
 // a database.

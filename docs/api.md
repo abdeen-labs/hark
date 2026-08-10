@@ -335,13 +335,19 @@ pairing request. The one thing it can do to itself is retire itself, through
 
 #### Scopes
 
-A token carries a subset of these nine strings. Anything else is rejected.
+A token carries a subset of these nine scopes. Anything else is rejected.
 
-```
-activities:read     activities:write    devices:read
-events:read         interactions:create interactions:read
-notifications:send  services:read       services:write
-```
+| Scope | Allows the token to |
+| --- | --- |
+| `activities:read` | View Live Activities and their delivery state. |
+| `activities:write` | Start, update, and end Live Activities. |
+| `devices:read` | View registered devices and their capabilities. |
+| `events:read` | View webhook notification delivery history and errors. |
+| `interactions:create` | Ask questions and cancel pending questions. Asking also requires `notifications:send`, because the question is pushed to a device. |
+| `interactions:read` | View questions, their status, and their answers. |
+| `notifications:send` | Send one-shot push notifications. |
+| `services:read` | View configured webhook services and their defaults. Webhook credentials are redacted for API tokens. |
+| `services:write` | Create, change, and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. |
 
 Scope lists are stored deduplicated and sorted, so a request for
 `["services:read","interactions:read","services:read"]` reads back as

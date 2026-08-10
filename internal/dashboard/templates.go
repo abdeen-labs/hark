@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/abdeen-labs/hark/internal/db"
 )
 
 //go:embed templates/*.html
@@ -46,12 +48,13 @@ func mustParse(page string) *template.Template {
 // plain field: the pages read the store's own types, so a view model exists
 // only where the page genuinely computes something.
 var funcs = template.FuncMap{
-	"when":  formatWhen,
-	"iso":   formatISO,
-	"ago":   formatAgo,
-	"text":  text,
-	"has":   slices.Contains[[]string, string],
-	"title": titleCase,
+	"when":             formatWhen,
+	"iso":              formatISO,
+	"ago":              formatAgo,
+	"text":             text,
+	"has":              slices.Contains[[]string, string],
+	"title":            titleCase,
+	"scopeDescription": db.ScopeDescription,
 }
 
 // em is the dash shown wherever a value is absent. One character, one meaning:

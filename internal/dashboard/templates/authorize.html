@@ -28,7 +28,11 @@
         <tr>
           <th>Scopes</th>
           <td>
-            {{range .RequestedScopes}}<span class="pill pill--kind mono">{{.}}</span>
+            {{range .RequestedScopes}}
+            <div class="scope-definition">
+              <code>{{.}}</code>
+              <span>{{scopeDescription .}}</span>
+            </div>
             {{else}}<span class="muted">None — the token could read and send nothing.</span>{{end}}
           </td>
         </tr>
