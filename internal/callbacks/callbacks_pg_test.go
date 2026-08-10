@@ -3,6 +3,7 @@ package callbacks
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -100,9 +101,16 @@ func withSearchPath(raw, schema string) string {
 
 var testKeeper = secret.NewKeeper([]byte("callback-test-root-key-long-enough"))
 
-// answeredWithCallback creates a question that asked to be told the answer, and
-// answers it — which is the state the worker picks rows up in.
-func answeredWithCallback(ctx context.Context, t *testing.T, s *db.Store, callbackURL, token string) db.Interaction {
+// fixture is the single account and service the worker tests share. It is
+// split from the questions themselves because Hark is single-user — CreateFirst
+// refuses a second account — while the concurrency tests need several answered
+// questions under the one that exists.
+type fixture struct {
+	user    db.User
+	service db.Service
+}
+
+func newFixture(ctx context.Context, t *testing.T, s *db.Store) *fixture {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Millisecond)
 
@@ -120,8 +128,18 @@ func answeredWithCallback(ctx context.Context, t *testing.T, s *db.Store, callba
 	if err != nil {
 		t.Fatalf("create the service: %v", err)
 	}
+	return &fixture{user: *user, service: *service}
+}
+
+// answered creates a question that asked to be told the answer, and answers
+// it — which is the state the worker picks rows up in. Each call makes its own
+// event, because an event carries at most one interaction.
+func (f *fixture) answered(ctx context.Context, t *testing.T, s *db.Store, callbackURL, token string) db.Interaction {
+	t.Helper()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+
 	event, err := s.Events.Create(ctx, db.CreateEventParams{
-		ID: id.New(), ServiceID: service.ID, Title: "CI", Body: "Deploy?",
+		ID: id.New(), ServiceID: f.service.ID, Title: "CI", Body: "Deploy?",
 		Priority: db.PriorityNormal, Status: db.EventAccepted, Now: now,
 	})
 	if err != nil {
@@ -133,7 +151,7 @@ func answeredWithCallback(ctx context.Context, t *testing.T, s *db.Store, callba
 		t.Fatalf("seal the callback token: %v", err)
 	}
 	in, err := s.Interactions.Create(ctx, db.CreateInteractionParams{
-		ID: id.New(), UserID: user.ID, RequesterServiceID: &service.ID, EventID: &event.ID,
+		ID: id.New(), UserID: f.user.ID, RequesterServiceID: &f.service.ID, EventID: &event.ID,
 		Title: "CI", Prompt: "Deploy to production?", Kind: db.InteractionApproval,
 		Presentation: db.PresentationNotification, Choices: db.ChoicesFor(db.InteractionApproval),
 		CorrelationID: ptr("deploy-4821"), ActionDigest: "digest",
@@ -145,7 +163,7 @@ func answeredWithCallback(ctx context.Context, t *testing.T, s *db.Store, callba
 	}
 
 	answered, err := s.Interactions.Respond(ctx, db.RespondParams{
-		ID: in.ID, UserID: user.ID, Status: db.InteractionApproved,
+		ID: in.ID, UserID: f.user.ID, Status: db.InteractionApproved,
 		Response: ptr("approve"), TriggerCallback: true, Now: now,
 	})
 	if err != nil {
@@ -154,8 +172,320 @@ func answeredWithCallback(ctx context.Context, t *testing.T, s *db.Store, callba
 	return *answered
 }
 
+// answeredWithCallback is the single-question shorthand the original tests use.
+func answeredWithCallback(ctx context.Context, t *testing.T, s *db.Store, callbackURL, token string) db.Interaction {
+	t.Helper()
+	return newFixture(ctx, t, s).answered(ctx, t, s, callbackURL, token)
+}
+
 func newWorker(s *db.Store, client *http.Client) *Worker {
 	return New(Options{Store: s, Secrets: testKeeper, Client: client})
+}
+
+// testWorker builds a worker with an explicit slot count and short guard
+// timeouts. The guards never elapse in a passing run — the tests coordinate
+// with channels, not clocks — they only stop a broken run from taking the full
+// production ten seconds to fail. The lease stays a full minute on purpose:
+// these tests hold requests open, and the lease existing to protect held work
+// is exactly what they are checking.
+func testWorker(s *db.Store, client *http.Client, slots int) *Worker {
+	w := New(Options{Store: s, Secrets: testKeeper, Client: client})
+	w.claimLimit = slots
+	w.requestTimeout = 2 * time.Second
+	w.settleTimeout = 2 * time.Second
+	w.lease = time.Minute
+	return w
+}
+
+// runResult carries a RunOnce return value out of a goroutine.
+type runResult struct {
+	n   int
+	err error
+}
+
+// TestConcurrentDeliveriesAreBounded pins both halves of the slot invariant:
+// one pass starts exactly claimLimit deliveries at once — never more — and the
+// rows beyond the limit were never claimed at all, so the next pass picks them
+// up rather than finding them leased and idle.
+func TestConcurrentDeliveriesAreBounded(t *testing.T) {
+	ctx, store := requireStore(t)
+
+	const slots = 2
+	const rows = 3
+
+	var (
+		mu       sync.Mutex
+		inflight int
+		peak     int
+		hits     int
+	)
+	started := make(chan struct{}, rows)
+	release := make(chan struct{})
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Drained so a failure path that cancels these requests is noticed by
+		// the server and the handler's context escape below actually fires.
+		_, _ = io.Copy(io.Discard, r.Body)
+		mu.Lock()
+		inflight++
+		hits++
+		if inflight > peak {
+			peak = inflight
+		}
+		mu.Unlock()
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+		mu.Lock()
+		inflight--
+		mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer receiver.Close()
+
+	fx := newFixture(ctx, t, store)
+	created := make([]db.Interaction, 0, rows)
+	for range rows {
+		created = append(created, fx.answered(ctx, t, store, receiver.URL, "a-secret-bearer-token"))
+	}
+
+	worker := testWorker(store, receiver.Client(), slots)
+
+	first := make(chan runResult, 1)
+	go func() {
+		n, err := worker.RunOnce(ctx)
+		first <- runResult{n, err}
+	}()
+
+	// Exactly `slots` deliveries begin...
+	for i := range slots {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("delivery %d never started", i+1)
+		}
+	}
+	// ...and none beyond them while both slots are held. The quiet window is
+	// the "never more" assertion: a third request here would mean a row was
+	// claimed with nowhere to run.
+	select {
+	case <-started:
+		t.Fatal("a delivery beyond the slot count started before release")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+	select {
+	case r := <-first:
+		if r.err != nil || r.n != slots {
+			t.Fatalf("first pass = (%d, %v), want %d deliveries started", r.n, r.err, slots)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("RunOnce did not return after its requests were released")
+	}
+
+	// The remainder was never claimed, so the next pass takes it immediately.
+	if n, err := worker.RunOnce(ctx); err != nil || n != rows-slots {
+		t.Fatalf("second pass = (%d, %v), want the remaining %d", n, err, rows-slots)
+	}
+	if n, err := worker.RunOnce(ctx); err != nil || n != 0 {
+		t.Fatalf("third pass = (%d, %v), want an empty queue", n, err)
+	}
+
+	for _, in := range created {
+		stored, err := store.Interactions.ByID(ctx, in.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.CallbackStatus == nil || *stored.CallbackStatus != db.CallbackDelivered {
+			t.Errorf("interaction %s = %v, want delivered", in.ID, stored.CallbackStatus)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if peak != slots {
+		t.Errorf("peak in-flight requests = %d, want exactly %d", peak, slots)
+	}
+	if hits != rows {
+		t.Errorf("receiver saw %d requests, want %d", hits, rows)
+	}
+}
+
+// TestLeasedRowsAreNotReclaimedByASecondWorker holds worker A's requests open —
+// well inside its lease — and shows worker B a queue with nothing due. This is
+// the regression the slot-sized claim exists for: work in flight is invisible
+// to a replica until the lease says the holder is dead.
+func TestLeasedRowsAreNotReclaimedByASecondWorker(t *testing.T) {
+	ctx, store := requireStore(t)
+
+	const rows = 2
+
+	var (
+		mu    sync.Mutex
+		perID = map[string]int{}
+	)
+	started := make(chan struct{}, rows)
+	release := make(chan struct{})
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			InteractionID string `json:"interaction_id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		// Drained past the decoded value for the same close-detection reason as
+		// the other held-request tests.
+		_, _ = io.Copy(io.Discard, r.Body)
+		mu.Lock()
+		perID[body.InteractionID]++
+		mu.Unlock()
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer receiver.Close()
+
+	fx := newFixture(ctx, t, store)
+	created := make([]db.Interaction, 0, rows)
+	for range rows {
+		created = append(created, fx.answered(ctx, t, store, receiver.URL, "a-secret-bearer-token"))
+	}
+
+	workerA := testWorker(store, receiver.Client(), rows)
+	workerB := testWorker(store, receiver.Client(), rows)
+
+	aDone := make(chan runResult, 1)
+	go func() {
+		n, err := workerA.RunOnce(ctx)
+		aDone <- runResult{n, err}
+	}()
+
+	for i := range rows {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("worker A's delivery %d never started", i+1)
+		}
+	}
+
+	// A is mid-flight and its lease is live, so B has nothing to take.
+	if n, err := workerB.RunOnce(ctx); err != nil || n != 0 {
+		t.Fatalf("worker B = (%d, %v), want zero claims while A holds the lease", n, err)
+	}
+
+	close(release)
+	select {
+	case r := <-aDone:
+		if r.err != nil || r.n != rows {
+			t.Fatalf("worker A = (%d, %v), want %d deliveries", r.n, r.err, rows)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker A did not return after its requests were released")
+	}
+
+	for _, in := range created {
+		stored, err := store.Interactions.ByID(ctx, in.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.CallbackStatus == nil || *stored.CallbackStatus != db.CallbackDelivered {
+			t.Errorf("interaction %s = %v, want delivered", in.ID, stored.CallbackStatus)
+		}
+		if stored.CallbackAttempts != 1 {
+			t.Errorf("interaction %s took %d attempts, want 1", in.ID, stored.CallbackAttempts)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	for interactionID, n := range perID {
+		if n != 1 {
+			t.Errorf("interaction %s was delivered %d times, want once", interactionID, n)
+		}
+	}
+	if len(perID) != rows {
+		t.Errorf("the receiver saw %d distinct interactions, want %d", len(perID), rows)
+	}
+}
+
+// TestCanceledRunSettlesStartedRowsAndKeepsLeases cancels the pass while its
+// requests are in flight. RunOnce must still return, and every row it started
+// must be settled — the settle context outlives the cancellation on purpose —
+// with a retry on the schedule rather than a row stranded mid-lease.
+func TestCanceledRunSettlesStartedRowsAndKeepsLeases(t *testing.T) {
+	ctx, store := requireStore(t)
+
+	const rows = 2
+
+	started := make(chan struct{}, rows)
+	receiver := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		// Drained first: with the body unread the server never watches for the
+		// client hanging up, so r.Context() would outlive the abandoned request
+		// and Close would wait forever on a handler nobody is coming back for.
+		_, _ = io.Copy(io.Discard, r.Body)
+		started <- struct{}{}
+		// Held until the canceled client abandons the request; nothing is ever
+		// delivered in this test.
+		<-r.Context().Done()
+	}))
+	defer receiver.Close()
+
+	fx := newFixture(ctx, t, store)
+	created := make([]db.Interaction, 0, rows)
+	for range rows {
+		created = append(created, fx.answered(ctx, t, store, receiver.URL, "a-secret-bearer-token"))
+	}
+
+	worker := testWorker(store, receiver.Client(), rows)
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	res := make(chan runResult, 1)
+	go func() {
+		n, err := worker.RunOnce(runCtx)
+		res <- runResult{n, err}
+	}()
+
+	for i := range rows {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("delivery %d never started", i+1)
+		}
+	}
+	cancel()
+
+	var got runResult
+	select {
+	case got = <-res:
+	case <-time.After(5 * time.Second):
+		t.Fatal("RunOnce did not return after its context was canceled")
+	}
+	if got.err != nil || got.n != rows {
+		t.Fatalf("RunOnce = (%d, %v), want every started row accounted for", got.n, got.err)
+	}
+
+	for _, in := range created {
+		stored, err := store.Interactions.ByID(ctx, in.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stored.CallbackStatus == nil || *stored.CallbackStatus != db.CallbackRetrying {
+			t.Errorf("interaction %s = %v, want retrying", in.ID, stored.CallbackStatus)
+		}
+		if stored.CallbackAttempts != 1 {
+			t.Errorf("interaction %s recorded %d attempts, want 1", in.ID, stored.CallbackAttempts)
+		}
+		if stored.CallbackNextAttemptAt == nil {
+			t.Errorf("interaction %s has no retry scheduled", in.ID)
+		}
+		if stored.CallbackLastError == nil || *stored.CallbackLastError == "" {
+			t.Errorf("interaction %s recorded no failure", in.ID)
+		}
+	}
 }
 
 func TestCallbackIsDeliveredOnce(t *testing.T) {

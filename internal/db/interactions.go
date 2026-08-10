@@ -464,7 +464,14 @@ func (s *Interactions) Delete(ctx context.Context, id, userID string) (bool, err
 // every callback twice.
 //
 // A worker that crashes mid-flight loses nothing: the lease simply expires and
-// the row becomes due again.
+// the row becomes due again. Delivery therefore stays at-least-once, never
+// exactly-once — a crash between sending and settling legitimately repeats a
+// callback, which is why receivers must treat interaction_id as idempotent.
+//
+// Callers should ask only for what they can start immediately: the lease clock
+// runs from the claim, so a row claimed into a queue spends its lease standing
+// still, and one that outlives the lease is handed to the next worker while
+// the first is still holding it.
 func (s *Interactions) ClaimDueCallbacks(ctx context.Context, now time.Time, limit int, lease time.Duration) ([]Interaction, error) {
 	const q = `
 		WITH due AS (

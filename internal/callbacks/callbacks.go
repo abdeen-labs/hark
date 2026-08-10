@@ -21,6 +21,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/abdeen-labs/hark/internal/db"
@@ -31,14 +32,25 @@ const (
 	// Interval is how often the worker looks for due callbacks on its own. An
 	// answer normally goes out well before this: answering nudges the worker.
 	Interval = 30 * time.Second
-	// BatchSize caps one pass. A pass that fills it runs again immediately.
-	BatchSize = 20
+	// Concurrency is how many callbacks one pass claims, and exactly how many
+	// it delivers at once. The claim is a lease, so the two are one number on
+	// purpose: a pass that claimed more rows than it could start would leave
+	// the rest leased and idle, and a slow batch would outlive its own lease —
+	// which is how a second worker ends up delivering the same answer twice.
+	// Four clears a realistic backlog quickly while keeping a slow receiver
+	// from tying up more than four connections. A pass that fills every slot
+	// runs again immediately.
+	Concurrency = 4
 	// RequestTimeout bounds one delivery attempt.
 	RequestTimeout = 10 * time.Second
+	// SettleTimeout bounds recording what happened to an attempt. It is named
+	// separately from RequestTimeout because the two spend the same lease back
+	// to back: the budget a claimed row consumes is their sum, not their max.
+	SettleTimeout = 10 * time.Second
 	// leaseDuration is how long a claimed row is hidden from other workers. It
-	// comfortably exceeds RequestTimeout so a row still in flight is never
-	// handed to a second worker; a process that dies holding one loses at most
-	// this long.
+	// comfortably exceeds one whole delivery — request plus settlement — so a
+	// row still in flight is never handed to a second worker; a process that
+	// dies holding one loses at most this long.
 	leaseDuration = 60 * time.Second
 	// userAgent identifies these requests in a receiver's access log.
 	userAgent = "Hark-Callbacks/1"
@@ -52,6 +64,14 @@ const (
 	// business depending on the HTTP layer.
 	timestampLayout = "2006-01-02T15:04:05.000Z"
 )
+
+// The lease inequality, enforced at compile time: a claimed row must finish
+// one request and the settle that records it strictly inside the lease, with
+// room to spare, or a slow-but-alive worker would watch a replica reclaim rows
+// it is still delivering. This conversion refuses to compile unless the lease
+// is more than double the worst-case delivery path — the doubling is the
+// margin. Anyone changing one of these constants changes this line's mind too.
+const _ = uint64(leaseDuration - 2*(RequestTimeout+SettleTimeout) - 1)
 
 // backoff is the delay before attempt n+1, indexed by the attempt that just
 // failed. Running off the end is what makes a callback permanently failed:
@@ -74,7 +94,8 @@ type Options struct {
 	Logger *slog.Logger
 	// Client sends the requests. Nil builds one that refuses redirects.
 	Client *http.Client
-	// Now is the clock, for tests. Nil uses time.Now.
+	// Now is the clock, for tests. Nil uses time.Now. Deliveries run
+	// concurrently, so it is called from more than one goroutine.
 	Now func() time.Time
 }
 
@@ -85,6 +106,23 @@ type Worker struct {
 	log     *slog.Logger
 	client  *http.Client
 	now     func() time.Time
+
+	// The timing knobs live on the worker rather than being read straight from
+	// the constants so package tests can shrink them deterministically. New
+	// fills them from the constants; production has no other constructor.
+	//
+	// claimLimit is both how many rows one pass claims and how many deliveries
+	// it runs at once — never split those meanings. A claim is a lease, and a
+	// row claimed into a queue burns its lease standing still.
+	claimLimit int
+	// requestTimeout bounds one outbound request and settleTimeout bounds
+	// recording its outcome. Their sum is the lease budget one row spends, so
+	// lease must stay strictly larger with margin — the compile-time check on
+	// the constants pins that for production values.
+	requestTimeout time.Duration
+	settleTimeout  time.Duration
+	lease          time.Duration
+
 	// nudge carries at most one pending wake-up: a burst of answers is one
 	// extra pass, not one pass each.
 	nudge chan struct{}
@@ -116,12 +154,16 @@ func New(opts Options) *Worker {
 		}
 	}
 	return &Worker{
-		store:   opts.Store,
-		secrets: opts.Secrets,
-		log:     opts.Logger,
-		client:  opts.Client,
-		now:     opts.Now,
-		nudge:   make(chan struct{}, 1),
+		store:          opts.Store,
+		secrets:        opts.Secrets,
+		log:            opts.Logger,
+		client:         opts.Client,
+		now:            opts.Now,
+		claimLimit:     Concurrency,
+		requestTimeout: RequestTimeout,
+		settleTimeout:  SettleTimeout,
+		lease:          leaseDuration,
+		nudge:          make(chan struct{}, 1),
 	}
 }
 
@@ -137,7 +179,8 @@ func (w *Worker) Nudge() {
 // Run delivers due callbacks until ctx is canceled.
 //
 // It sweeps once on entry, then on every tick and every nudge. Only this
-// goroutine delivers, so passes cannot overlap with themselves.
+// goroutine claims, so passes cannot overlap with themselves; the concurrency
+// inside a pass belongs to RunOnce, which waits for every delivery it starts.
 func (w *Worker) Run(ctx context.Context) {
 	ticker := time.NewTicker(Interval)
 	defer ticker.Stop()
@@ -154,8 +197,8 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
-// drain runs passes until one comes back short, so a backlog larger than a
-// batch does not have to wait a tick per batch.
+// drain runs passes until one comes back short, so a backlog larger than one
+// pass does not have to wait a tick per pass.
 func (w *Worker) drain(ctx context.Context) {
 	for ctx.Err() == nil {
 		delivered, err := w.RunOnce(ctx)
@@ -165,26 +208,45 @@ func (w *Worker) drain(ctx context.Context) {
 			w.log.ErrorContext(ctx, "claiming due callbacks failed", "error", err)
 			return
 		}
-		if delivered < BatchSize {
+		// A short pass means the backlog is gone. The max guards a zeroed-out
+		// test limit: a worker with no slots must idle here, not spin.
+		if delivered < max(w.claimLimit, 1) {
 			return
 		}
 	}
 }
 
-// RunOnce claims one batch and delivers it, reporting how many rows it handled.
+// RunOnce claims at most one pass's worth of due callbacks and delivers them
+// concurrently, reporting how many deliveries it started. The claim is sized
+// to the slots that can start right now, so nothing it returns ever waits
+// leased behind a busy slot. It returns only claim errors; each delivery
+// records its own outcome, and RunOnce does not return until every delivery
+// it started has settled.
 func (w *Worker) RunOnce(ctx context.Context) (int, error) {
-	due, err := w.store.Interactions.ClaimDueCallbacks(ctx, w.now(), BatchSize, leaseDuration)
+	if w.claimLimit < 1 {
+		// No slots means nothing to claim. Returning zero rather than asking
+		// the store for a zero-row batch keeps a misconfigured worker inert
+		// instead of erroring or spinning.
+		return 0, nil
+	}
+	due, err := w.store.Interactions.ClaimDueCallbacks(ctx, w.now(), w.claimLimit, w.lease)
 	if err != nil {
 		return 0, fmt.Errorf("callbacks: claim: %w", err)
 	}
+	var wg sync.WaitGroup
+	started := 0
 	for _, in := range due {
 		if ctx.Err() != nil {
-			// Whatever is left keeps its lease and comes back on its own.
+			// Whatever was claimed but not started keeps its lease and comes
+			// back on its own. It is not counted as handled: a canceled pass
+			// must read as short, never as full.
 			break
 		}
-		w.deliverOne(ctx, in)
+		started++
+		wg.Go(func() { w.deliverOne(ctx, in) })
 	}
-	return len(due), nil
+	wg.Wait()
+	return started, nil
 }
 
 // deliverOne posts one answer and records what happened to it.
@@ -208,7 +270,7 @@ func (w *Worker) deliverOne(ctx context.Context, in db.Interaction) {
 
 	// The settle runs on a context of its own: the request has already been
 	// made, and losing the record of it to a shutdown would deliver it twice.
-	settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), RequestTimeout)
+	settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), w.settleTimeout)
 	defer cancel()
 	if _, err := w.store.Interactions.SettleCallback(settleCtx, settle); err != nil {
 		w.log.ErrorContext(ctx, "recording a callback attempt failed",
@@ -269,7 +331,7 @@ func (w *Worker) post(ctx context.Context, in db.Interaction) error {
 		return fmt.Errorf("building the callback body failed: %w", err)
 	}
 
-	reqCtx, cancel := context.WithTimeout(ctx, RequestTimeout)
+	reqCtx, cancel := context.WithTimeout(ctx, w.requestTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, *in.CallbackURL, bytes.NewReader(body))
