@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -132,11 +133,37 @@ type interactionResponse struct {
 	Message    *string `json:"message"`
 }
 
-// handleListInteractions pages the account's questions, newest first.
+// interactionForPrincipal reads one question with the caller's own reach: a
+// session reads anything on the account, an API token reads only the questions
+// it asked itself. Anything outside that reach — another token's question, a
+// webhook service's, an unknown id — is the same [db.ErrNotFound], so a foreign
+// id is indistinguishable from one that never existed.
+func (s *server) interactionForPrincipal(ctx context.Context, principal *auth.Principal, id string) (*db.Interaction, error) {
+	if principal.IsAPIToken() {
+		return s.store().Interactions.ByIDForToken(ctx, id, principal.APIToken.ID)
+	}
+	return s.store().Interactions.ByIDForUser(ctx, id, principal.UserID())
+}
+
+// cancelInteractionForPrincipal withdraws a question with the same reach as
+// [server.interactionForPrincipal]: a session cancels any pending question on
+// the account, an API token only what it asked itself.
+func (s *server) cancelInteractionForPrincipal(ctx context.Context, principal *auth.Principal, id string, now time.Time) (*db.Interaction, error) {
+	if principal.IsAPIToken() {
+		return s.store().Interactions.CancelForToken(ctx, id, principal.APIToken.ID, now)
+	}
+	return s.store().Interactions.CancelForUser(ctx, id, principal.UserID(), now)
+}
+
+// handleListInteractions pages the caller's questions, newest first.
 //
 // `status=pending` — the default — is the inbox: what is still waiting for an
 // answer. Expired questions are filtered out rather than expired here, because a
 // phone opening its inbox should not resolve every stale prompt at once.
+//
+// A session pages the account-wide inbox. An API token pages only the questions
+// it asked itself: another integration's questions are not its business, and a
+// webhook service's are not either.
 func (s *server) handleListInteractions(w http.ResponseWriter, r *http.Request) {
 	query, ok := s.parseList(w, r)
 	if !ok {
@@ -157,13 +184,17 @@ func (s *server) handleListInteractions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	principal := auth.PrincipalFrom(r.Context())
-	page, err := s.store().Interactions.List(r.Context(), db.ListInteractionsParams{
+	params := db.ListInteractionsParams{
 		UserID:      principal.UserID(),
 		PendingOnly: pendingOnly,
 		Now:         s.now(),
 		Cursor:      query.Cursor,
 		Limit:       query.Limit,
-	})
+	}
+	if principal.IsAPIToken() {
+		params.RequesterTokenID = &principal.APIToken.ID
+	}
+	page, err := s.store().Interactions.List(r.Context(), params)
 	if err != nil {
 		s.writeInternal(w, r, "listing interactions failed", err)
 		return
@@ -188,6 +219,9 @@ func (s *server) handleListInteractions(w http.ResponseWriter, r *http.Request) 
 // hammering the endpoint, and gets the answer the moment it lands. It always
 // returns 200 — a question that is still pending when the wait runs out is an
 // answer to "what is it doing", not an error.
+//
+// A session reads any question on the account; an API token reads only its own
+// (§ interactionForPrincipal), and a foreign id 404s before any waiting starts.
 func (s *server) handleGetInteraction(w http.ResponseWriter, r *http.Request) {
 	wait, ok := s.parseWait(w, r)
 	if !ok {
@@ -195,7 +229,7 @@ func (s *server) handleGetInteraction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	principal := auth.PrincipalFrom(r.Context())
-	in, err := s.store().Interactions.ByIDForUser(r.Context(), r.PathValue("id"), principal.UserID())
+	in, err := s.interactionForPrincipal(r.Context(), principal, r.PathValue("id"))
 	if err != nil {
 		s.writeStoreError(w, r, "interaction", err)
 		return
@@ -215,7 +249,10 @@ func (s *server) handleGetInteraction(w http.ResponseWriter, r *http.Request) {
 		case <-time.After(waitInterval):
 		}
 
-		fresh, err := s.store().Interactions.ByIDForUser(r.Context(), in.ID, principal.UserID())
+		// The refresh re-reads with the caller's own reach, same as the first
+		// read: a loop that widened to the whole account would hand an API
+		// token exactly the bypass the first read refused.
+		fresh, err := s.interactionForPrincipal(r.Context(), principal, in.ID)
 		if err != nil {
 			s.writeStoreError(w, r, "interaction", err)
 			return
@@ -729,13 +766,15 @@ func (s *server) writeAlreadyAnswered(w http.ResponseWriter, r *http.Request, in
 
 // handleCancelInteraction withdraws a question.
 //
-// The owner can always withdraw a question addressed to them, whoever asked it:
-// an agent that crashed after asking should not be able to leave a prompt on the
-// Lock Screen until it expires.
+// The owner's session can withdraw any question addressed to them, whoever
+// asked it: an agent that crashed after asking should not be able to leave a
+// prompt on the Lock Screen until it expires. An API token withdraws only the
+// questions it asked itself (§ cancelInteractionForPrincipal) — anybody else's
+// is the same 404 as an id that never existed.
 func (s *server) handleCancelInteraction(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 
-	canceled, err := s.store().Interactions.CancelForUser(r.Context(), r.PathValue("id"), principal.UserID(), s.now())
+	canceled, err := s.cancelInteractionForPrincipal(r.Context(), principal, r.PathValue("id"), s.now())
 	switch {
 	case err == nil:
 		s.resolveInteractionActivity(r, *canceled)
@@ -746,9 +785,11 @@ func (s *server) handleCancelInteraction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// The guard did not match: either there is no such question, or it is no
-	// longer pending.
-	current, err := s.store().Interactions.ByIDForUser(r.Context(), r.PathValue("id"), principal.UserID())
+	// The guard did not match: either there is no such question within the
+	// caller's reach, or it is no longer pending. The re-read uses the same
+	// reach as the cancel, so a foreign question stays a plain 404 rather than
+	// leaking its current status through the conflict message.
+	current, err := s.interactionForPrincipal(r.Context(), principal, r.PathValue("id"))
 	if err != nil {
 		s.writeStoreError(w, r, "interaction", err)
 		return

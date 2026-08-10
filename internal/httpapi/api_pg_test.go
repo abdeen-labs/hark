@@ -512,6 +512,144 @@ func TestOnlyTheOwnerMayAnswerAQuestion(t *testing.T) {
 	}
 }
 
+// TestAPITokenInteractionIsolation pins the requester boundary: an API token
+// lists, reads, long-polls and cancels only the questions it asked itself,
+// while the owner's session keeps the account-wide inbox. A foreign id — the
+// other token's question, a webhook service's, or one that never existed — is
+// the same 404 everywhere, so the surface confirms nothing it does not own.
+func TestAPITokenInteractionIsolation(t *testing.T) {
+	f := newFixture(t, fixtureOptions{})
+	f.registerDevice(strings.Repeat("a7", 32))
+
+	// A second, independently authenticated agent credential.
+	var minted createTokenResponse
+	f.expect(http.MethodPost, "/v1/tokens", f.session,
+		`{"name":"other-agent","scopes":["interactions:create","interactions:read","notifications:send"]}`,
+		http.StatusCreated, &minted)
+	tokenB := minted.Secret
+
+	// A webhook service asks one question too.
+	_, hook := f.createService("Release")
+	var hookAsked webhookNotifyResponse
+	f.expect(http.MethodPost, hook, "", `{"body":"Deploy to production?","response":{"kind":"approval"}}`,
+		http.StatusCreated, &hookAsked)
+	if hookAsked.Response == nil {
+		t.Fatal("the webhook carried a response block but produced no question")
+	}
+	hookID := hookAsked.Response.InteractionID
+
+	ask := func(credential, prompt string) string {
+		t.Helper()
+		var asked interactionResponse
+		f.expect(http.MethodPost, "/v1/interactions", credential,
+			`{"title":"agent","prompt":"`+prompt+`","kind":"approval"}`,
+			http.StatusCreated, &asked)
+		return asked.Interaction.ID
+	}
+	bID := ask(tokenB, "B's question")
+	a1 := ask(f.token, "A's first")
+	a2 := ask(f.token, "A's second")
+	a3 := ask(f.token, "A's third")
+
+	// Token A's list is its own questions only, and the cursor keeps the
+	// filter: page two continues token A's rows, never drifting account-wide.
+	var first interactionListResponse
+	f.expect(http.MethodGet, "/v1/interactions?limit=2", f.token, "", http.StatusOK, &first)
+	if len(first.Interactions) != 2 || first.NextCursor == nil {
+		t.Fatalf("page 1 = %d items, next_cursor %v; want 2 items and a cursor", len(first.Interactions), first.NextCursor)
+	}
+	var second interactionListResponse
+	f.expect(http.MethodGet, "/v1/interactions?limit=2&cursor="+*first.NextCursor, f.token, "",
+		http.StatusOK, &second)
+	if len(second.Interactions) != 1 || second.NextCursor != nil {
+		t.Fatalf("page 2 = %d items, next_cursor %v; want token A's last item and no cursor", len(second.Interactions), second.NextCursor)
+	}
+	mine := map[string]bool{a1: true, a2: true, a3: true}
+	for _, item := range append(first.Interactions, second.Interactions...) {
+		if !mine[item.ID] {
+			t.Errorf("token A's list leaked %s; it asked only %v", item.ID, []string{a1, a2, a3})
+		}
+		delete(mine, item.ID)
+	}
+	for id := range mine {
+		t.Errorf("token A's list is missing its own %s", id)
+	}
+
+	// Token B sees exactly its one question.
+	var bList interactionListResponse
+	f.expect(http.MethodGet, "/v1/interactions", tokenB, "", http.StatusOK, &bList)
+	if len(bList.Interactions) != 1 || bList.Interactions[0].ID != bID {
+		t.Fatalf("token B's list = %+v, want only its own question", bList.Interactions)
+	}
+
+	// The session's inbox is account-wide: both tokens' questions and the
+	// webhook service's.
+	var inbox interactionListResponse
+	f.expect(http.MethodGet, "/v1/interactions", f.session, "", http.StatusOK, &inbox)
+	if len(inbox.Interactions) != 5 {
+		t.Fatalf("session inbox = %d items, want all 5", len(inbox.Interactions))
+	}
+
+	// Another requester's question reads as if it did not exist.
+	for _, foreign := range []string{bID, hookID} {
+		rec := f.request(http.MethodGet, "/v1/interactions/"+foreign, f.token, "")
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("token A read %s: status = %d, want 404: %s", foreign, rec.Code, rec.Body)
+		}
+		if got := decodeError(t, rec); got.Error.Code != CodeNotFound {
+			t.Errorf("code = %q, want %q", got.Error.Code, CodeNotFound)
+		}
+	}
+
+	// A long poll on a foreign id refuses immediately: no waiting out the
+	// clock, and no revealing whether the question is pending or answered.
+	start := time.Now()
+	rec := f.request(http.MethodGet, "/v1/interactions/"+bID+"?wait_seconds=10", f.token, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("foreign long poll: status = %d, want 404: %s", rec.Code, rec.Body)
+	}
+	if got := decodeError(t, rec); got.Error.Code != CodeNotFound {
+		t.Errorf("code = %q, want %q", got.Error.Code, CodeNotFound)
+	}
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Errorf("foreign long poll took %v, want an immediate refusal", elapsed)
+	}
+
+	// Token A cannot cancel B's question, and the refusal changes nothing.
+	rec = f.request(http.MethodPost, "/v1/interactions/"+bID+"/cancel", f.token, "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("foreign cancel: status = %d, want 404: %s", rec.Code, rec.Body)
+	}
+	if got := decodeError(t, rec); got.Error.Code != CodeNotFound {
+		t.Errorf("code = %q, want %q", got.Error.Code, CodeNotFound)
+	}
+	var current interactionReadResponse
+	f.expect(http.MethodGet, "/v1/interactions/"+bID, f.session, "", http.StatusOK, &current)
+	if current.Interaction.Status != db.InteractionPending {
+		t.Fatalf("B's question = %q after A's refused cancel, want still pending", current.Interaction.Status)
+	}
+
+	// Within its own reach the token keeps full authority: read and withdraw.
+	f.expect(http.MethodGet, "/v1/interactions/"+a3, f.token, "", http.StatusOK, &current)
+	f.expect(http.MethodPost, "/v1/interactions/"+a3+"/cancel", f.token, "", http.StatusOK, &current)
+	if current.Interaction.Status != db.InteractionCanceled {
+		t.Fatalf("token A canceling its own question = %q, want canceled", current.Interaction.Status)
+	}
+
+	// The session's authority is unchanged: it reads and cancels either
+	// token's question, and the webhook service's.
+	f.expect(http.MethodGet, "/v1/interactions/"+hookID, f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodGet, "/v1/interactions/"+a1, f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodPost, "/v1/interactions/"+bID+"/cancel", f.session, "", http.StatusOK, &current)
+	if current.Interaction.Status != db.InteractionCanceled {
+		t.Fatalf("session canceling B's question = %q, want canceled", current.Interaction.Status)
+	}
+	f.expect(http.MethodPost, "/v1/interactions/"+a2+"/cancel", f.session, "", http.StatusOK, &current)
+	if current.Interaction.Status != db.InteractionCanceled {
+		t.Fatalf("session canceling A's question = %q, want canceled", current.Interaction.Status)
+	}
+}
+
 // TestInteractionDigestBindsTheAnswerToTheQuestion pins the guard that stops a
 // phone showing a stale prompt from answering the one that replaced it.
 func TestInteractionDigestBindsTheAnswerToTheQuestion(t *testing.T) {

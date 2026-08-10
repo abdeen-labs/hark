@@ -274,6 +274,12 @@ func (s *Interactions) ByIdempotencyKey(ctx context.Context, tokenID, key string
 // ListInteractionsParams pages the account's questions.
 type ListInteractionsParams struct {
 	UserID string
+	// RequesterTokenID scopes the page to the caller's own questions. Nil is
+	// the account-wide session view; non-nil returns only rows whose
+	// requester_token_id equals that token, which excludes service-requested
+	// questions along with every other token's. UserID still filters in both
+	// cases, as defense in depth.
+	RequesterTokenID *string
 	// PendingOnly keeps the inbox: questions still awaiting an answer and not
 	// yet past their deadline.
 	PendingOnly bool
@@ -297,15 +303,16 @@ func (s *Interactions) List(ctx context.Context, p ListInteractionsParams) (Page
 		LEFT JOIN services sv  ON sv.id = i.requester_service_id
 		LEFT JOIN api_tokens t ON t.id  = i.requester_token_id
 		WHERE i.user_id = $1
-		  AND (NOT $2::boolean OR (i.status = 'pending' AND i.expires_at > $3))
-		  AND ($4::timestamptz IS NULL OR (i.created_at, i.id) < ($4, $5))
+		  AND ($2::text IS NULL OR i.requester_token_id = $2)
+		  AND (NOT $3::boolean OR (i.status = 'pending' AND i.expires_at > $4))
+		  AND ($5::timestamptz IS NULL OR (i.created_at, i.id) < ($5, $6))
 		ORDER BY i.created_at DESC, i.id DESC
-		LIMIT $6`
+		LIMIT $7`
 
 	limit := ClampLimit(p.Limit)
 	at, id := p.Cursor.args()
 	rows, err := queryAll[InteractionListItem](ctx, s.q, "list interactions", q,
-		p.UserID, p.PendingOnly, Millis(p.Now), at, id, limit+1)
+		p.UserID, p.RequesterTokenID, p.PendingOnly, Millis(p.Now), at, id, limit+1)
 	if err != nil {
 		return Page[InteractionListItem]{}, err
 	}

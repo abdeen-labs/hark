@@ -1488,6 +1488,10 @@ request and quietly dropping half of it.
 The inbox. **Session, or a token with `interactions:read`.**
 [Paged](#pagination).
 
+A session lists the account-wide inbox. An API token lists only the questions
+it asked itself: rows created by another token or by a webhook service are
+absent from every page, cursors included.
+
 | Parameter | Default | Notes |
 | --- | --- | --- |
 | `status` | `pending` | `pending` — still awaiting an answer and not past its deadline. `all` — every question, newest first. |
@@ -1506,6 +1510,11 @@ phone opening its inbox should not resolve every stale prompt at once.
 ### `GET /v1/interactions/{id}`
 
 One question. **Session, or a token with `interactions:read`.**
+
+A session reads any question on the account; an API token reads only questions
+created by that exact token. Anything outside that — another token's question,
+a webhook service's, an id that never existed — is the same `404 not_found`,
+with or without a wait.
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
@@ -1563,13 +1572,16 @@ notification action that is tapped twice must not report an error.
 Withdraws a question. **Session, or a token with `interactions:create`.** No
 request body.
 
-The owner can always withdraw a question addressed to them, whoever asked it: an
-agent that crashed after asking should not be able to leave a prompt on the Lock
-Screen until it expires.
+A session can always withdraw a question addressed to the account, whoever
+asked it: an agent that crashed after asking should not be able to leave a
+prompt on the Lock Screen until it expires. An API token withdraws only
+questions created by that exact token — another requester's question, a webhook
+service's included, answers the same `404 not_found` as an unknown id and stays
+pending.
 
 **200 OK** — `{ "interaction": { … } }` with `status: "canceled"`.
 `409 conflict` when it is no longer pending; `404 not_found` when there is no
-such question.
+such question within the caller's reach.
 
 ---
 

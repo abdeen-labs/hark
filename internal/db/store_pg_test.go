@@ -932,6 +932,126 @@ func TestInteractionRequesterExclusivity(t *testing.T) {
 	}
 }
 
+// TestInteractionListIsScopedToTheRequestingToken pins the list filter that
+// keeps one integration from reading another's questions. A nil requester is
+// the session's account-wide view; a token id narrows every page — cursors
+// included — to the rows that token asked, so neither another token's
+// questions nor a webhook service's ever appear.
+func TestInteractionListIsScopedToTheRequestingToken(t *testing.T) {
+	ctx, s := requireStore(t)
+	user := mustUser(ctx, t, s, "ali")
+	tokA := mustToken(ctx, t, s, user.ID)
+	tokB := mustToken(ctx, t, s, user.ID)
+	svc := mustService(ctx, t, s, user.ID, "Deploy bot")
+	base := time.Now()
+
+	create := func(seq int, tokenID, serviceID *string) *Interaction {
+		t.Helper()
+		i, err := s.Interactions.Create(ctx, CreateInteractionParams{
+			ID: id.New(), UserID: user.ID, RequesterTokenID: tokenID, RequesterServiceID: serviceID,
+			Title: "t", Prompt: "p", Kind: InteractionApproval, Presentation: PresentationNotification,
+			Choices: ChoicesFor(InteractionApproval), ActionDigest: "digest",
+			ExpiresAt: base.Add(time.Hour), Now: base.Add(time.Duration(seq) * time.Second),
+		})
+		if err != nil {
+			t.Fatalf("create interaction %d: %v", seq, err)
+		}
+		return i
+	}
+
+	a1 := create(1, &tokA.ID, nil)
+	a2 := create(2, &tokA.ID, nil)
+	create(3, &tokB.ID, nil)
+	create(4, nil, &svc.ID)
+	a3 := create(5, &tokA.ID, nil)
+	// One of token A's questions is answered, so the pending filter has
+	// something of token A's own to exclude.
+	answered := create(6, &tokA.ID, nil)
+	if _, err := s.Interactions.Respond(ctx, RespondParams{
+		ID: answered.ID, UserID: user.ID, Status: InteractionApproved,
+		Response: ptr("approve"), Now: base,
+	}); err != nil {
+		t.Fatalf("respond: %v", err)
+	}
+
+	now := base.Add(10 * time.Second)
+
+	// A nil requester is the session's view: every question on the account.
+	all, err := s.Interactions.List(ctx, ListInteractionsParams{UserID: user.ID, Now: now, Limit: 50})
+	if err != nil {
+		t.Fatalf("list account-wide: %v", err)
+	}
+	if len(all.Items) != 6 {
+		t.Fatalf("account-wide list = %d items, want all 6", len(all.Items))
+	}
+
+	// Token A's filter is walked page by page, with a limit small enough to
+	// force the cursor to carry the filter across requests.
+	wantIDs := map[string]bool{a1.ID: true, a2.ID: true, a3.ID: true, answered.ID: true}
+	var cursor Cursor
+	pages := 0
+	seen := 0
+	for {
+		page, err := s.Interactions.List(ctx, ListInteractionsParams{
+			UserID: user.ID, RequesterTokenID: &tokA.ID, Now: now, Cursor: cursor, Limit: 2,
+		})
+		if err != nil {
+			t.Fatalf("list for token A, page %d: %v", pages+1, err)
+		}
+		pages++
+		for _, item := range page.Items {
+			seen++
+			if item.RequesterTokenID == nil || *item.RequesterTokenID != tokA.ID {
+				t.Errorf("page %d leaked %s (requester token %v, service %v)",
+					pages, item.ID, item.RequesterTokenID, item.RequesterServiceID)
+				continue
+			}
+			if !wantIDs[item.ID] {
+				t.Errorf("page %d repeated or invented %s", pages, item.ID)
+			}
+			delete(wantIDs, item.ID)
+		}
+		if !page.HasMore() {
+			break
+		}
+		cursor = page.Next
+	}
+	if pages < 2 {
+		t.Errorf("4 rows paged with limit 2 took %d page(s), want at least 2", pages)
+	}
+	if seen != 4 {
+		t.Errorf("token A saw %d rows, want its 4", seen)
+	}
+	for id := range wantIDs {
+		t.Errorf("token A's list is missing its own %s", id)
+	}
+
+	// The status filter composes with the requester filter.
+	pending, err := s.Interactions.List(ctx, ListInteractionsParams{
+		UserID: user.ID, RequesterTokenID: &tokA.ID, PendingOnly: true, Now: now, Limit: 50,
+	})
+	if err != nil {
+		t.Fatalf("list pending for token A: %v", err)
+	}
+	if len(pending.Items) != 3 {
+		t.Fatalf("token A's pending inbox = %d items, want 3", len(pending.Items))
+	}
+	for _, item := range pending.Items {
+		if item.Status != InteractionPending {
+			t.Errorf("pending list carries %s in status %q", item.ID, item.Status)
+		}
+	}
+
+	// A token id alone is not enough: the wrong owner reads nothing, even with
+	// a filter that matches real rows.
+	stranger := mustUser(ctx, t, s, "mallory")
+	if page, err := s.Interactions.List(ctx, ListInteractionsParams{
+		UserID: stranger.ID, RequesterTokenID: &tokA.ID, Now: now, Limit: 50,
+	}); err != nil || len(page.Items) != 0 {
+		t.Fatalf("foreign owner = (%d items, %v), want none", len(page.Items), err)
+	}
+}
+
 func TestCallbackClaimLeases(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")

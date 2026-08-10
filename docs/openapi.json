@@ -229,6 +229,7 @@
     "/v1/interactions": {
       "get": {
         "tags": ["Interactions"], "summary": "List interactions", "operationId": "listInteractions",
+        "description": "A session lists the account-wide inbox. An API token lists only the questions it asked itself: rows created by another token or by a webhook service are absent from every page, cursors included.",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:read"],
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Status" }],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
@@ -245,6 +246,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
         "tags": ["Interactions"], "summary": "Get an interaction", "operationId": "getInteraction",
+        "description": "A session reads any question on the account; an API token reads only questions created by that exact token. Another requester's question is the same 404 not_found as an unknown id, with or without a wait.",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:read"],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
@@ -262,6 +264,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
         "tags": ["Interactions"], "summary": "Cancel a pending interaction", "operationId": "cancelInteraction",
+        "description": "A session withdraws any pending question on the account, whoever asked it. An API token withdraws only questions created by that exact token; another requester's answers the same 404 not_found as an unknown id and stays pending.",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:create"],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
