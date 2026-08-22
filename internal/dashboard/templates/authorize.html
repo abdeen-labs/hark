@@ -63,7 +63,7 @@
     {{if $.Pending}}
     <p class="grant__warning">Approve this only if you started it. If the code arrived any other way — a
       message, a page you did not open — deny it.</p>
-    <form method="post" action="{{$.Paths.Authorize}}" class="row row--actions">
+    <form method="post" action="{{$.Paths.Authorize}}" class="row row--actions" hx-disabled-elt="[name=decision]">
       <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
       <input type="hidden" name="code" value="{{.UserCode}}">
       <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve <span class="arrow">→</span></button>
@@ -84,7 +84,7 @@
   </div>
   <div class="module__body">
     <p class="module__note">The client printed the code, usually as <span class="mono">XXXX-XXXX</span>.</p>
-    <form method="post" action="{{.Paths.Authorize}}" class="row row--controls">
+    <form method="post" action="{{.Paths.Authorize}}" class="row row--controls" hx-disabled-elt="find button[type=submit]">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <label class="field field--tight">
         <span class="field__label">Code</span>

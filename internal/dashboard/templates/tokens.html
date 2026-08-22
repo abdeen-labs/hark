@@ -32,7 +32,7 @@
       <h2 class="module__label"><span class="module__index">02</span>Mint a token</h2>
     </div>
     <div class="module__body">
-      <form method="post" action="{{.Paths.Tokens}}" class="stack">
+      <form method="post" action="{{.Paths.Tokens}}" class="stack" hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <div class="row">
@@ -108,7 +108,8 @@
             <td class="cell--right cell--actions">
               {{if .Active $now}}
               <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/revoke"
-                    data-confirm="Revoke this token? Anything using it stops working immediately.">
+                    data-confirm="Revoke this token? Anything using it stops working immediately."
+                    hx-disabled-elt="find button[type=submit]">
                 <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
                 <button class="btn btn--danger btn--sm" type="submit">Revoke</button>
               </form>

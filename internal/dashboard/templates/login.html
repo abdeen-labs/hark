@@ -20,7 +20,7 @@
       </div>
       <div class="module__body">
         <h1 class="h-ui">Sign in</h1>
-        <form method="post" action="{{.Paths.Login}}" class="stack">
+        <form method="post" action="{{.Paths.Login}}" class="stack" hx-disabled-elt="find button[type=submit]">
           <input type="hidden" name="csrf_token" value="{{.CSRF}}">
           <input type="hidden" name="next" value="{{.Next}}">
 

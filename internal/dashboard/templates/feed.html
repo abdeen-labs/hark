@@ -3,12 +3,12 @@
 {{define "feed-list"}}
 <ul class="feed">
   {{range .}}
-  <li class="feed__item">
+  <li class="feed__item" id="feed-{{.ID}}">
     <span class="feed__index meta" aria-hidden="true"></span>
     <time class="feed__time meta" datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time>
     <div class="feed__body">
       <div class="feed__head">
-        {{with text .SourceImageURL}}<img class="avatar" src="{{.}}" alt="" loading="lazy">{{end}}
+        {{with text .SourceImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}
         <span class="feed__source">{{.SourceName}}</span>
         <span class="tag tag--kind">{{title .Kind}}</span>
         {{with text .Status}}<span class="tag tag--state tag--{{.}}">{{title .}}</span>{{end}}

@@ -43,7 +43,7 @@
       <h2 class="module__label"><span class="module__index">01</span>New service</h2>
     </div>
     <div class="module__body">
-      <form method="post" action="{{.Paths.Services}}" class="stack">
+      <form method="post" action="{{.Paths.Services}}" class="stack" hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <label class="field">
@@ -96,7 +96,7 @@
           <tr data-service="{{.ID}}">
             <td class="cell--index"></td>
             <td class="cell--strong">
-              {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="" loading="lazy">{{end}}{{.Title}}
+              {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}{{.Title}}
             </td>
             <td><span class="tag tag--kind">{{title .Priority}}</span></td>
             <td class="cell--clamp">{{with text .URL}}<span class="mono muted" title="{{.}}">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}</td>

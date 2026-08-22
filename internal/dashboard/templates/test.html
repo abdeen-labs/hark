@@ -17,7 +17,7 @@
       <h2 class="module__label"><span class="module__index">01</span>Transmission</h2>
     </div>
     <div class="module__body">
-      <form method="post" action="{{.Paths.Test}}" class="stack">
+      <form method="post" action="{{.Paths.Test}}" class="stack" hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <div class="row">

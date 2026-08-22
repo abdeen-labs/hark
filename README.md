@@ -83,6 +83,11 @@ export HARK_ADMIN_PASSWORD='choose-something-long'
 go run ./cmd/harkd
 ```
 
+For hacking on the dashboard, `sh scripts/dev.sh` does all of that against a
+throwaway PostgreSQL container on port 54318, seeds it with
+[`scripts/demo-seed.py`](scripts/demo-seed.py) the first time, and signs you
+in as `admin` / `hark-dev-password`.
+
 Migrations run automatically at startup. A database that is unreachable, or a
 configuration that does not validate, fails the process immediately with a
 single diagnostic line on stderr — the server never starts half-configured.
@@ -349,12 +354,13 @@ new name.
 Every endpoint added or changed must be documented in [`docs/api.md`](docs/api.md)
 in the same change.
 
-The dashboard's one third-party asset, htmx, is vendored — no npm, no build
-step. Its exact version and digests are pinned in
-[`internal/dashboard/assets/htmx.provenance.json`](internal/dashboard/assets/htmx.provenance.json);
-`sh scripts/vendor-htmx.sh --verify` checks the checked-in files against those
-pins offline, and `--refresh` re-fetches the pinned tarball. See
-[`third_party/htmx/README.md`](third_party/htmx/README.md).
+The dashboard's two third-party assets, htmx and idiomorph, are vendored — no
+npm, no build step. Each one's exact version and digests are pinned in
+`internal/dashboard/assets/<name>.provenance.json`;
+`sh scripts/vendor-assets.sh --verify` checks the checked-in files against
+those pins offline, and `--refresh` re-fetches the pinned tarballs. See
+[`third_party/htmx/README.md`](third_party/htmx/README.md) and
+[`third_party/idiomorph/README.md`](third_party/idiomorph/README.md).
 
 ---
 

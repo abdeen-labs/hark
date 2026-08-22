@@ -254,6 +254,9 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 /* Chrome -------------------------------------------------------------------- */
 
 .mast {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
 }
@@ -340,6 +343,30 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   border-left: 1px solid var(--line);
 }
 .mast__user { color: var(--ink-faint); }
+
+/* The request line: a signal stroke along the top edge while a navigation or
+ * a submission is in flight. It waits 120 ms before it shows, so a response
+ * that arrives quickly never flashes it, and it lives on the body because the
+ * body is the one element a swap does not replace. */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  width: 100%;
+  height: 2px;
+  background: var(--signal);
+  transform: scaleX(0);
+  transform-origin: left;
+  opacity: 0;
+  pointer-events: none;
+}
+body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwards; }
+@keyframes request-line {
+  from { transform: scaleX(0); opacity: 1; }
+  to { transform: scaleX(0.82); opacity: 1; }
+}
 
 /* Column ticks under the mast: one mark per grid column. */
 .ruler {
@@ -708,6 +735,8 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   height: 20px;
   margin-right: 10px;
   border-radius: var(--r-xs);
+  outline: 1px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -1px;
   object-fit: cover;
   vertical-align: -5px;
   background: var(--surface-3);
@@ -918,12 +947,16 @@ select.input {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
 }
 .btn:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); text-decoration: none; }
 .btn:hover .arrow { transform: translateX(4px); }
 .btn:hover .arrow--back { transform: translateX(-4px); }
-.btn:disabled { background: transparent; border-color: var(--line); color: var(--ink-disabled); cursor: not-allowed; }
+.btn:active { transform: scale(0.96); }
+.btn:disabled:not([data-disabled-by-htmx]) { background: transparent; border-color: var(--line); color: var(--ink-disabled); cursor: not-allowed; }
+/* htmx disables the submitting button for the life of its request. That is a
+ * control at work, not one that is unavailable: it keeps its colours. */
+.btn[data-disabled-by-htmx] { opacity: 0.6; cursor: progress; transform: none; }
 .btn--primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
 .btn--primary:hover { background: var(--signal-hover); border-color: var(--signal-hover); color: var(--on-signal); }
 .btn--ghost { border-color: transparent; color: var(--ink-subtle); }
@@ -1009,6 +1042,10 @@ select.input {
   color: var(--ink-muted);
 }
 .confirm::backdrop { background: rgba(0, 0, 0, 0.62); }
+.confirm[open] { animation: confirm-in var(--t-fast) var(--ease); }
+.confirm[open]::backdrop { animation: backdrop-in var(--t-fast) var(--ease); }
+@keyframes confirm-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+@keyframes backdrop-in { from { opacity: 0; } }
 .confirm form { padding: 18px 20px 20px; }
 .confirm__label { margin: 0 0 10px; }
 .confirm__message { margin: 0 0 20px; color: var(--ink); font-size: 15px; line-height: 1.45; text-wrap: pretty; }
@@ -1189,6 +1226,8 @@ select.input {
   .live__dot { animation: none; }
   .arrow, .nav a::before, .tabs a::after, .btn, .input, .check input { transition: none; }
   .btn:hover .arrow, .btn:hover .arrow--back, .module__more:hover .arrow { transform: none; }
+  .confirm[open], .confirm[open]::backdrop { animation: none; }
+  body.htmx-request::after { animation-duration: 0s; }
 }
 
 /* Narrow viewports ---------------------------------------------------------------- */

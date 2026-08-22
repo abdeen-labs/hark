@@ -31,7 +31,8 @@
         <div class="secret__actions">
           <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
           <form method="post" action="{{$.Paths.Services}}/{{$.Service.ID}}/rotate"
-                data-confirm="Rotate this webhook URL? The current one stops working immediately.">
+                data-confirm="Rotate this webhook URL? The current one stops working immediately."
+                hx-disabled-elt="find button[type=submit]">
             <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
             <button class="btn" type="submit">Rotate</button>
           </form>
@@ -41,7 +42,8 @@
       <p class="module__note">The stored URL could not be read back. The service still works for whatever
         holds its token — rotate to mint a URL you can see.</p>
       <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/rotate"
-            data-confirm="Rotate this webhook URL? The current one stops working immediately.">
+            data-confirm="Rotate this webhook URL? The current one stops working immediately."
+            hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <button class="btn" type="submit">Rotate URL</button>
       </form>
@@ -55,7 +57,7 @@
       <span class="meta">Fill in what a request leaves out</span>
     </div>
     <div class="module__body">
-      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}" class="stack">
+      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}" class="stack" hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <div class="row">
@@ -128,7 +130,8 @@
       <p class="module__note">Deleting a service takes its history with it: every delivery, every question it
         asked, and every Live Activity it ran.</p>
       <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/delete"
-            data-confirm="Delete {{.Service.Title}}? Its whole delivery history goes with it.">
+            data-confirm="Delete {{.Service.Title}}? Its whole delivery history goes with it."
+            hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <button class="btn btn--danger" type="submit">Delete service</button>
       </form>

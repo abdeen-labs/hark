@@ -5,14 +5,6 @@
  * document needs — a measure you can read, an outline beside it, and the
  * prose elements the dashboard never renders. */
 
-/* The document's navigation stays in reach throughout the long reference.
- * Only this page loads this stylesheet, so the dashboard's mast is unchanged. */
-.mast {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
 .docs-formats { display: flex; align-items: center; gap: 2px; }
 .docs-formats a {
   display: inline-flex;

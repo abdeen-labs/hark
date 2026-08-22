@@ -4,25 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-{{/* htmx, tuned for this surface: view transitions where the browser has
-     them; no injected indicator stylesheet, which style-src 'self' would
-     refuse anyway; no history snapshots, because these pages can carry
-     secrets and the server already says no-store — back and forward re-fetch
-     instead; and every status swaps, because a 403 or a 422 here is a
-     rendered page, not a protocol error. */}}
-<meta name="htmx-config" content='{"globalViewTransitions":true,"includeIndicatorStyles":false,"historyCacheSize":0,"responseHandling":[{"code":".*","swap":true}]}'>
+{{/* htmx, tuned for this surface: no injected indicator stylesheet, which
+     style-src 'self' would refuse anyway; no history snapshots, because these
+     pages can carry secrets and the server already says no-store — back and
+     forward re-fetch instead; and every status swaps, because a 403 or a 422
+     here is a rendered page, not a protocol error. */}}
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0,"responseHandling":[{"code":".*","swap":true}]}'>
 <title>{{.Title}} · Hark</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ce2020'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
 <link rel="stylesheet" href="{{.Assets.CSS}}">
+{{/* The scripts live in the head: htmx drops a response's head before it
+     swaps the body in, so these run once for the life of the document rather
+     than again on every navigation. */}}
+<script src="{{.Assets.HTMX}}" defer></script>
+<script src="{{.Assets.Morph}}" defer></script>
+<script src="{{.Assets.JS}}" defer></script>
 </head>
 {{/* hx-boost turns every same-origin link and form into a fetch that swaps
      the body in place, so switching sections never tears the document down.
      The one opt-out is the contract page, which is its own shell with its own
-     stylesheets and must load as a document. */}}
-<body hx-boost="true">
+     stylesheets and must load as a document. While a request is in flight the
+     body carries htmx-request, which draws the progress line; each form
+     disables its own submit button for the duration, so a second click cannot
+     send twice. */}}
+<body hx-boost="true" hx-indicator="body">
 
 {{if .SignedIn}}
 <header class="mast">
@@ -37,7 +45,7 @@
       <a href="{{.Paths.Test}}"{{if eq .Section "test"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">06</span>Send a test</a>
       <a href="{{.Paths.Docs}}" hx-boost="false"><span class="nav__index" aria-hidden="true">07</span>API</a>
     </nav>
-    <form class="mast__out" method="post" action="{{.Paths.Logout}}">
+    <form class="mast__out" method="post" action="{{.Paths.Logout}}" hx-disabled-elt="find button[type=submit]">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <span class="mast__user meta">{{.Username}}</span>
       <button class="btn btn--ghost btn--sm" type="submit">Sign out</button>
@@ -71,7 +79,5 @@
   </form>
 </dialog>
 
-<script src="{{.Assets.HTMX}}" defer></script>
-<script src="{{.Assets.JS}}" defer></script>
 </body>
 </html>{{end}}
