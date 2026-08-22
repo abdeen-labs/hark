@@ -2,12 +2,12 @@
 //  SettingsView.swift
 //  Hark
 //
-//  Account, session, server, sign out. No password change UI — that is the
-//  dashboard's job.
+//  The spec sheet for this installation: the route a push takes, the
+//  account, the connection, and the one hazardous control. No password
+//  change UI — that is the dashboard's job.
 //
 
 import SwiftUI
-import UIKit
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
@@ -16,140 +16,138 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    row(label: "Username", value: model.user?.username ?? "—")
-                    if let email = model.user?.email, !email.isEmpty {
-                        row(label: "Email", value: email)
+            VStack(spacing: 0) {
+                head
+                Hairline()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        route
+                            .padding(.top, 24)
+                        account
+                        connection
+                        session
+                        foot
                     }
-                    if let created = model.user?.createdAt {
-                        row(label: "Member since", value: created.formatted(date: .abbreviated, time: .omitted))
-                    }
-                } header: {
-                    AxisSectionHeader(title: "Account")
+                    .padding(.horizontal, Axis.gutter)
+                    .padding(.bottom, 24)
                 }
-                .listRowBackground(Axis.plate)
-                .listRowSeparatorTint(Axis.stroke)
+            }
+            .toolbarVisibility(.hidden, for: .navigationBar)
+        }
+    }
 
-                Section {
-                    row(label: "Server", value: model.serverURL.absoluteString)
+    private var head: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Eyebrow(index: "04", label: "Spec") {
+                Meta("This installation")
+            }
+            .padding(.top, 20)
+            DisplayTitle(text: "Settings", size: 56)
+                .padding(.top, 28)
+                .padding(.bottom, 18)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Axis.gutter)
+    }
+
+    private var route: some View {
+        Module(index: "00", label: "Route", variant: .flat, flush: true) {
+            Schematic(
+                nodes: ["Agent", "harkd", "APNs", "This phone"],
+                signalSegment: 2,
+                note: AppModel.apnsEnvironment,
+                height: 60
+            )
+            .padding(.vertical, 10)
+        } trailing: {
+            Meta("Direct APNs")
+        }
+    }
+
+    private var account: some View {
+        Module(index: "01", label: "Account", flush: true) {
+            VStack(spacing: 0) {
+                SpecRow(label: "Username", value: model.user?.username ?? "—")
+                if let email = model.user?.email, !email.isEmpty {
+                    Hairline(color: Axis.lineFaint)
+                    SpecRow(label: "Email", value: email)
+                }
+                if let created = model.user?.createdAt {
+                    Hairline(color: Axis.lineFaint)
+                    SpecRow(label: "Member since", value: created.formatted(date: .abbreviated, time: .omitted), mono: false)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private var connection: some View {
+        Module(index: "02", label: "Connection", flush: true) {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(spacing: 0) {
+                    SpecRow(label: "Server", value: model.serverURL.absoluteString)
                     if let expires = model.sessionInfo?.expiresAt {
-                        row(label: "Session slides to", value: expires.formatted(date: .abbreviated, time: .shortened))
+                        Hairline(color: Axis.lineFaint)
+                        SpecRow(label: "Session until", value: expires.formatted(date: .abbreviated, time: .shortened), mono: false)
                     }
-                    row(label: "Push environment", value: AppModel.apnsEnvironment)
+                    Hairline(color: Axis.lineFaint)
+                    SpecRow(label: "APNs", value: AppModel.apnsEnvironment)
                     if let deviceID = model.deviceID {
-                        IdentifierRow(label: "Device ID", value: deviceID)
+                        Hairline(color: Axis.lineFaint)
+                        SpecRow(label: "Device", value: deviceID, expandable: true)
                     }
-                } header: {
-                    AxisSectionHeader(title: "Connection")
-                } footer: {
-                    Text("Sessions slide forward with use and never need renewing while the app is opened at least monthly.")
-                        .font(.caption2)
-                        .foregroundStyle(Axis.textTertiary)
                 }
-                .listRowBackground(Axis.plate)
-                .listRowSeparatorTint(Axis.stroke)
-
-                Section {
-                    Button {
-                        guard !signingOut else { return }
-                        signingOut = true
-                        Task {
-                            await model.signOut()
-                            signingOut = false
-                        }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text("Sign out")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Axis.accent)
-                            Spacer()
-                        }
-                    }
-                    .disabled(signingOut)
-                }
-                .listRowBackground(Axis.plate)
-
-                Section {
-                    HStack {
-                        Spacer()
-                        Text("Hark \(Self.versionString)")
-                            .font(.caption2)
-                            .monospacedDigit()
-                            .foregroundStyle(Axis.textTertiary)
-                        Spacer()
-                    }
-                    .listRowBackground(Color.clear)
-                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                Hairline()
+                Text("Sessions slide forward with use and never need renewing while the app is opened at least monthly.")
+                    .font(AxisType.copy(12))
+                    .foregroundStyle(Axis.inkFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(Axis.bg)
-            .navigationTitle("Settings")
+        } trailing: {
+            HStack(spacing: 8) {
+                StatusLight(color: model.deviceID != nil ? Axis.ok : Axis.warn, size: 5)
+                Meta(model.deviceID != nil ? "Registered" : "Registering", color: Axis.inkSubtle)
+            }
         }
     }
 
-    /// A label/value row. Long-press copies the value; text selection inside a
-    /// List row loses the gesture fight with the row itself, so the context
-    /// menu is the copy affordance.
-    private func row(label: String, value: String) -> some View {
+    private var session: some View {
+        Module(index: "03", label: "Session", variant: .hazard) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Ends this session on the server and forgets it on this phone. The device stays registered until it is removed from Devices.")
+                    .font(AxisType.copy(13))
+                    .foregroundStyle(Axis.inkSubtle)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(signingOut ? "Signing out…" : "Sign out") {
+                    guard !signingOut else { return }
+                    signingOut = true
+                    Task {
+                        await model.signOut()
+                        signingOut = false
+                    }
+                }
+                .buttonStyle(.instrument(.danger, fill: false))
+                .disabled(signingOut)
+            }
+        }
+    }
+
+    private var foot: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(Axis.textSecondary)
+            Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkDisabled)
             Spacer()
-            Text(value)
-                .font(.subheadline)
-                .foregroundStyle(Axis.textPrimary)
-                .multilineTextAlignment(.trailing)
+            Text("Abdeen Labs")
+                .font(AxisType.meta(11))
+                .tracking(AxisType.tracking(AxisType.wordmarkTracking, at: 11))
+                .textCase(.uppercase)
+                .foregroundStyle(Axis.inkFaint)
         }
-        .contentShape(Rectangle())
-        .contextMenu {
-            Button("Copy", systemImage: "doc.on.doc") {
-                UIPasteboard.general.string = value
-            }
-        }
-    }
-
-    /// An identifier row. A UUID is recognized by its ends and rarely needs
-    /// reading whole, so it shows middle-truncated on one line and expands on
-    /// tap. Long-press copies the full value either way.
-    private struct IdentifierRow: View {
-        let label: String
-        let value: String
-
-        @State private var expanded = false
-
-        var body: some View {
-            HStack(alignment: .firstTextBaseline) {
-                Text(label)
-                    .font(.subheadline)
-                    .foregroundStyle(Axis.textSecondary)
-                    .layoutPriority(1)
-                Spacer()
-                Text(value)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(Axis.textPrimary)
-                    .lineLimit(expanded ? nil : 1)
-                    .truncationMode(.middle)
-                    .multilineTextAlignment(.trailing)
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.snappy) { expanded.toggle() }
-            }
-            .contextMenu {
-                Button("Copy", systemImage: "doc.on.doc") {
-                    UIPasteboard.general.string = value
-                }
-            }
-        }
-    }
-
-    private static var versionString: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
-        return "\(version) (\(build))"
+        .padding(.top, 14)
+        .overlay(alignment: .top) { Hairline() }
     }
 }

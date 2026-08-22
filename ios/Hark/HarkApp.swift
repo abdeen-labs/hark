@@ -19,8 +19,8 @@ struct HarkApp: App {
             RootView()
                 .environment(model)
                 .preferredColorScheme(.dark)
-                .tint(Axis.accent)
-                .background(Axis.bg)
+                .tint(Axis.signalText)
+                .background(Axis.paper)
                 .task { await model.bootstrap() }
                 .onOpenURL { url in
                     model.handleDeepLink(url)

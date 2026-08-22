@@ -2,8 +2,9 @@
 //  SignInView.swift
 //  Hark
 //
-//  Server, username, password. Nothing else — Hark serves exactly one
-//  account, and this screen is the whole front door.
+//  The gate. Server, username, password — Hark serves exactly one account,
+//  and this screen is the whole front door. The name at display scale is the
+//  composition; the access panel sits under it.
 //
 
 import SwiftUI
@@ -23,96 +24,108 @@ struct SignInView: View {
         case server, username, password
     }
 
+    private static let titleSize: CGFloat = 132
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 0) {
                 brand
-                    .padding(.top, 64)
-
-                VStack(alignment: .leading, spacing: 14) {
-                    AxisSectionHeader(title: "Server")
-                    field {
-                        TextField("https://hark.abdeen.dev", text: $serverText)
-                            .keyboardType(.URL)
-                            .textContentType(.URL)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .focused($focused, equals: .server)
-                            .submitLabel(.next)
-                            .onSubmit { focused = .username }
-                    }
-
-                    AxisSectionHeader(title: "Account")
-                    field {
-                        TextField("Username", text: $username)
-                            .textContentType(.username)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .focused($focused, equals: .username)
-                            .submitLabel(.next)
-                            .onSubmit { focused = .password }
-                    }
-                    field {
-                        SecureField("Password", text: $password)
-                            .textContentType(.password)
-                            .focused($focused, equals: .password)
-                            .submitLabel(.go)
-                            .onSubmit { submit() }
-                    }
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(Axis.accent)
-                }
-
-                Button {
-                    submit()
-                } label: {
-                    if busy {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 2)
-                    } else {
-                        Text("Sign in")
-                    }
-                }
-                .buttonStyle(AxisPrimaryButtonStyle())
-                .disabled(busy || username.isEmpty || password.isEmpty || serverText.isEmpty)
-                .opacity(busy || username.isEmpty || password.isEmpty ? 0.6 : 1)
-
-                Spacer(minLength: 40)
+                    .padding(.top, 24)
+                    .padding(.bottom, 36)
+                panel
+                footer
+                    .padding(.top, 40)
+                    .padding(.bottom, 24)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, Axis.gutter)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(Axis.bg)
+        .scrollIndicators(.hidden)
     }
 
     private var brand: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("HARK")
-                .font(.system(size: 34, weight: .bold, design: .default))
-                .kerning(6)
-                .foregroundStyle(Axis.textPrimary)
-            Rectangle()
-                .fill(Axis.accent)
-                .frame(width: 44, height: 3)
-            Text("Notifications for your agents.")
-                .font(.footnote)
-                .foregroundStyle(Axis.textSecondary)
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 8) {
+                IndexLabel("Hark")
+                Meta("Push relay · Self-hosted")
+            }
+            Text("Hark")
+                .axisDisplay(Self.titleSize)
+                .foregroundStyle(Axis.ink)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.top, -Self.titleSize * 0.2)
+                .padding(.bottom, -Self.titleSize * 0.14)
+                .offset(x: -Self.titleSize * 0.05)
+                .accessibilityAddTraits(.isHeader)
+            Text("Webhooks and agent calls, delivered to this phone as push notifications, Live Activities and questions answered from the Lock Screen.")
+                .font(AxisType.copy(15))
+                .lineSpacing(3)
+                .foregroundStyle(Axis.inkSubtle)
+                .fixedSize(horizontal: false, vertical: true)
+            Meta("Single account · Direct APNs · One binary")
         }
     }
 
-    private func field(@ViewBuilder content: () -> some View) -> some View {
-        content()
-            .font(.body)
-            .foregroundStyle(Axis.textPrimary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .plate()
+    private var panel: some View {
+        Module(label: "Access", variant: .marked) {
+            VStack(alignment: .leading, spacing: 20) {
+                FieldFrame(label: "Server", focused: focused == .server) {
+                    TextField("https://hark.abdeen.dev", text: $serverText)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($focused, equals: .server)
+                        .submitLabel(.next)
+                        .onSubmit { focused = .username }
+                }
+                FieldFrame(label: "Username", focused: focused == .username) {
+                    TextField("Username", text: $username)
+                        .textContentType(.username)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .focused($focused, equals: .username)
+                        .submitLabel(.next)
+                        .onSubmit { focused = .password }
+                }
+                FieldFrame(label: "Password", focused: focused == .password) {
+                    SecureField("Password", text: $password)
+                        .textContentType(.password)
+                        .focused($focused, equals: .password)
+                        .submitLabel(.go)
+                        .onSubmit { submit() }
+                }
+
+                if let errorMessage {
+                    Notice(kind: .error, message: errorMessage)
+                }
+
+                Button(busy ? "Signing in…" : "Sign in") {
+                    submit()
+                }
+                .buttonStyle(.instrument(.primary, arrow: .forward))
+                .disabled(username.isEmpty || password.isEmpty || serverText.isEmpty)
+                .opacity(busy ? 0.7 : 1)
+                .padding(.top, 4)
+            }
+        } trailing: {
+            Meta("One account")
+        }
+    }
+
+    private var footer: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Abdeen Labs")
+                .font(AxisType.meta(11))
+                .tracking(AxisType.tracking(AxisType.wordmarkTracking, at: 11))
+                .textCase(.uppercase)
+                .foregroundStyle(Axis.inkFaint)
+            Spacer()
+            Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkDisabled)
+        }
+        .padding(.top, 14)
+        .overlay(alignment: .top) { Hairline() }
     }
 
     private func submit() {

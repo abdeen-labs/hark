@@ -2,7 +2,9 @@
 //  DevicesView.swift
 //  Hark
 //
-//  Registered phones. GET /v1/devices, DELETE /v1/devices/{id}.
+//  Registered phones. GET /v1/devices, DELETE /v1/devices/{id}. A registry:
+//  the count beside the title, one indexed row per handset, this one marked
+//  with a signal strip.
 //
 
 import SwiftUI
@@ -17,50 +19,12 @@ struct DevicesView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if devices.isEmpty {
-                    ScrollView {
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .font(.footnote)
-                                .foregroundStyle(Axis.accent)
-                                .padding()
-                        }
-                        if loaded {
-                            AxisEmptyState(
-                                icon: "iphone.slash",
-                                title: "No devices",
-                                detail: "Devices appear here once they register for pushes."
-                            )
-                        } else {
-                            ProgressView().tint(Axis.accent).padding(.top, 48)
-                        }
-                    }
-                    .refreshable { await reload() }
-                } else {
-                    List {
-                        ForEach(devices) { device in
-                            DeviceRow(device: device, isThisDevice: device.id == model.deviceID)
-                                .listRowBackground(Axis.plate)
-                                .listRowSeparatorTint(Axis.stroke)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button("Remove", role: .destructive) {
-                                        if device.id == model.deviceID {
-                                            confirmingSelfDelete = device
-                                        } else {
-                                            Task { await delete(device) }
-                                        }
-                                    }
-                                }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
-                    .refreshable { await reload() }
-                }
+            VStack(spacing: 0) {
+                head
+                Hairline()
+                content
             }
-            .background(Axis.bg)
-            .navigationTitle("Devices")
+            .toolbarVisibility(.hidden, for: .navigationBar)
             .task { await reload() }
             .confirmationDialog(
                 "Remove this device?",
@@ -79,6 +43,87 @@ struct DevicesView: View {
             } message: {
                 Text("Pushes stop until the app registers again on next launch.")
             }
+        }
+    }
+
+    private var head: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Eyebrow(index: "03", label: "Registry") {
+                Meta("Keyed on the APNs token")
+            }
+            .padding(.top, 20)
+            HStack(alignment: .lastTextBaseline, spacing: 24) {
+                DisplayTitle(text: "Devices", size: 56)
+                Spacer(minLength: 0)
+                Metric(
+                    value: String(format: "%02d", devices.count),
+                    of: loaded ? String(devices.filter(\.active).count) : nil,
+                    label: loaded ? "Registered / Active" : "Registered",
+                    size: 44,
+                    alignment: .trailing
+                )
+                .animation(Axis.Motion.ease, value: devices.count)
+            }
+            .padding(.top, 28)
+            .padding(.bottom, 18)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Axis.gutter)
+    }
+
+    @ViewBuilder private var content: some View {
+        if devices.isEmpty {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    if let errorMessage {
+                        Notice(kind: .error, message: errorMessage)
+                            .padding(.top, 16)
+                    }
+                    if loaded {
+                        EmptyNote(
+                            text: "No device is registered.",
+                            detail: "A phone registers itself once it has an APNs token; this one will appear here on its next launch."
+                        )
+                    } else {
+                        LoadingMark(text: "Reading the registry")
+                            .padding(.vertical, 24)
+                    }
+                }
+                .padding(.horizontal, Axis.gutter)
+            }
+            .refreshable { await reload() }
+        } else {
+            List {
+                ForEach(Array(devices.enumerated()), id: \.element.id) { index, device in
+                    DeviceRow(number: index + 1, device: device, isThisDevice: device.id == model.deviceID)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button("Remove", role: .destructive) {
+                                if device.id == model.deviceID {
+                                    confirmingSelfDelete = device
+                                } else {
+                                    Task { await delete(device) }
+                                }
+                            }
+                            .tint(Axis.signal)
+                        }
+                }
+
+                Text("iOS reissues the APNs token whenever it likes, so the same handset can appear twice. A retired row stays so history keeps resolving.")
+                    .font(AxisType.copy(13))
+                    .foregroundStyle(Axis.inkFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Axis.gutter)
+                    .padding(.vertical, 18)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .refreshable { await reload() }
         }
     }
 
@@ -109,40 +154,63 @@ struct DevicesView: View {
 }
 
 struct DeviceRow: View {
+    let number: Int
     let device: APIDevice
     let isThisDevice: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: "iphone")
-                    .font(.caption)
-                    .foregroundStyle(device.active ? Axis.jade : Axis.textTertiary)
-                Text(device.name ?? "Unnamed device")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Axis.textPrimary)
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
+                LedgerIndex(number: number)
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(device.name ?? "Unnamed")
+                            .font(AxisType.copy(15, weight: .medium))
+                            .foregroundStyle(device.name == nil ? Axis.inkFaint : Axis.ink)
+                            .lineLimit(1)
+                        if isThisDevice {
+                            Tag("This device", tone: .signal)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    Text(device.id)
+                        .font(AxisType.mono(11))
+                        .foregroundStyle(Axis.inkFaint)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    FlowRow {
+                        StateTag(state: device.active ? "active" : "retired")
+                        if device.liveActivityCapable {
+                            Tag("Ready", tone: .ok, light: true)
+                            if device.liveActivityInteractionVersion == nil {
+                                Tag("No buttons")
+                            }
+                        } else {
+                            Tag("No push-to-start", tone: .muted)
+                        }
+                        if device.interactionSchemaVersion != nil {
+                            Tag("Answers")
+                        }
+                    }
+                    HStack(spacing: 14) {
+                        Meta("Seen \(AxisClock.age(device.lastSeenAt))")
+                        if let environment = device.pushToStartEnvironment, !environment.isEmpty {
+                            Meta("APNs \(environment)")
+                        }
+                        Meta("Since \(device.createdAt.formatted(.dateTime.day(.twoDigits).month(.abbreviated)))")
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .padding(.horizontal, Axis.gutter)
+            .padding(.vertical, 14)
+            .overlay(alignment: .leading) {
                 if isThisDevice {
-                    AxisChip(text: "This device", tint: Axis.accent)
+                    Rectangle().fill(Axis.signal).frame(width: 4)
                 }
-                Spacer()
             }
-            HStack(spacing: 6) {
-                if !device.active {
-                    AxisChip(text: "Inactive", tint: Axis.textTertiary)
-                }
-                if device.liveActivityCapable {
-                    AxisChip(text: "Live Activities", tint: Axis.jade)
-                }
-                if device.interactionSchemaVersion != nil {
-                    AxisChip(text: "Answers", tint: Axis.textSecondary)
-                }
-                Spacer()
-                Text("Seen \(device.lastSeenAt.formatted(.relative(presentation: .named)))")
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(Axis.textTertiary)
-            }
+            Hairline()
         }
-        .padding(.vertical, 3)
     }
 }

@@ -50,6 +50,7 @@ final class AppModel {
 
     private(set) var inbox: [InboxEntry] = []
     private(set) var inboxError: String?
+    private(set) var inboxRefreshedAt: Date?
 
     private var activityTokenTasks: [String: Task<Void, Never>] = [:]
     private var pushToStartTask: Task<Void, Never>?
@@ -378,6 +379,7 @@ final class AppModel {
             let pending = try await client.allInteractions(status: "pending")
             inbox = pending
             inboxError = nil
+            inboxRefreshedAt = .now
             updateBadge()
         } catch let error as HarkClientError where error.isUnauthorized {
             handleUnauthorized()

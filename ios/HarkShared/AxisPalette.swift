@@ -2,58 +2,103 @@
 //  AxisPalette.swift
 //  Hark
 //
-//  The Axis design tokens: lacquer red on warm dark neutrals, jade for
-//  success. Shared by the app, the notification service extension, and the
-//  widget extension, so every surface draws from one palette.
+//  The design tokens every Hark surface draws from: the app, the notification
+//  service extension, and the widget extension. They are the dashboard's
+//  tokens (internal/dashboard/assets/app.css) spelled in Swift — pitch
+//  surfaces, chalk ink, lacquer red as the single signal colour, jade for
+//  success. Red never means delivered.
 //
 
 import SwiftUI
 
-/// The Axis palette. Dark-only, flat plates, restrained color.
 nonisolated enum Axis {
-    /// Lacquer red, the accent. #E13B3B.
-    static let accent = Color(red: 225 / 255, green: 59 / 255, blue: 59 / 255)
+    // MARK: Surfaces
 
-    /// Jade, for success states. #3FA97B.
-    static let jade = Color(red: 63 / 255, green: 169 / 255, blue: 123 / 255)
+    static let paper = Color(axisRGB: 0x06080D)
+    static let surface = Color(axisRGB: 0x0B0E14)
+    static let surface2 = Color(axisRGB: 0x11161F)
+    static let surface3 = Color(axisRGB: 0x1A212C)
+    static let field = Color(axisRGB: 0x090C11)
 
-    /// Amber, for warnings and pending states. #D9A13B.
-    static let amber = Color(red: 217 / 255, green: 161 / 255, blue: 59 / 255)
+    // MARK: Ink
 
-    /// The base background. Warm near-black. #161210.
-    static let bg = Color(red: 0x16 / 255, green: 0x12 / 255, blue: 0x10 / 255)
+    static let ink = Color(axisRGB: 0xF4F6F9)
+    static let inkMuted = Color(axisRGB: 0xD5DBE4)
+    static let inkSubtle = Color(axisRGB: 0xA2ABB9)
+    static let inkFaint = Color(axisRGB: 0x7B8496)
+    /// Decorative only — indexes and ledger numbers hidden from assistive
+    /// technology. It does not meet AA against the paper.
+    static let inkDisabled = Color(axisRGB: 0x4D5665)
 
-    /// A flat plate sitting on the background. #1F1A17.
-    static let plate = Color(red: 0x1F / 255, green: 0x1A / 255, blue: 0x17 / 255)
+    // MARK: Rules
 
-    /// A raised plate: one step lighter, still flat. #282221.
-    static let plateRaised = Color(red: 0x28 / 255, green: 0x22 / 255, blue: 0x21 / 255)
+    static let line = ink.opacity(0.12)
+    static let lineStrong = ink.opacity(0.24)
+    static let lineFaint = ink.opacity(0.06)
 
-    /// Hairline stroke around plates. #362E2A.
-    static let stroke = Color(red: 0x36 / 255, green: 0x2E / 255, blue: 0x2A / 255)
+    // MARK: Signal
 
-    /// Primary text. Warm white. #F2EDE7.
-    static let textPrimary = Color(red: 0xF2 / 255, green: 0xED / 255, blue: 0xE7 / 255)
+    /// Fills, strips, rules. Not small text.
+    static let signal = Color(axisRGB: 0xCE2020)
+    static let signalPressed = Color(axisRGB: 0xA31818)
+    /// The signal colour at text weight; passes AA on the paper.
+    static let signalText = Color(axisRGB: 0xE13B3B)
+    static let onSignal = Color.white
+    static let signalWash = signal.opacity(0.12)
+    static let signalLine = signal.opacity(0.55)
 
-    /// Secondary text. #A99E95.
-    static let textSecondary = Color(red: 0xA9 / 255, green: 0x9E / 255, blue: 0x95 / 255)
+    // MARK: States
 
-    /// Tertiary text, for timestamps and footnotes. #7A716A.
-    static let textTertiary = Color(red: 0x7A / 255, green: 0x71 / 255, blue: 0x6A / 255)
+    static let ok = Color(axisRGB: 0x16B37D)
+    static let okLine = ok.opacity(0.5)
+    static let warn = Color(axisRGB: 0xE2A81E)
+    static let warnLine = warn.opacity(0.5)
+    static let danger = signalText
+
+    /// What a Live Activity's accent falls back to when the server's
+    /// `accent_color` does not parse.
+    static let accent = signalText
+
+    // MARK: Geometry
+
+    enum Radius {
+        static let xs: CGFloat = 2
+        static let sm: CGFloat = 3
+        static let md: CGFloat = 6
+        static let lg: CGFloat = 10
+    }
+
+    /// The phone's gutter and column gap: four columns under a 16 pt gutter.
+    static let gutter: CGFloat = 16
+    static let gap: CGFloat = 12
+    static let columns = 4
+
+    // MARK: Motion
+
+    enum Motion {
+        static let fast: Double = 0.15
+        static let base: Double = 0.22
+        static var ease: Animation { .easeOut(duration: base) }
+        static var quick: Animation { .easeOut(duration: fast) }
+    }
 }
 
 nonisolated extension Color {
+    init(axisRGB value: UInt32) {
+        self.init(
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+
     /// Parses a `#RRGGBB` string, the form the server's `accent_color` uses.
     /// Returns nil for anything else; callers fall back to `Axis.accent`.
     init?(harkHex: String) {
         var hex = harkHex.trimmingCharacters(in: .whitespacesAndNewlines)
         if hex.hasPrefix("#") { hex.removeFirst() }
         guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
-        self.init(
-            red: Double((value >> 16) & 0xFF) / 255,
-            green: Double((value >> 8) & 0xFF) / 255,
-            blue: Double(value & 0xFF) / 255
-        )
+        self.init(axisRGB: value)
     }
 
     /// The accent color a content state names, or lacquer red when the string

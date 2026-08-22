@@ -4,7 +4,8 @@
 //
 //  The Live Activity: Lock Screen card and Dynamic Island, rendering the
 //  server's content state verbatim. Five progress styles, four interactive
-//  styles; anything unknown renders as standard.
+//  styles; anything unknown renders as standard. Same paper, same ink, same
+//  instrument controls as the app.
 //
 
 import ActivityKit
@@ -15,7 +16,7 @@ struct HarkLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: HarkActivityAttributes.self) { context in
             LockScreenCard(context: context)
-                .activityBackgroundTint(Axis.bg)
+                .activityBackgroundTint(Axis.paper)
                 .activitySystemActionForegroundColor(context.state.accent)
         } dynamicIsland: { context in
             let state = context.state
@@ -23,12 +24,12 @@ struct HarkLiveActivity: Widget {
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Image(systemName: state.symbolName)
-                        .font(.title3)
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(accent)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    PercentText(progress: state.progress, font: .subheadline)
+                    PercentText(progress: state.progress, size: 14)
                         .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -43,8 +44,9 @@ struct HarkLiveActivity: Widget {
                         .progressViewStyle(.circular)
                         .tint(accent)
                 } else if state.interaction != nil {
-                    Image(systemName: "questionmark")
-                        .foregroundStyle(accent)
+                    Rectangle()
+                        .fill(accent)
+                        .frame(width: 6, height: 6)
                 }
             } minimal: {
                 Image(systemName: state.symbolName)
@@ -91,7 +93,7 @@ private struct LockScreenCard: View {
 
 // MARK: - Progress styles
 
-/// standard: glyph plate, title over status, percent, thin bar, detail.
+/// standard: glyph plate, title over status, percent, the thin rule, detail.
 private struct StandardCard: View {
     let state: HarkActivityAttributes.ContentState
 
@@ -99,25 +101,25 @@ private struct StandardCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 SymbolPlate(state: state)
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(state.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Axis.textPrimary)
+                        .font(AxisType.copy(14, weight: .semibold))
+                        .foregroundStyle(Axis.ink)
                         .lineLimit(1)
                         .harkMasked(state.isPrivate)
                     Text(state.status)
-                        .font(.caption)
-                        .foregroundStyle(Axis.textSecondary)
+                        .font(AxisType.mono(11))
+                        .foregroundStyle(Axis.inkSubtle)
                         .lineLimit(1)
                 }
                 Spacer()
-                PercentText(progress: state.progress, font: .subheadline)
+                PercentText(progress: state.progress)
             }
-            AccentProgressBar(progress: state.progress, accent: state.accent)
+            ThinBar(progress: state.progress, tint: state.accent)
             if let detail = state.detail {
                 Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(Axis.textTertiary)
+                    .font(AxisType.copy(12))
+                    .foregroundStyle(Axis.inkFaint)
                     .lineLimit(2)
                     .harkMasked(state.isPrivate)
             }
@@ -136,31 +138,31 @@ private struct RingCard: View {
             } currentValueLabel: {
                 if state.progress != nil {
                     Text(min(max(state.progress ?? 0, 0), 1), format: .percent.precision(.fractionLength(0)))
-                        .font(.caption2.weight(.semibold))
+                        .font(AxisType.mono(10, weight: .semibold))
                         .monospacedDigit()
                 } else {
                     Image(systemName: state.symbolName)
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .semibold))
                 }
             }
             .gaugeStyle(.accessoryCircularCapacity)
             .tint(state.accent)
             .frame(width: 52, height: 52)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(state.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Axis.textPrimary)
+                    .font(AxisType.copy(14, weight: .semibold))
+                    .foregroundStyle(Axis.ink)
                     .lineLimit(1)
                     .harkMasked(state.isPrivate)
                 Text(state.status)
-                    .font(.caption)
-                    .foregroundStyle(Axis.textSecondary)
+                    .font(AxisType.mono(11))
+                    .foregroundStyle(Axis.inkSubtle)
                     .lineLimit(1)
                 if let detail = state.detail {
                     Text(detail)
-                        .font(.caption2)
-                        .foregroundStyle(Axis.textTertiary)
+                        .font(AxisType.copy(12))
+                        .foregroundStyle(Axis.inkFaint)
                         .lineLimit(2)
                         .harkMasked(state.isPrivate)
                 }
@@ -170,30 +172,33 @@ private struct RingCard: View {
     }
 }
 
-/// hero: the title is the card.
+/// hero: the title is the card; the percent sits against it at scale.
 private struct HeroCard: View {
     let state: HarkActivityAttributes.ContentState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Image(systemName: state.symbolName)
-                    .font(.subheadline)
-                    .foregroundStyle(state.accent)
+            HStack(alignment: .firstTextBaseline) {
+                HStack(spacing: 6) {
+                    StatusLight(color: state.accent, size: 5)
+                    Meta(state.status, color: Axis.inkSubtle)
+                }
                 Spacer()
-                PercentText(progress: state.progress, font: .title3)
+                PercentText(progress: state.progress, size: 22)
             }
             Text(state.title)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Axis.textPrimary)
+                .axisHeadline(22)
+                .foregroundStyle(Axis.ink)
                 .lineLimit(2)
                 .harkMasked(state.isPrivate)
-            Text(state.detail.map { "\(state.status) — \($0)" } ?? state.status)
-                .font(.caption)
-                .foregroundStyle(Axis.textSecondary)
-                .lineLimit(2)
-                .harkMasked(state.isPrivate && state.detail != nil)
-            AccentProgressBar(progress: state.progress, accent: state.accent)
+            if let detail = state.detail {
+                Text(detail)
+                    .font(AxisType.copy(12))
+                    .foregroundStyle(Axis.inkFaint)
+                    .lineLimit(1)
+                    .harkMasked(state.isPrivate)
+            }
+            ThinBar(progress: state.progress, tint: state.accent)
         }
     }
 }
@@ -206,28 +211,29 @@ private struct TerminalCard: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text("❯")
-                    .font(.caption.monospaced().weight(.bold))
+                    .font(AxisType.mono(11, weight: .bold))
                     .foregroundStyle(state.accent)
                 Text(state.title)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(Axis.textSecondary)
+                    .font(AxisType.mono(11))
+                    .foregroundStyle(Axis.inkSubtle)
                     .lineLimit(1)
                     .harkMasked(state.isPrivate)
                 Spacer()
-                PercentText(progress: state.progress, font: .caption.monospaced())
+                PercentText(progress: state.progress, size: 11, color: Axis.inkSubtle)
             }
             Text(state.status)
-                .font(.subheadline.monospaced().weight(.medium))
-                .foregroundStyle(Axis.textPrimary)
+                .font(AxisType.mono(14, weight: .medium))
+                .foregroundStyle(Axis.ink)
                 .lineLimit(2)
             if let detail = state.detail {
                 Text(detail)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(Axis.textTertiary)
+                    .font(AxisType.mono(11))
+                    .foregroundStyle(Axis.inkFaint)
                     .lineLimit(2)
                     .harkMasked(state.isPrivate)
             }
-            AccentProgressBar(progress: state.progress, accent: state.accent)
+            ThinBar(progress: state.progress, tint: state.accent)
+                .padding(.top, 4)
         }
     }
 }
@@ -242,32 +248,32 @@ private struct StepsCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 SymbolPlate(state: state, size: 30)
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(state.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Axis.textPrimary)
+                        .font(AxisType.copy(14, weight: .semibold))
+                        .foregroundStyle(Axis.ink)
                         .lineLimit(1)
                         .harkMasked(state.isPrivate)
                     Text(state.status)
-                        .font(.caption)
-                        .foregroundStyle(Axis.textSecondary)
+                        .font(AxisType.mono(11))
+                        .foregroundStyle(Axis.inkSubtle)
                         .lineLimit(1)
                 }
                 Spacer()
                 if let detail = state.detail {
                     Text(detail)
-                        .font(.caption.weight(.medium))
+                        .font(AxisType.mono(11, weight: .medium))
                         .monospacedDigit()
-                        .foregroundStyle(Axis.textSecondary)
+                        .foregroundStyle(Axis.inkSubtle)
                         .lineLimit(1)
                         .harkMasked(state.isPrivate)
                 }
             }
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 ForEach(0 ..< Self.segments, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(index < filledSegments ? state.accent : Axis.plateRaised)
-                        .frame(height: 5)
+                    Rectangle()
+                        .fill(index < filledSegments ? state.accent : Axis.surface3)
+                        .frame(height: 4)
                 }
             }
         }
@@ -281,7 +287,7 @@ private struct StepsCard: View {
 
 // MARK: - Interactive styles
 
-/// approval: header, prompt, two buttons. The default question card.
+/// approval: header, prompt, two controls. The default question card.
 private struct ApprovalCard: View {
     let context: ActivityViewContext<HarkActivityAttributes>
 
@@ -289,23 +295,16 @@ private struct ApprovalCard: View {
         let state = context.state
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: state.symbolName)
-                    .font(.caption)
-                    .foregroundStyle(state.accent)
-                Text(state.title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Axis.textSecondary)
-                    .lineLimit(1)
+                StatusLight(color: state.accent, size: 5)
+                Meta(state.title, color: Axis.inkSubtle)
                     .harkMasked(state.isPrivate)
                 Spacer()
-                Text(state.status)
-                    .font(.caption2)
-                    .foregroundStyle(Axis.textTertiary)
+                Meta(state.status)
             }
             if let interaction = state.interaction {
                 Text(interaction.prompt)
-                    .font(.subheadline)
-                    .foregroundStyle(Axis.textPrimary)
+                    .font(AxisType.copy(14))
+                    .foregroundStyle(Axis.ink)
                     .lineLimit(3)
                     .harkMasked(state.isPrivate)
                 AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
@@ -323,33 +322,28 @@ private struct ShellCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Text("❯")
-                    .font(.caption.monospaced().weight(.bold))
+                    .font(AxisType.mono(11, weight: .bold))
                     .foregroundStyle(state.accent)
                 Text(state.title)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(Axis.textSecondary)
+                    .font(AxisType.mono(11))
+                    .foregroundStyle(Axis.inkSubtle)
                     .lineLimit(1)
                     .harkMasked(state.isPrivate)
                 Spacer()
             }
             if let interaction = state.interaction {
                 Text(interaction.prompt)
-                    .font(.subheadline.monospaced())
-                    .foregroundStyle(Axis.textPrimary)
+                    .font(AxisType.mono(13))
+                    .foregroundStyle(Axis.ink)
                     .lineLimit(3)
                     .harkMasked(state.isPrivate)
-                AnswerButtons(
-                    attributes: context.attributes,
-                    interaction: interaction,
-                    accent: state.accent,
-                    compact: true
-                )
+                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
             }
         }
     }
 }
 
-/// verdict: the prompt, centered and large, over two equal buttons.
+/// verdict: the prompt, centered and large, over two equal controls.
 private struct VerdictCard: View {
     let context: ActivityViewContext<HarkActivityAttributes>
 
@@ -358,15 +352,13 @@ private struct VerdictCard: View {
         VStack(spacing: 12) {
             if let interaction = state.interaction {
                 Text(interaction.prompt)
-                    .font(.headline)
-                    .foregroundStyle(Axis.textPrimary)
+                    .axisHeadline(17)
+                    .foregroundStyle(Axis.ink)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity)
                     .harkMasked(state.isPrivate)
-                Text(state.title)
-                    .font(.caption2)
-                    .foregroundStyle(Axis.textTertiary)
+                Meta(state.title)
                     .harkMasked(state.isPrivate)
                 AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
             }
@@ -374,7 +366,7 @@ private struct VerdictCard: View {
     }
 }
 
-/// signal: compact — a warning glyph, the prompt, tight buttons.
+/// signal: compact — the glyph plate, the prompt, tight controls.
 private struct SignalCard: View {
     let context: ActivityViewContext<HarkActivityAttributes>
 
@@ -382,19 +374,14 @@ private struct SignalCard: View {
         let state = context.state
         HStack(spacing: 12) {
             SymbolPlate(state: state, size: 40)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let interaction = state.interaction {
                     Text(interaction.prompt)
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(Axis.textPrimary)
+                        .font(AxisType.copy(13, weight: .medium))
+                        .foregroundStyle(Axis.ink)
                         .lineLimit(2)
                         .harkMasked(state.isPrivate)
-                    AnswerButtons(
-                        attributes: context.attributes,
-                        interaction: interaction,
-                        accent: state.accent,
-                        compact: true
-                    )
+                    AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
                 }
             }
             Spacer(minLength: 0)
@@ -412,25 +399,20 @@ private struct IslandBottom: View {
         VStack(alignment: .leading, spacing: 6) {
             if let interaction = state.interaction {
                 Text(interaction.prompt)
-                    .font(.footnote)
-                    .foregroundStyle(Axis.textPrimary)
+                    .font(AxisType.copy(13))
+                    .foregroundStyle(Axis.ink)
                     .lineLimit(2)
-                AnswerButtons(
-                    attributes: context.attributes,
-                    interaction: interaction,
-                    accent: state.accent,
-                    compact: true
-                )
+                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
             } else {
                 Text(state.title)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Axis.textPrimary)
+                    .font(AxisType.copy(13, weight: .semibold))
+                    .foregroundStyle(Axis.ink)
                     .lineLimit(1)
                 Text(state.detail.map { "\(state.status) — \($0)" } ?? state.status)
-                    .font(.caption)
-                    .foregroundStyle(Axis.textSecondary)
+                    .font(AxisType.mono(11))
+                    .foregroundStyle(Axis.inkSubtle)
                     .lineLimit(1)
-                AccentProgressBar(progress: state.progress, accent: state.accent)
+                ThinBar(progress: state.progress, tint: state.accent)
             }
         }
         .padding(.horizontal, 4)

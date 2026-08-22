@@ -3,20 +3,24 @@
 //  Hark
 //
 //  Everything that has happened to the account, in one ordering.
-//  GET /v1/history with kind chips, keyset pagination, swipe-to-delete.
+//  GET /v1/history with kind tabs, keyset pagination, swipe-to-delete.
+//  The archive reads as a ledger: a running index, the age, the entry.
 //
 
 import SwiftUI
 
 struct HistoryView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let kinds: [(label: String, value: String)] = [
-        ("All", "all"),
-        ("Notifications", "notification"),
-        ("Responses", "response"),
-        ("Live Activity", "live_activity"),
+    private static let kinds: [(index: String, label: String, value: String)] = [
+        ("00", "All", "all"),
+        ("01", "Notifications", "notification"),
+        ("02", "Responses", "response"),
+        ("03", "Live Activities", "live_activity"),
     ]
+
+    private static let indexSize: CGFloat = 200
 
     @State private var kind = "all"
     @State private var items: [HistoryItem] = []
@@ -28,72 +32,96 @@ struct HistoryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                chips
+                head
+                Hairline()
+                tabs
+                Hairline()
                 list
             }
-            .background(Axis.bg)
-            .navigationTitle("History")
+            .toolbarVisibility(.hidden, for: .navigationBar)
             .task { if !loadedOnce { await reload() } }
         }
     }
 
-    private var chips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+    private var head: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Eyebrow(index: "02", label: "Archive") {
+                Meta("Newest first")
+            }
+            .padding(.top, 20)
+            DisplayTitle(text: "History", size: 60)
+                .padding(.top, 28)
+                .padding(.bottom, 18)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Axis.gutter)
+        .background(alignment: .bottomTrailing) {
+            EnvironmentalIndex(text: "02", size: Self.indexSize)
+                .offset(x: Self.indexSize * 0.06, y: Self.indexSize * 0.26)
+        }
+        .clipped()
+    }
+
+    private var tabs: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 28) {
                 ForEach(Self.kinds, id: \.value) { entry in
+                    let active = kind == entry.value
                     Button {
                         guard kind != entry.value else { return }
-                        kind = entry.value
+                        withAnimation(reduceMotion ? nil : Axis.Motion.ease) { kind = entry.value }
                         Task { await reload() }
                     } label: {
-                        Text(entry.label)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(kind == entry.value ? Color.white : Axis.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(kind == entry.value ? Axis.accent : Axis.plate)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule().strokeBorder(
-                                    kind == entry.value ? Color.clear : Axis.stroke,
-                                    lineWidth: 1
-                                )
-                            )
+                        HStack(spacing: 8) {
+                            IndexLabel(entry.index, color: active ? Axis.signalText : Axis.inkDisabled)
+                            Meta(entry.label, color: active ? Axis.ink : Axis.inkSubtle)
+                        }
+                        .padding(.vertical, 16)
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .fill(Axis.signal)
+                                .frame(height: 2)
+                                .scaleEffect(x: active ? 1 : 0, anchor: .leading)
+                        }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(active ? [.isSelected] : [])
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, Axis.gutter)
         }
+        .scrollIndicators(.hidden)
     }
 
     @ViewBuilder private var list: some View {
         if items.isEmpty {
             ScrollView {
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(Axis.accent)
-                        .padding()
+                VStack(alignment: .leading, spacing: 0) {
+                    if let errorMessage {
+                        Notice(kind: .error, message: errorMessage)
+                            .padding(.top, 16)
+                    }
+                    if loading {
+                        LoadingMark(text: "Reading the archive")
+                            .padding(.vertical, 24)
+                    } else if loadedOnce {
+                        EmptyNote(
+                            text: kind == "all" ? "Nothing has been delivered yet." : "Nothing of this kind has been delivered.",
+                            detail: "Deliveries, answers, and Live Activity runs collect here."
+                        )
+                    }
                 }
-                if loading {
-                    ProgressView().tint(Axis.accent).padding(.top, 48)
-                } else if loadedOnce {
-                    AxisEmptyState(
-                        icon: "clock",
-                        title: "Nothing yet",
-                        detail: "Deliveries, answers, and Live Activity runs will collect here."
-                    )
-                }
+                .padding(.horizontal, Axis.gutter)
             }
             .refreshable { await reload() }
         } else {
             List {
-                ForEach(items) { item in
-                    HistoryRow(item: item)
-                        .listRowBackground(Axis.plate)
-                        .listRowSeparatorTint(Axis.stroke)
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    HistoryRow(number: index + 1, item: item)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                         .onAppear {
                             if item.id == items.last?.id {
                                 Task { await loadMore() }
@@ -105,15 +133,15 @@ struct HistoryView: View {
                 }
 
                 if nextCursor != nil {
-                    HStack {
-                        Spacer()
-                        ProgressView().tint(Axis.accent)
-                        Spacer()
-                    }
-                    .listRowBackground(Color.clear)
+                    LoadingMark(text: "Older")
+                        .padding(.horizontal, Axis.gutter)
+                        .padding(.vertical, 16)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .refreshable { await reload() }
         }
@@ -174,95 +202,98 @@ struct HistoryView: View {
 }
 
 struct HistoryRow: View {
+    let number: Int
     let item: HistoryItem
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
-                sourceBadge
-                Text(item.sourceName ?? item.title ?? "Hark")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Axis.textSecondary)
-                Spacer()
-                if let result = item.result {
-                    ResultPill(result: result)
-                } else if let status = item.status, status != "accepted" {
-                    AxisChip(text: status.replacingOccurrences(of: "_", with: " "), tint: statusTint(status))
-                }
-                Text(item.createdAt.formatted(.relative(presentation: .named)))
-                    .font(.caption2)
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
+                LedgerIndex(number: number)
+                    .padding(.top, 2)
+                Text(AxisClock.age(item.createdAt))
+                    .font(AxisType.meta(11))
                     .monospacedDigit()
-                    .foregroundStyle(Axis.textTertiary)
-            }
-            if let detail = item.detail, !detail.isEmpty {
-                Text(detail)
-                    .font(.subheadline)
-                    .foregroundStyle(Axis.textPrimary)
-                    .lineLimit(2)
-            } else if let title = item.title, item.sourceName != nil {
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundStyle(Axis.textPrimary)
-                    .lineLimit(2)
-            }
-            if let error = item.error, !error.isEmpty {
-                Text(error)
-                    .font(.caption2)
-                    .foregroundStyle(Axis.accent)
-                    .lineLimit(2)
-            }
-        }
-        .padding(.vertical, 3)
-    }
-
-    /// The sender's avatar when it has one, otherwise the kind glyph. A URL
-    /// that fails to load falls back to the glyph rather than leaving a hole.
-    private var sourceBadge: some View {
-        Group {
-            if let url = item.sourceImageUrl.flatMap(URL.init(string:)) {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFill()
-                    } else {
-                        kindGlyph
+                    .textCase(.uppercase)
+                    .foregroundStyle(Axis.inkFaint)
+                    .frame(width: 40, alignment: .leading)
+                    .padding(.top, 2)
+                    .accessibilityLabel(item.createdAt.formatted(.relative(presentation: .named)))
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        avatar
+                        Text(item.sourceName ?? "Hark")
+                            .font(AxisType.copy(13, weight: .medium))
+                            .foregroundStyle(Axis.ink)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    FlowRow {
+                        Tag(AxisState.label(item.kind))
+                        if let status = item.status, !status.isEmpty {
+                            StateTag(state: status)
+                        }
+                        if let priority = item.priority, !priority.isEmpty, priority != "normal" {
+                            Tag(priority, tone: .warn)
+                        }
+                    }
+                    if let title = item.title, !title.isEmpty {
+                        Text(title)
+                            .font(AxisType.copy(15))
+                            .foregroundStyle(Axis.ink)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 2)
+                    }
+                    if let detail = item.detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(AxisType.copy(13))
+                            .foregroundStyle(Axis.inkSubtle)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let result = item.result, !result.isEmpty {
+                        Meta("Result — \(AxisState.label(result))")
+                            .padding(.top, 2)
+                    }
+                    if let error = item.error, !error.isEmpty {
+                        Text(error)
+                            .font(AxisType.mono(12))
+                            .foregroundStyle(Axis.danger)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Axis.signalWash)
+                            .overlay(alignment: .leading) {
+                                Rectangle().fill(Axis.danger).frame(width: 2)
+                            }
+                            .padding(.top, 4)
                     }
                 }
-                .frame(width: 18, height: 18)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-            } else {
-                kindGlyph
             }
+            .padding(.horizontal, Axis.gutter)
+            .padding(.vertical, 14)
+            Hairline()
         }
     }
 
-    private var kindGlyph: some View {
-        Image(systemName: kindIcon)
-            .font(.caption)
-            .foregroundStyle(kindTint)
-    }
-
-    private var kindIcon: String {
-        switch item.kind {
-        case "notification": "bell"
-        case "response": "arrowshape.turn.up.left"
-        case "live_activity": "bolt.badge.clock"
-        default: "circle"
-        }
-    }
-
-    private var kindTint: Color {
-        switch item.kind {
-        case "response": Axis.jade
-        case "live_activity": Axis.amber
-        default: Axis.textSecondary
-        }
-    }
-
-    private func statusTint(_ status: String) -> Color {
-        switch status {
-        case "failed", "no_devices": Axis.accent
-        case "partial": Axis.amber
-        default: Axis.textSecondary
+    /// The sender's avatar when it has one. A URL that fails to load leaves
+    /// nothing behind; the name carries the row.
+    @ViewBuilder private var avatar: some View {
+        if let url = item.sourceImageUrl.flatMap(URL.init(string:)) {
+            AsyncImage(url: url) { phase in
+                if case .success(let image) = phase {
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 18, height: 18)
+                        .clipShape(RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                }
+            }
         }
     }
 }
