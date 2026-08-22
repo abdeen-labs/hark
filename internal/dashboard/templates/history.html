@@ -1,28 +1,35 @@
 {{define "content"}}
-<h1 class="page-title">History</h1>
-<p class="muted page-lede">Everything that has reached this account, newest first. The overview shows
-  the last few of these; this is all of them.</p>
+<header class="page-head">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">02</span> Archive</span>
+    <span>Newest first · 50 to a page</span>
+  </p>
+  <h1 class="page-head__title display">History</h1>
+  <p class="page-head__lede lede">Everything that has reached this account. The overview shows the last
+    few of these; this is all of them.</p>
+  <span class="page-head__index" aria-hidden="true">02</span>
+</header>
 
-<nav class="filters" aria-label="Filter by kind">
-  <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}>All</a>
-  <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}>Notifications</a>
-  <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}>Responses</a>
-  <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}>Live Activities</a>
+<nav class="tabs" aria-label="Filter by kind">
+  <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">00</span>All</a>
+  <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">01</span>Notifications</a>
+  <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">02</span>Responses</a>
+  <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">03</span>Live Activities</a>
 </nav>
 
-<section class="plate">
+<div class="ledger">
   {{if .Items}}
   {{template "feed-list" .Items}}
   {{else}}
-  <p class="empty">{{if eq .Filter "all"}}Nothing has been delivered yet.{{else}}Nothing of this kind
+  <p class="empty empty--bare">{{if eq .Filter "all"}}Nothing has been delivered yet.{{else}}Nothing of this kind
     has been delivered{{if .Newest}} this far back{{end}}.{{end}}</p>
   {{end}}
-</section>
+</div>
 
 {{if or .Older .Newest}}
 <nav class="pager" aria-label="Pages">
-  {{with .Newest}}<a class="btn" href="{{.}}">← Newest</a>{{end}}
-  {{with .Older}}<a class="btn" href="{{.}}">Older →</a>{{end}}
+  {{with .Newest}}<a class="btn" href="{{.}}"><span class="arrow arrow--back">←</span> Newest</a>{{end}}
+  {{with .Older}}<a class="btn" href="{{.}}">Older <span class="arrow">→</span></a>{{end}}
 </nav>
 {{end}}
 {{end}}

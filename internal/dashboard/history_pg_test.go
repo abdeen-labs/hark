@@ -155,8 +155,8 @@ func TestServicePageShowsItsOwnDeliveries(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
 	}
-	// One accepted-status pill per delivery row, and only this service's rows.
-	if got := strings.Count(rec.Body.String(), "pill--accepted"); got != 2 {
+	// One accepted-status tag per delivery row, and only this service's rows.
+	if got := strings.Count(rec.Body.String(), "tag--accepted"); got != 2 {
 		t.Errorf("the page shows %d delivery rows, want the service's own 2", got)
 	}
 }

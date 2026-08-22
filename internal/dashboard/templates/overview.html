@@ -1,5 +1,13 @@
 {{define "content"}}
-<h1 class="page-title">Overview</h1>
+<header class="page-head page-head--compact">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">01</span> Live view</span>
+    <span class="live"><span class="live__dot" aria-hidden="true"></span>Polling</span>
+  </p>
+  <h1 class="page-head__title h-ui">Overview</h1>
+  <p class="page-head__lede lede">What is on the Lock Screen now, and what has reached this account
+    lately. The page keeps itself current; a delivery shows up within a few seconds.</p>
+</header>
 
 {{/* Everything inside this div is what the poll replaces: the same
      overview-live block, rendered by /dashboard/live/overview. */}}
@@ -7,56 +15,72 @@
 {{end}}
 
 {{define "overview-live"}}
-<section class="stats" aria-label="Account">
-  <div class="stat">
-    <span class="stat__value">{{.Stats.ActiveDevices}}<span class="stat__of">/{{.Stats.Devices}}</span></span>
-    <span class="stat__label">Active devices</span>
-  </div>
-  <div class="stat">
-    <span class="stat__value">{{.Stats.ActiveTokens}}<span class="stat__of">/{{.Stats.Tokens}}</span></span>
-    <span class="stat__label">Active API tokens</span>
-  </div>
-  <div class="stat">
-    <span class="stat__value">{{.Stats.LiveActivities}}</span>
-    <span class="stat__label">Live Activities</span>
-  </div>
-</section>
+<div class="grid ov">
+  <section class="ov__stats span-4" aria-label="Account">
+    <div class="ov__stat">
+      <span class="ov__stat-index meta" aria-hidden="true">A-01</span>
+      <div class="metric metric--xl">
+        <span class="metric__value"><span class="num">{{.Stats.ActiveDevices}}</span><span class="metric__of">/{{.Stats.Devices}}</span></span>
+        <span class="metric__label meta">Active devices</span>
+      </div>
+    </div>
+    <div class="ov__stat">
+      <span class="ov__stat-index meta" aria-hidden="true">A-02</span>
+      <div class="metric metric--xl">
+        <span class="metric__value"><span class="num">{{.Stats.ActiveTokens}}</span><span class="metric__of">/{{.Stats.Tokens}}</span></span>
+        <span class="metric__label meta">Active API tokens</span>
+      </div>
+    </div>
+    <div class="ov__stat">
+      <span class="ov__stat-index meta" aria-hidden="true">A-03</span>
+      <div class="metric metric--xl">
+        <span class="metric__value num">{{.Stats.LiveActivities}}</span>
+        <span class="metric__label meta">Live Activities</span>
+      </div>
+    </div>
+  </section>
 
-<section class="plate">
-  <h2 class="plate__title">On a Lock Screen now</h2>
-  {{if .Activities}}
-  <div class="scroll">
-    <table class="table">
-      <thead><tr><th>Source</th><th>Status</th><th>Seq</th><th>Last operation</th><th>Updated</th><th>Expires</th></tr></thead>
-      <tbody>
-        {{range .Activities}}
-        <tr>
-          <td>{{.SourceName}}{{with text .Key}} <span class="mono muted">{{.}}</span>{{end}}</td>
-          <td><span class="pill pill--{{.Status}}">{{title .Status}}</span></td>
-          <td class="num mono">{{.Sequence}}</td>
-          <td class="num mono">{{.AcceptedCount}} accepted<span class="muted"> · {{.FailedCount}} failed</span></td>
-          <td><time datetime="{{iso .UpdatedAt}}" title="{{when .UpdatedAt}}">{{ago .UpdatedAt}}</time></td>
-          <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  {{else}}
-  <p class="empty">Nothing is running. An agent starts one with <code>POST /v1/activities</code>.</p>
-  {{end}}
-</section>
+  <div class="ov__main span-8">
+    <section class="module">
+      <div class="module__head">
+        <h2 class="module__label"><span class="module__index">02</span>On a Lock Screen now</h2>
+        <span class="meta">{{.Stats.LiveActivities}} running</span>
+      </div>
+      {{if .Activities}}
+      <div class="scroll">
+        <table class="table">
+          <thead><tr><th>Source</th><th>Status</th><th>Seq</th><th>Last operation</th><th>Updated</th><th>Expires</th></tr></thead>
+          <tbody>
+            {{range .Activities}}
+            <tr>
+              <td class="cell--strong">{{.SourceName}}{{with text .Key}} <span class="mono muted">{{.}}</span>{{end}}</td>
+              <td><span class="tag tag--state tag--{{.Status}}">{{title .Status}}</span></td>
+              <td class="num mono">{{.Sequence}}</td>
+              <td class="num mono">{{.AcceptedCount}} accepted<span class="muted"> · {{.FailedCount}} failed</span></td>
+              <td><time datetime="{{iso .UpdatedAt}}" title="{{when .UpdatedAt}}">{{ago .UpdatedAt}}</time></td>
+              <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <p class="empty">Nothing is running. An agent starts one with <code>POST /v1/activities</code>.</p>
+      {{end}}
+    </section>
 
-<section class="plate">
-  <div class="plate__head">
-    <h2 class="plate__title">Recent deliveries</h2>
-    <a class="plate__more" href="{{.Paths.History}}">Everything →</a>
+    <section class="module">
+      <div class="module__head">
+        <h2 class="module__label"><span class="module__index">03</span>Recent deliveries</h2>
+        <a class="module__more meta" href="{{.Paths.History}}">Everything <span class="arrow">→</span></a>
+      </div>
+      {{if .History}}
+      {{template "feed-list" .History}}
+      {{else}}
+      <p class="empty">Nothing has been delivered yet. Point a webhook at a service, or send yourself a
+        <a href="{{.Paths.Test}}">test notification</a>.</p>
+      {{end}}
+    </section>
   </div>
-  {{if .History}}
-  {{template "feed-list" .History}}
-  {{else}}
-  <p class="empty">Nothing has been delivered yet. Point a webhook at a service, or send yourself a
-    <a href="{{.Paths.Test}}">test notification</a>.</p>
-  {{end}}
-</section>
+</div>
 {{end}}
