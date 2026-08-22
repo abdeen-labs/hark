@@ -48,7 +48,7 @@
 {{end}}
 
 <main class="shell{{if not .SignedIn}} shell--bare{{end}}">
-  {{with .Notice}}<p class="notice notice--{{.Kind}}" role="status">{{.Message}}</p>{{end}}
+  {{with .Notice}}<p class="notice notice--{{.Kind}}" data-notice="{{.Kind}}" role="status">{{.Message}}</p>{{end}}
   {{template "content" .}}
 </main>
 

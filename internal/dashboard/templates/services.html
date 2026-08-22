@@ -93,7 +93,7 @@
         </thead>
         <tbody>
           {{range .Services}}
-          <tr>
+          <tr data-service="{{.ID}}">
             <td class="cell--index"></td>
             <td class="cell--strong">
               {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="" loading="lazy">{{end}}{{.Title}}
