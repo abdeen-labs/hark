@@ -1,8 +1,17 @@
 {{define "content"}}
-<section class="plate plate--narrow">
-  <p class="status-code">{{.Status}}</p>
-  <h1 class="plate__title">{{.Title}}</h1>
-  <p class="muted">{{.Message}}</p>
-  <p><a class="btn btn--ghost" href="{{.Paths.Home}}">Back to the dashboard</a></p>
+<section class="gate gate--error">
+  <div class="gate__brand">
+    <p class="meta"><span class="idx">Status</span> {{.Status}}</p>
+    <p class="display gate__code num">{{.Status}}</p>
+  </div>
+  <div class="gate__panel">
+    <h1 class="headline">{{.Title}}</h1>
+    <p class="lede">{{.Message}}</p>
+    <p><a class="btn" href="{{.Paths.Home}}"><span class="arrow arrow--back">←</span> Back to the dashboard</a></p>
+  </div>
+  <footer class="gate__foot meta">
+    <span>Hark</span>
+    {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
+  </footer>
 </section>
 {{end}}

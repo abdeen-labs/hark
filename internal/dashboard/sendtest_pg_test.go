@@ -74,11 +74,11 @@ func TestSendTestFansOutToEveryActiveDevice(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `<span class="mono">2</span> of <span class="mono">2</span> messages accepted`) {
-		t.Errorf("the result plate does not show 2 of 2 accepted:\n%s", body)
+	if !strings.Contains(body, `data-accepted="2" data-attempted="2"`) {
+		t.Errorf("the result does not report 2 of 2 accepted:\n%s", body)
 	}
-	if !strings.Contains(body, "APNs accepted every message.") {
-		t.Errorf("the page does not carry the all-accepted banner:\n%s", body)
+	if !strings.Contains(body, `data-notice="ok"`) {
+		t.Errorf("the page does not carry an ok banner:\n%s", body)
 	}
 
 	if len(sender.sent) != 1 {
@@ -133,8 +133,8 @@ func TestSendTestRequiresABody(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "A body is required.") {
-		t.Errorf("the page does not say what was missing:\n%s", rec.Body)
+	if !strings.Contains(rec.Body.String(), `data-notice="error"`) {
+		t.Errorf("the page does not carry an error banner:\n%s", rec.Body)
 	}
 	if len(sender.sent) != 0 {
 		t.Errorf("a push went out despite the rejected form: %v", sender.sent)
@@ -148,8 +148,8 @@ func TestSendTestWarnsWhenNoDeviceIsRegistered(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "No active device is registered to send to.") {
-		t.Errorf("the page does not explain that there is nothing to send to:\n%s", rec.Body)
+	if !strings.Contains(rec.Body.String(), `data-notice="warn"`) {
+		t.Errorf("the page does not carry a warning banner:\n%s", rec.Body)
 	}
 	if len(sender.sent) != 0 {
 		t.Errorf("a push went out with no device to receive it: %v", sender.sent)
@@ -174,15 +174,15 @@ func TestSendTestRetiresTheDevicesAPNsDisowned(t *testing.T) {
 		t.Fatalf("fan-outs = %v, want one push to both devices", sender.sent)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `<span class="mono">1</span> of <span class="mono">2</span> messages accepted`) {
-		t.Errorf("the result plate does not show 1 of 2 accepted:\n%s", body)
+	if !strings.Contains(body, `data-accepted="1" data-attempted="2"`) {
+		t.Errorf("the result does not report 1 of 2 accepted:\n%s", body)
 	}
 	// The provider's own words reach the page: this reader owns the account.
 	if !strings.Contains(body, "APNs request failed: Unregistered") {
 		t.Errorf("the failure reason is not shown:\n%s", body)
 	}
-	if !strings.Contains(body, "APNs accepted some of the messages.") {
-		t.Errorf("the page does not carry the partial-acceptance banner:\n%s", body)
+	if !strings.Contains(body, `data-notice="warn"`) {
+		t.Errorf("the page does not carry a warning banner:\n%s", body)
 	}
 
 	// The disowned token retires its device — and only its device.

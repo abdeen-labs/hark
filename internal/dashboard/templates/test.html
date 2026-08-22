@@ -1,63 +1,99 @@
 {{define "content"}}
-<h1 class="page-title">Send a test</h1>
-<p class="muted page-lede">One notification, through the same push transport the API uses. It proves the
-  round trip; it is not written to the history, because a history entry belongs to the credential that
-  asked for it and this is you.</p>
+<header class="page-head">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">06</span> Transmit</span>
+    <span>Same transport as <code>POST /v1/notifications</code></span>
+  </p>
+  <h1 class="page-head__title display">Send a test</h1>
+  <p class="page-head__lede lede">One notification, through the push transport the API uses. It proves the
+    round trip; it is not written to the history, because a history entry belongs to the credential that
+    asked for it and this is you.</p>
+</header>
 
-{{/* The plate stays neutral whatever happened: the banner above already says
-     whether this went well, and lacquer red is never a success colour. */}}
-{{with .Result}}
-<section class="plate">
-  <h2 class="plate__title">Result</h2>
-  <p><span class="mono">{{.Accepted}}</span> of <span class="mono">{{.Attempted}}</span> messages accepted by APNs.</p>
-  {{if .Failures}}
-  <ul class="failures">
-    {{range .Failures}}<li class="mono">{{.}}</li>{{end}}
-  </ul>
-  {{end}}
-</section>
-{{end}}
-
-<section class="plate">
-  <form method="post" action="{{.Paths.Test}}" class="stack">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-
-    <div class="row">
-      <label class="field">
-        <span class="field__label">Title</span>
-        <input class="input" type="text" name="title" value="{{.Form.Title}}" placeholder="Hark" maxlength="200">
-      </label>
-      <label class="field field--tight">
-        <span class="field__label">Priority</span>
-        <select class="input" name="priority">
-          {{$form := .Form}}
-          {{range .Priorities}}
-          <option value="{{.}}"{{if eq $form.Priority .}} selected{{end}}>{{title .}}</option>
-          {{end}}
-        </select>
-      </label>
+<div class="grid">
+  <section class="module module--marked span-7 tx">
+    <span class="tx__mark" aria-hidden="true">TX</span>
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">01</span>Transmission</h2>
     </div>
+    <div class="module__body">
+      <form method="post" action="{{.Paths.Test}}" class="stack" hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
-    <label class="field">
-      <span class="field__label">Body</span>
-      <textarea class="input" name="body" rows="3" maxlength="1000" required>{{.Form.Body}}</textarea>
-    </label>
+        <div class="row">
+          <label class="field">
+            <span class="field__label">Title</span>
+            <input class="input" type="text" name="title" value="{{.Form.Title}}" placeholder="Hark" maxlength="200">
+          </label>
+          <label class="field field--tight">
+            <span class="field__label">Priority</span>
+            <select class="input" name="priority">
+              {{$form := .Form}}
+              {{range .Priorities}}
+              <option value="{{.}}"{{if eq $form.Priority .}} selected{{end}}>{{title .}}</option>
+              {{end}}
+            </select>
+          </label>
+        </div>
 
-    <label class="field">
-      <span class="field__label">Target</span>
-      <select class="input" name="device_id">
-        <option value=""{{if eq .Form.DeviceID ""}} selected{{end}}>Every active device</option>
-        {{$form := .Form}}
-        {{range .Devices}}
-        <option value="{{.ID}}"{{if eq $form.DeviceID .ID}} selected{{end}}>
-          {{with text .Name}}{{.}}{{else}}Unnamed device{{end}} · {{.ID}}
-        </option>
-        {{end}}
-      </select>
-    </label>
+        <label class="field">
+          <span class="field__label">Body</span>
+          <textarea class="input" name="body" rows="3" maxlength="1000" required>{{.Form.Body}}</textarea>
+        </label>
 
-    <button class="btn btn--primary" type="submit"{{if not .Devices}} disabled{{end}}>Send</button>
-    {{if not .Devices}}<p class="muted">No active device is registered to send to.</p>{{end}}
-  </form>
-</section>
+        <label class="field">
+          <span class="field__label">Target</span>
+          <select class="input" name="device_id">
+            <option value=""{{if eq .Form.DeviceID ""}} selected{{end}}>Every active device</option>
+            {{$form := .Form}}
+            {{range .Devices}}
+            <option value="{{.ID}}"{{if eq $form.DeviceID .ID}} selected{{end}}>
+              {{with text .Name}}{{.}}{{else}}Unnamed device{{end}} · {{.ID}}
+            </option>
+            {{end}}
+          </select>
+        </label>
+
+        <button class="btn btn--primary" type="submit"{{if not .Devices}} disabled{{end}}>Send <span class="arrow">→</span></button>
+        {{if not .Devices}}<p class="module__note">No active device is registered to send to.</p>{{end}}
+      </form>
+    </div>
+  </section>
+
+  {{/* The result stays neutral whatever happened: the banner above already
+       says whether this went well, and lacquer red is never a success colour. */}}
+  <aside class="span-5 tx-result" aria-label="Result">
+    {{with .Result}}
+    <p class="meta"><span class="idx">02</span> Result</p>
+    <div class="metric metric--xl" data-accepted="{{.Accepted}}" data-attempted="{{.Attempted}}">
+      <span class="metric__value"><span class="num">{{.Accepted}}</span><span class="metric__of">/{{.Attempted}}</span></span>
+      <span class="metric__label meta">Messages accepted by APNs</span>
+    </div>
+    {{if .Failures}}
+    <ul class="failures">
+      {{range .Failures}}<li>{{.}}</li>{{end}}
+    </ul>
+    {{end}}
+    {{else}}
+    <div class="tx-result__void">
+      <p class="meta"><span class="idx">02</span> Result</p>
+      <svg class="schematic" viewBox="0 0 360 72" aria-hidden="true" focusable="false">
+        <path class="s-line s-dash" d="M0 64H360"/>
+        <path class="s-line s-signal" d="M12 30H166"/>
+        <path class="s-line" d="M180 30H334"/>
+        <path class="s-line s-signal" d="M160 26l6 4-6 4"/>
+        <path class="s-line" d="M328 26l6 4-6 4"/>
+        <rect class="s-fill" x="6" y="24" width="12" height="12"/>
+        <rect class="s-node" x="168" y="25" width="10" height="10"/>
+        <rect class="s-node" x="337" y="25" width="10" height="10"/>
+        <text class="s-text s-text--signal" x="6" y="54">DASHBOARD</text>
+        <text class="s-text" x="173" y="54" text-anchor="middle">APNS</text>
+        <text class="s-text" x="347" y="54" text-anchor="end">DEVICE</text>
+      </svg>
+      <p class="module__note">Nothing sent yet. What APNs says about the next transmission lands here —
+        accepted counts, and the provider's own words for anything it refused.</p>
+    </div>
+    {{end}}
+  </aside>
+</div>
 {{end}}

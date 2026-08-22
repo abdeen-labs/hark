@@ -1,0 +1,15 @@
+{
+  "package": "idiomorph",
+  "version": "0.7.4",
+  "registry": "https://registry.npmjs.org",
+  "tarball_url": "https://registry.npmjs.org/idiomorph/-/idiomorph-0.7.4.tgz",
+  "tarball_integrity": "sha512-uCdSpLo3uMfqOmrwXTpR1k/sq4sSmKC7l4o/LdJOEU+MMMq+wkevRqOQYn3lP7vfz9Mv+USBEqPvi0XhdL9ENw==",
+  "tarball_shasum": "5e6ed61ca41114c90e69c5c633c343fdffb79383",
+  "artifact_path": "package/dist/idiomorph.min.js",
+  "installed_path": "internal/dashboard/assets/idiomorph.min.js",
+  "artifact_sha256": "0eb0f881553bd509fe7a7e3064a1089141e089583c506c1217e885a2e608b4a4",
+  "license": "0BSD",
+  "license_artifact_path": "package/LICENSE",
+  "license_installed_path": "third_party/idiomorph/LICENSE",
+  "license_sha256": "d3d2456f76414f2456104660ebd65aff1c04cd7966b942bdabd63f3cdb316a38"
+}

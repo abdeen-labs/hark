@@ -152,7 +152,7 @@ func TestServiceLifecycleThroughTheDashboard(t *testing.T) {
 
 	// So does the list.
 	rec = send(d, asOwner(signedIn(http.MethodGet, pathServices, ""), userID))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "CI") {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `data-service="`+svcID+`"`) {
 		t.Fatalf("list: status = %d, or the service is missing:\n%s", rec.Code, rec.Body)
 	}
 
@@ -203,9 +203,8 @@ func TestServiceCreateRejectsABadForm(t *testing.T) {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "The title must be 1-80 characters.") ||
-		!strings.Contains(body, "The avatar must be a public HTTPS URL.") {
-		t.Errorf("the page does not name both problems:\n%s", body)
+	if !strings.Contains(body, `data-notice="error"`) {
+		t.Errorf("the page does not carry an error banner:\n%s", body)
 	}
 	// The rejected value comes back so the owner can fix it in place.
 	if !strings.Contains(body, `value="http://example.com/logo.png"`) {

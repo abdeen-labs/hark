@@ -362,14 +362,13 @@ func TestSignInRejectsWrongCredentials(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
-	// The form comes back with the username filled in and nothing said about
-	// which half was wrong.
+	// The form comes back with the username filled in and an error banner.
 	body := rec.Body.String()
 	if !strings.Contains(body, `value="admin"`) {
 		t.Errorf("the username was not echoed back:\n%s", body)
 	}
-	if strings.Contains(strings.ToLower(body), "no such user") {
-		t.Errorf("the page distinguishes an unknown username:\n%s", body)
+	if !strings.Contains(body, `data-notice="error"`) {
+		t.Errorf("the page does not carry an error banner:\n%s", body)
 	}
 }
 

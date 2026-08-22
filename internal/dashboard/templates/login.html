@@ -1,24 +1,49 @@
 {{define "content"}}
-<section class="plate plate--narrow">
-  <h1 class="plate__title">Sign in</h1>
-  <p class="muted">This deployment serves one account.</p>
+<section class="gate">
+  <div class="gate__brand">
+    <p class="meta"><span class="idx">Hark</span> Push relay · self-hosted</p>
+    <p class="display gate__title">Hark</p>
+    <p class="lede">Webhooks and agent calls, delivered to one phone as push notifications, Live
+      Activities and questions answered from the Lock Screen.</p>
+    <ul class="gate__facts meta">
+      <li>Single account</li>
+      <li>Direct APNs</li>
+      <li>One binary</li>
+    </ul>
+  </div>
 
-  <form method="post" action="{{.Paths.Login}}" class="stack">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <input type="hidden" name="next" value="{{.Next}}">
+  <div class="gate__panel">
+    <section class="module module--marked">
+      <div class="module__head">
+        <p class="module__label"><span class="module__index">Access</span></p>
+        <span class="meta">This deployment serves one account</span>
+      </div>
+      <div class="module__body">
+        <h1 class="h-ui">Sign in</h1>
+        <form method="post" action="{{.Paths.Login}}" class="stack" hx-disabled-elt="find button[type=submit]">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <input type="hidden" name="next" value="{{.Next}}">
 
-    <label class="field">
-      <span class="field__label">Username</span>
-      <input class="input" type="text" name="username" value="{{.Username}}"
-             autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
-    </label>
+          <label class="field">
+            <span class="field__label">Username</span>
+            <input class="input" type="text" name="username" value="{{.Username}}"
+                   autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+          </label>
 
-    <label class="field">
-      <span class="field__label">Password</span>
-      <input class="input" type="password" name="password" autocomplete="current-password" required>
-    </label>
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input class="input" type="password" name="password" autocomplete="current-password" required>
+          </label>
 
-    <button class="btn btn--primary" type="submit">Sign in</button>
-  </form>
+          <button class="btn btn--primary" type="submit">Sign in <span class="arrow">→</span></button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <footer class="gate__foot meta">
+    <span class="wordmark">Abdeen Labs</span>
+    <span>Hark{{if .Version}} · Rev {{.Version}}{{end}}</span>
+  </footer>
 </section>
 {{end}}

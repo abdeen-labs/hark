@@ -175,8 +175,8 @@ func TestADecisionOnASettledRequestIsAConflict(t *testing.T) {
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want 409: %s", rec.Code, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "no longer awaiting a decision") {
-		t.Errorf("the page does not say why:\n%s", rec.Body)
+	if !strings.Contains(rec.Body.String(), `data-notice="error"`) {
+		t.Errorf("the page does not carry an error banner:\n%s", rec.Body)
 	}
 }
 

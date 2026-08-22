@@ -1,148 +1,168 @@
 /* Hark — the published API contract.
  *
- * Everything here rests on app.css: the Axis tokens, the type stack, the
- * topbar and the footer are already defined there, and this file only adds
- * what a long document needs — a measure you can read, an outline beside it,
- * and prose elements the dashboard has no use for. */
+ * Everything here rests on app.css: the tokens, the type stack, the mast and
+ * the footer are already defined there, and this file only adds what a long
+ * document needs — a measure you can read, an outline beside it, and the
+ * prose elements the dashboard never renders. */
 
-/* Keep the document's navigation available throughout the long reference.
- * The dashboard uses the same topbar class, but only this page loads this
- * stylesheet, so its navigation remains unchanged. */
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.docs {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 16rem minmax(0, 1fr);
-  gap: 2.5rem;
-  align-items: start;
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 2rem 1.25rem 4rem;
-}
-
-.docs main { min-width: 0; }
-
-.docs-formats {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  margin-left: auto;
-}
+.docs-formats { display: flex; align-items: center; gap: 2px; }
 .docs-formats a {
-  padding: 0.3rem 0.55rem;
-  border-radius: var(--r-control);
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
   color: var(--ink-faint);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
-.docs-formats a:hover { background: var(--surface-hover); color: var(--ink); text-decoration: none; }
+.docs-formats a:hover { color: var(--ink); text-decoration: none; }
+
+.docs {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr) 2rem;
+  column-gap: 40px;
+  align-items: start;
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 36px var(--gutter) 96px;
+}
+.docs main { min-width: 0; max-width: 88ch; }
+
+.docs-head { margin: 0 0 40px; }
+.docs-head__eyebrow { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0 0 24px; }
 
 .docs-intro {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin: 0 0 1.5rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-plate);
-  background: var(--surface);
-  box-shadow: inset 0 1px 0 var(--edge-light);
+  gap: 12px 24px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
-.docs-intro p { margin: 0; color: var(--ink-subtle); text-wrap: pretty; }
-.docs-intro strong { color: var(--ink); }
-.docs-intro__links { display: flex; flex-wrap: wrap; gap: 0.35rem; flex: 0 0 auto; }
+.docs-intro p { margin: 0; color: var(--ink-subtle); font-size: 14px; text-wrap: pretty; }
+.docs-intro strong { color: var(--ink); font-weight: 600; }
+.docs-intro__links { display: flex; flex-wrap: wrap; gap: 6px; flex: 0 0 auto; }
 .docs-intro__links a {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-control);
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
   color: var(--ink-subtle);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
-.docs-intro__links a:hover { border-color: var(--line-strong); background: var(--surface-hover); color: var(--ink); text-decoration: none; }
+.docs-intro__links a:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); text-decoration: none; }
+
+/* The right rail: a hairline and a vertical label that frame the measure. */
+.docs-rail {
+  position: sticky;
+  top: calc(var(--mast-h) + 36px);
+  display: flex;
+  justify-content: center;
+  height: calc(100vh - var(--mast-h) - 72px);
+  border-left: 1px solid var(--line);
+}
+.docs-rail__label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  color: var(--ink-disabled);
+}
 
 /* Contents ---------------------------------------------------------------- */
 
 .toc {
   position: sticky;
-  top: 5rem;
-  max-height: calc(100vh - 6.5rem);
+  top: calc(var(--mast-h) + 36px);
+  max-height: calc(100vh - var(--mast-h) - 56px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0.5rem;
+  padding-right: 16px;
   border-right: 1px solid var(--line);
 }
 
-.toc__title {
-  margin: 0 0 0.6rem;
-  color: var(--ink-faint);
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
+.toc__title { margin: 0 0 6px; }
 
-.docs-search { position: relative; display: block; margin: 0 0 0.75rem; }
+.docs-search { position: relative; display: block; margin: 0 0 10px; }
 .docs-search input {
   width: 100%;
-  min-height: 44px;
-  padding: 0.45rem 2rem 0.45rem 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-control);
+  min-height: 40px;
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
   background: var(--field);
   color: var(--ink);
   font: inherit;
+  font-size: 13px;
 }
-.docs-search input::placeholder { color: var(--ink-faint); }
-.docs-search input:focus { border-color: var(--accent); outline: 0; box-shadow: 0 0 0 2px var(--accent-wash); }
+.docs-search input::placeholder { color: var(--ink-disabled); }
+.docs-search input:focus { outline: 0; border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
 .docs-search kbd {
   position: absolute;
   top: 50%;
-  right: 0.5rem;
+  right: 8px;
   translate: 0 -50%;
-  min-width: 1.25rem;
-  padding: 0.05rem 0.25rem;
+  min-width: 20px;
+  padding: 1px 5px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--surface-muted);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
   color: var(--ink-faint);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10px;
   text-align: center;
 }
-.toc__result { min-height: 1.25rem; margin: -0.35rem 0 0.45rem; color: var(--ink-faint); font-size: 12px; }
+.toc__result {
+  min-height: 16px;
+  margin: 0 0 12px;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .toc [hidden] { display: none; }
 
-.toc__list { list-style: none; margin: 0; padding: 0; }
-
+.toc__list { list-style: none; margin: 0; padding: 0; counter-reset: sec; }
 .toc__item a {
   display: block;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--r-control);
+  padding: 5px 10px;
+  border-left: 2px solid transparent;
   color: var(--ink-subtle);
   font-size: 13px;
   /* A path is one token: breaking it mid-segment is worse than a scrollbar. */
   overflow-wrap: anywhere;
+  transition: border-color var(--t-fast), color var(--t-fast);
 }
-.toc__item a:hover { background: var(--surface-hover); color: var(--ink); text-decoration: none; }
-.toc__item a:target, .toc__item a:focus-visible { color: var(--ink); }
+.toc__item a:hover { border-left-color: var(--line-strong); color: var(--ink); text-decoration: none; }
 
-/* Section headings anchor the outline; endpoints hang off them. */
-.toc__item--h2 a { margin-top: 0.5rem; color: var(--ink); font-weight: 500; }
-.toc__item--h3 a { padding-left: 1rem; font-family: var(--mono); font-size: 12px; }
+/* Section headings anchor the outline and carry its numbering; endpoints
+ * hang off them. */
+.toc__item--h2 { counter-increment: sec; }
+.toc__item--h2 a { margin-top: 12px; color: var(--ink); font-weight: 500; }
+.toc__item--h2 a::before {
+  content: counter(sec, decimal-leading-zero);
+  margin-right: 10px;
+  color: var(--signal-text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.toc__item--h3 a { padding-left: 34px; font-family: var(--mono); font-size: 11px; }
 
 /* The entry being read, marked by the scroll-spy. */
-.toc__item a[aria-current] { background: var(--accent-wash); color: var(--ink); }
+.toc__item a[aria-current] { border-left-color: var(--signal); color: var(--ink); }
 
 /* Prose ------------------------------------------------------------------- */
 
@@ -150,18 +170,7 @@
   color: var(--ink-muted);
   font-size: 15px;
   line-height: 1.65;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  counter-reset: section;
 }
 
 /* Roughly 70 characters: past that the eye loses the start of the next line.
@@ -171,7 +180,6 @@
 .prose > ul,
 .prose > ol,
 .prose > blockquote,
-.prose > h1,
 .prose > h2,
 .prose > h3,
 .prose > h4 {
@@ -183,49 +191,77 @@
 .prose h1, .prose h2, .prose h3, .prose h4 {
   color: var(--ink);
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
-  /* An anchored heading lands below the sticky topbar rather than under it. */
-  scroll-margin-top: 5rem;
+  /* An anchored heading lands below the sticky mast rather than under it. */
+  scroll-margin-top: calc(var(--mast-h) + 24px);
   text-wrap: balance;
 }
-.prose h1 { font-size: 28px; margin: 0 0 1.5rem; }
-.prose h2 {
-  font-size: 21px;
-  margin: 3rem 0 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--line);
+.prose h1 {
+  margin: 0 0 32px -0.03em;
+  font-size: clamp(48px, 6vw, 96px);
+  line-height: 0.88;
+  letter-spacing: -0.05em;
 }
-.prose h3 { font-size: 16px; margin: 2rem 0 0.75rem; }
-.prose h4 { font-size: 14px; margin: 1.5rem 0 0.5rem; color: var(--ink-muted); }
+.prose h2 {
+  margin: 72px 0 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: clamp(26px, 2.6vw, 36px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  counter-increment: section;
+}
+.prose h2::before {
+  content: counter(section, decimal-leading-zero);
+  display: block;
+  margin-bottom: 12px;
+  color: var(--signal-text);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+.prose h3 { margin: 40px 0 12px; font-size: 18px; line-height: 1.2; letter-spacing: -0.02em; }
+.prose h4 {
+  margin: 28px 0 8px;
+  color: var(--ink-subtle);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
 /* A heading that is entirely a code span is an endpoint: it reads as one. */
 .prose h3 code, .prose h4 code {
-  background: none;
-  border: 0;
   padding: 0;
-  color: var(--accent-text);
+  border: 0;
+  background: none;
+  color: var(--signal-text);
   font-size: inherit;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-.prose p { margin: 0 0 1rem; text-wrap: pretty; }
-.prose ul, .prose ol { margin: 0 0 1rem; padding-left: 1.35rem; }
-.prose li { margin: 0.25rem 0; }
+.prose p { margin: 0 0 16px; text-wrap: pretty; }
+.prose ul, .prose ol { margin: 0 0 16px; padding-left: 22px; }
+.prose li { margin: 4px 0; }
 .prose li > ul, .prose li > ol { margin-bottom: 0; }
 
 .prose hr {
   height: 0;
-  margin: 2.5rem 0;
+  margin: 48px 0;
   border: 0;
   border-top: 1px solid var(--line);
 }
+/* A section heading draws its own rule; the source's separator before it
+ * would double it. */
+.prose hr:has(+ h2) { display: none; }
 
 .prose blockquote {
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
+  margin: 0 0 16px;
+  padding: 12px 16px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 var(--r-plate) var(--r-plate) 0;
+  border-left: 2px solid var(--signal);
   background: var(--surface);
   color: var(--ink-subtle);
 }
@@ -236,47 +272,45 @@
 /* Code -------------------------------------------------------------------- */
 
 .prose code {
-  padding: 0.1rem 0.3rem;
+  padding: 1px 5px;
   border: 1px solid var(--line);
-  border-radius: var(--r-control);
+  border-radius: var(--r-xs);
   background: var(--code);
   color: var(--code-ink);
   font-family: var(--mono);
-  font-size: 0.88em;
+  font-size: 0.86em;
   overflow-wrap: anywhere;
 }
 
 .prose pre {
   position: relative;
-  margin: 0 0 1.25rem;
-  padding: 0.9rem 5rem 0.9rem 1rem;
+  margin: 0 0 20px;
+  padding: 16px 88px 16px 16px;
   border: 1px solid var(--line);
-  border-radius: var(--r-plate);
   background: var(--code);
   /* A payload is read by structure, not by line: it scrolls rather than
    * wraps, so the indentation still means something. */
   overflow-x: auto;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .prose pre code {
   padding: 0;
   border: 0;
   background: none;
-  font-size: 13px;
+  font-size: 12.5px;
   overflow-wrap: normal;
   white-space: pre;
 }
 
 /* Syntax colors, on chroma's classes. Only tokens the contract's three fence
- * languages — json, http, sh — actually produce, all spelled in Axis vars so
- * both palettes come out of the same rules. Strings borrow jade and numbers
- * amber as reading colors, not as status. */
-.chroma .nt { color: var(--ink); }                                          /* JSON keys */
-.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }     /* strings */
-.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--warn); }   /* numbers */
-.chroma .k, .chroma .kc, .chroma .kd, .chroma .kr { color: var(--accent-text); }
+ * languages — json, http, sh — actually produce. Strings borrow jade and
+ * numbers amber as reading colors, not as status. */
+.chroma .nt { color: var(--ink); }
+.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }
+.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--warn); }
+.chroma .k, .chroma .kc, .chroma .kd, .chroma .kr { color: var(--signal-text); }
 .chroma .c, .chroma .c1, .chroma .cm { color: var(--ink-faint); font-style: italic; }
-.chroma .nf, .chroma .nb, .chroma .nn { color: var(--ink); font-weight: 500; } /* methods, paths, builtins */
+.chroma .nf, .chroma .nb, .chroma .nn { color: var(--ink); font-weight: 500; }
 .chroma .nv, .chroma .no, .chroma .na { color: var(--ink-subtle); }
 .chroma .o, .chroma .p { color: var(--ink-subtle); }
 /* Chroma marks what its lexer could not place; that is its problem, not the
@@ -285,27 +319,31 @@
 
 .code-copy {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  min-width: 3.75rem;
-  min-height: 40px;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-control);
+  top: 8px;
+  right: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
   background: var(--surface);
   color: var(--ink-subtle);
-  font: 500 11px var(--sans);
+  font: 600 10px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
-.code-copy:hover { background: var(--surface-hover); color: var(--ink); }
-.code-copy:active { scale: 0.96; }
+.code-copy:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
 .docs-empty {
-  margin: 2rem 0;
-  padding: 1.25rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-plate);
+  margin: 32px 0;
+  padding: 24px;
+  border: 1px dashed var(--line-strong);
   color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   text-align: center;
 }
 
@@ -317,55 +355,57 @@
   display: block;
   width: max-content;
   max-width: 100%;
-  margin: 0 0 1.25rem;
+  margin: 0 0 24px;
   overflow-x: auto;
   border-collapse: collapse;
-  font-size: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
 }
 .prose th, .prose td {
-  padding: 0.5rem 0.75rem;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
 }
 .prose th {
   color: var(--ink-faint);
-  font-size: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
   font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
 /* Inside a cell an identifier stays whole. Paragraph code may break anywhere,
  * because a long URL mid-sentence has to go somewhere — but a column of
- * `bad_reque st` is not a table. Keeping tokens intact is also what makes the
- * scrollbar above appear: it is the table's min-content width that overflows. */
+ * `bad_reque st` is not a table. */
 .prose th code,
 .prose td code {
   overflow-wrap: normal;
 }
-.prose tbody tr:last-child td { border-bottom: 0; }
-.prose tbody tr:hover { background: var(--surface-muted); }
+.prose tbody tr:hover { background: rgba(244, 246, 249, 0.025); }
 
 /* Narrow viewports ---------------------------------------------------------
  *
  * The outline stops being a sidebar and becomes a preamble: a sticky column
  * on a phone is most of the screen. */
-@media (max-width: 60rem) {
-  .docs { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem 1rem 3rem; }
+@media (max-width: 1200px) {
+  .docs { grid-template-columns: 14rem minmax(0, 1fr); }
+  .docs-rail { display: none; }
+}
+@media (max-width: 900px) {
+  .docs { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 24px var(--gutter) 64px; }
   .toc {
     position: static;
     max-height: 18rem;
-    padding: 1rem;
+    padding: 14px;
     border: 1px solid var(--line);
-    border-radius: var(--r-plate);
     background: var(--surface);
   }
   .toc__item--h3 { display: none; }
-  .prose { font-size: 15px; }
   .docs-formats { display: none; }
-  .docs-intro { align-items: flex-start; flex-direction: column; }
-  .docs-intro__links { width: 100%; }
-  .docs-intro__links a, .code-copy { min-height: 44px; }
+  .docs-intro { flex-direction: column; align-items: flex-start; }
+  .docs-intro__links a, .code-copy { min-height: 40px; }
+  .prose h2 { margin-top: 56px; }
 }

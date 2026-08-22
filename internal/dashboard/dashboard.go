@@ -5,12 +5,12 @@
 // deliveries and managing their own credentials. It also serves the two pages
 // that are addressed from outside — the device-grant approval screen and the
 // published API contract — because they share this shell. There is no build
-// step and no bundler: the templates, two stylesheets, two small scripts and a
-// vendored copy of htmx are compiled into the binary with embed.FS. htmx's
-// hx-boost is what makes moving between sections a fetch and a swap rather
-// than a document teardown, and the overview's liveness stays inside the same
-// shape — the page polls for a fragment this same package rendered, and swaps
-// it in whole.
+// step and no bundler: the templates, two stylesheets, two small scripts and
+// vendored copies of htmx and idiomorph are compiled into the binary with
+// embed.FS. htmx's hx-boost is what makes moving between sections a fetch and
+// a swap rather than a document teardown, and the overview's liveness stays
+// inside the same shape — the page polls for a fragment this same package
+// rendered, and idiomorph morphs it into place.
 //
 // It talks to the same layers the API does rather than to the API over HTTP:
 // [Authenticator] is the slice of *auth.Service it needs, the store is read
@@ -478,8 +478,10 @@ type view struct {
 	Paths   paths
 	Assets  assetLinks
 	Version string
-	// Username is empty on the sign-in page, which is the one page with no
-	// account behind it.
+	// SignedIn draws the account's chrome. It is the layout's switch rather
+	// than Username, because the sign-in page echoes a typed username back
+	// under the same field name.
+	SignedIn bool
 	Username string
 	CSRF     string
 	Notice   *notice
@@ -489,6 +491,7 @@ type view struct {
 // redirect that landed here asked for.
 func (d *Dashboard) newView(r *http.Request, p *auth.Principal, title, section string) view {
 	v := d.shell(title, section, d.formToken(r), noticeFrom(r))
+	v.SignedIn = true
 	v.Username = p.User.Username
 	return v
 }

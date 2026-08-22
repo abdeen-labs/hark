@@ -1,101 +1,128 @@
 {{define "content"}}
-<h1 class="page-title">API tokens</h1>
-<p class="muted page-lede">An agent sends with one of these. A token can act within its scopes but can
-  never mint another — that needs this page.</p>
+<header class="page-head">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">05</span> Credentials</span>
+    <span>Scoped · revocable · never shown twice</span>
+  </p>
+  <h1 class="page-head__title display">Tokens</h1>
+  <p class="page-head__lede lede">An agent sends with one of these. A token can act within its scopes but
+    can never mint another — that needs this page.</p>
+</header>
 
-{{with .Secret}}
-<section class="plate plate--accent">
-  <h2 class="plate__title">Your new token</h2>
-  <p class="muted">Shown once. It is not stored, and no one can recover it.</p>
-  <div class="secret">
-    <code class="secret__value">{{.}}</code>
-    <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
-  </div>
-</section>
-{{end}}
-
-<section class="plate">
-  <h2 class="plate__title">Mint a token</h2>
-  <form method="post" action="{{.Paths.Tokens}}" class="stack">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-
-    <div class="row">
-      <label class="field">
-        <span class="field__label">Name</span>
-        <input class="input" type="text" name="name" value="{{.Form.Name}}"
-               placeholder="deploy-bot" maxlength="80" required>
-      </label>
-      <label class="field field--tight">
-        <span class="field__label">Expires</span>
-        <select class="input" name="expires_in">
-          <option value="30d"{{if eq .Form.ExpiresIn "30d"}} selected{{end}}>in 30 days</option>
-          <option value="90d"{{if eq .Form.ExpiresIn "90d"}} selected{{end}}>in 90 days</option>
-          <option value="365d"{{if eq .Form.ExpiresIn "365d"}} selected{{end}}>in a year</option>
-          <option value="never"{{if eq .Form.ExpiresIn "never"}} selected{{end}}>never</option>
-        </select>
-      </label>
+<div class="grid">
+  {{with .Secret}}
+  <section class="module module--signal span-12">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">01</span>Your new token</h2>
+      <span class="meta meta--signal">Shown once · not stored · no one can recover it</span>
     </div>
-
-    <fieldset class="field">
-      <legend class="field__label">Scopes</legend>
-      <p class="field__hint">Choose only what this token needs. You can revoke it at any time.</p>
-      <div class="checks">
-        {{$form := .Form}}
-        {{range .Scopes}}
-        <label class="check check--scope">
-          <input type="checkbox" name="scopes" value="{{.}}"{{if has $form.Scopes .}} checked{{end}}>
-          <span class="check__copy">
-            <span class="mono check__name">{{.}}</span>
-            <span class="check__description">{{scopeDescription .}}</span>
-          </span>
-        </label>
-        {{end}}
+    <div class="module__body">
+      <div class="secret">
+        <code class="secret__value">{{.}}</code>
+        <div class="secret__actions">
+          <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
+        </div>
       </div>
-    </fieldset>
-
-    <button class="btn btn--primary" type="submit">Create token</button>
-  </form>
-</section>
-
-<section class="plate">
-  <h2 class="plate__title">Existing tokens</h2>
-  {{if .Tokens}}
-  <div class="scroll">
-    <table class="table">
-      <thead>
-        <tr><th>Name</th><th>State</th><th>Scopes</th><th>Last used</th><th>Expires</th><th class="cell--right">Actions</th></tr>
-      </thead>
-      <tbody>
-        {{$now := .Now}}
-        {{range .Tokens}}
-        <tr>
-          <td>{{.Name}}<span class="mono muted block">{{.Prefix}}…</span></td>
-          <td>
-            {{if .Active $now}}<span class="pill pill--accepted">Active</span>
-            {{else if .RevokedAt}}<span class="pill pill--failed">Revoked</span>
-            {{else}}<span class="pill pill--expired">Expired</span>{{end}}
-          </td>
-          <td class="cell--wrap">
-            {{range .Scopes}}<span class="pill pill--kind mono">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}
-          </td>
-          <td><time datetime="{{iso .LastUsedAt}}" title="{{when .LastUsedAt}}">{{ago .LastUsedAt}}</time></td>
-          <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
-          <td class="cell--right">
-            {{if .Active $now}}
-            <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/revoke"
-                  data-confirm="Revoke this token? Anything using it stops working immediately.">
-              <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-              <button class="btn btn--danger" type="submit">Revoke</button>
-            </form>
-            {{else}}<span class="muted">—</span>{{end}}
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  {{else}}
-  <p class="empty">No tokens yet.</p>
+    </div>
+  </section>
   {{end}}
-</section>
+
+  <section class="module module--marked span-4">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">02</span>Mint a token</h2>
+    </div>
+    <div class="module__body">
+      <form method="post" action="{{.Paths.Tokens}}" class="stack" hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+        <div class="row">
+          <label class="field">
+            <span class="field__label">Name</span>
+            <input class="input" type="text" name="name" value="{{.Form.Name}}"
+                   placeholder="deploy-bot" maxlength="80" required>
+          </label>
+          <label class="field field--tight">
+            <span class="field__label">Expires</span>
+            <select class="input" name="expires_in">
+              <option value="30d"{{if eq .Form.ExpiresIn "30d"}} selected{{end}}>in 30 days</option>
+              <option value="90d"{{if eq .Form.ExpiresIn "90d"}} selected{{end}}>in 90 days</option>
+              <option value="365d"{{if eq .Form.ExpiresIn "365d"}} selected{{end}}>in a year</option>
+              <option value="never"{{if eq .Form.ExpiresIn "never"}} selected{{end}}>never</option>
+            </select>
+          </label>
+        </div>
+
+        <fieldset class="field">
+          <legend class="field__label">Scopes</legend>
+          <p class="field__hint">Choose only what this token needs. You can revoke it at any time.</p>
+          <div class="checks">
+            {{$form := .Form}}
+            {{range .Scopes}}
+            <label class="check check--scope">
+              <input type="checkbox" name="scopes" value="{{.}}"{{if has $form.Scopes .}} checked{{end}}>
+              <span class="check__copy">
+                <span class="check__name">{{.}}</span>
+                <span class="check__description">{{scopeDescription .}}</span>
+              </span>
+            </label>
+            {{end}}
+          </div>
+        </fieldset>
+
+        <button class="btn btn--primary" type="submit">Create token <span class="arrow">→</span></button>
+      </form>
+    </div>
+  </section>
+
+  <section class="module span-8">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">03</span>Issued</h2>
+      <span class="meta">{{len .Tokens}} on record · revoked ones keep their attribution</span>
+    </div>
+    {{if .Tokens}}
+    <div class="scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="cell--index"><span class="visually-hidden">Row</span></th>
+            <th>Token</th><th>State</th><th>Scopes</th><th>Last used</th><th>Expires</th>
+            <th class="cell--right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{$now := .Now}}
+          {{range .Tokens}}
+          <tr>
+            <td class="cell--index"></td>
+            <td class="cell--strong">{{.Name}}<span class="mono muted block">{{.Prefix}}…</span></td>
+            <td>
+              {{if .Active $now}}<span class="tag tag--state tag--active">Active</span>
+              {{else if .RevokedAt}}<span class="tag tag--state tag--failed">Revoked</span>
+              {{else}}<span class="tag tag--state tag--expired">Expired</span>{{end}}
+            </td>
+            <td class="cell--wrap">
+              {{range .Scopes}}<span class="tag tag--kind">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}
+            </td>
+            <td><time datetime="{{iso .LastUsedAt}}" title="{{when .LastUsedAt}}">{{ago .LastUsedAt}}</time></td>
+            <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
+            <td class="cell--right cell--actions">
+              {{if .Active $now}}
+              <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/revoke"
+                    data-confirm="Revoke this token? Anything using it stops working immediately."
+                    hx-disabled-elt="find button[type=submit]">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <button class="btn btn--danger btn--sm" type="submit">Revoke</button>
+              </form>
+              {{else}}<span class="muted">—</span>{{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <p class="empty">No tokens yet.</p>
+    {{end}}
+  </section>
+</div>
 {{end}}

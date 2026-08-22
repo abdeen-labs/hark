@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//go:embed assets/app.css assets/app.js assets/docs.css assets/docs.js assets/htmx.min.js assets/htmx.provenance.json
+//go:embed assets/app.css assets/app.js assets/docs.css assets/docs.js assets/htmx.min.js assets/htmx.provenance.json assets/idiomorph.min.js assets/idiomorph.provenance.json
 var assetFS embed.FS
 
 // asset is one embedded static file, served from a URL that contains a digest
@@ -25,17 +25,20 @@ type asset struct {
 
 // assetLinks are the URLs the layout links to. Docs is the extra sheet the
 // contract page loads on top of the shared one, so the dashboard does not carry
-// styles for elements it never renders. HTMX is a vendored copy of htmx from
-// the npm registry, unmodified — the authoritative version, tarball, and
-// digest live in assets/htmx.provenance.json, which a test binds to the
-// embedded bytes — whose hx-boost is what turns a nav click into a fetch and
-// a swap instead of a document teardown.
+// styles for elements it never renders. HTMX and Morph are vendored copies of
+// htmx and idiomorph from the npm registry, unmodified — each one's
+// authoritative version, tarball, and digest live in assets/<name>.provenance.json,
+// which a test binds to the embedded bytes. htmx's hx-boost is what turns a
+// nav click into a fetch and a swap instead of a document teardown; idiomorph
+// is how the overview's poll updates the page in place instead of replacing
+// it.
 type assetLinks struct {
 	CSS    string
 	JS     string
 	Docs   string
 	DocsJS string
 	HTMX   string
+	Morph  string
 }
 
 var (
@@ -48,6 +51,7 @@ var (
 		Docs:   mustLoadAsset("docs.css", "text/css; charset=utf-8"),
 		DocsJS: mustLoadAsset("docs.js", "text/javascript; charset=utf-8"),
 		HTMX:   mustLoadAsset("htmx.min.js", "text/javascript; charset=utf-8"),
+		Morph:  mustLoadAsset("idiomorph.min.js", "text/javascript; charset=utf-8"),
 	}
 )
 

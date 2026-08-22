@@ -1,44 +1,62 @@
 {{define "content"}}
-<h1 class="page-title">Devices</h1>
-<p class="muted page-lede">A phone registers itself, keyed on its APNs token. iOS reissues that token
-  whenever it likes, so the same handset can appear twice — the old row stops being used once a push
-  to it fails.</p>
+<header class="page-head page-head--count">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">04</span> Registry</span>
+    <span>Keyed on the APNs token</span>
+  </p>
+  <h1 class="page-head__title display">Devices</h1>
+  <div class="page-head__count metric metric--lg">
+    <span class="metric__value num">{{len .Devices}}</span>
+    <span class="metric__label meta">Registered</span>
+  </div>
+  <p class="page-head__lede lede">A phone registers itself, keyed on its APNs token. iOS reissues that
+    token whenever it likes, so the same handset can appear twice — the old row stops being used once a
+    push to it fails.</p>
+</header>
 
-<section class="plate">
+<section class="module">
+  <span class="module__edge meta" aria-hidden="true">Registry · 04</span>
+  <div class="module__head">
+    <h2 class="module__label"><span class="module__index">01</span>Registered devices</h2>
+    <span class="meta">A retired row stays so history keeps resolving</span>
+  </div>
   {{if .Devices}}
   <div class="scroll">
     <table class="table">
       <thead>
         <tr>
-          <th>Name</th><th>State</th><th>Live Activities</th><th>Environment</th>
+          <th class="cell--index"><span class="visually-hidden">Row</span></th>
+          <th>Device</th><th>State</th><th>Live Activities</th><th>Environment</th>
           <th>Last seen</th><th>Registered</th><th class="cell--right">Actions</th>
         </tr>
       </thead>
       <tbody>
         {{range .Devices}}
         <tr>
-          <td>
+          <td class="cell--index"></td>
+          <td class="cell--strong">
             {{with text .Name}}{{.}}{{else}}<span class="muted">Unnamed</span>{{end}}
             <span class="mono muted block">{{.ID}}</span>
           </td>
           <td>
-            {{if .Active}}<span class="pill pill--accepted">Active</span>
-            {{else}}<span class="pill pill--failed">Retired</span>{{end}}
+            {{if .Active}}<span class="tag tag--state tag--active">Active</span>
+            {{else}}<span class="tag tag--state tag--retired">Retired</span>{{end}}
           </td>
           <td>
             {{if .LiveActivityCapable}}
-              <span class="pill pill--accepted">Ready</span>
-              {{if not .InteractiveLiveActivityCapable}}<span class="pill pill--kind">No buttons</span>{{end}}
+              <span class="tag tag--state tag--ok">Ready</span>
+              {{if not .InteractiveLiveActivityCapable}}<span class="tag tag--kind">No buttons</span>{{end}}
             {{else}}<span class="muted">No push-to-start token</span>{{end}}
           </td>
           <td class="mono">{{with text .PushToStartEnvironment}}{{.}}{{else}}—{{end}}</td>
           <td><time datetime="{{iso .LastSeenAt}}" title="{{when .LastSeenAt}}">{{ago .LastSeenAt}}</time></td>
           <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
-          <td class="cell--right">
+          <td class="cell--right cell--actions">
             <form method="post" action="{{$.Paths.Devices}}/{{.ID}}/delete"
-                  data-confirm="Unregister this device? Anything it is showing stays on screen, and nothing more is sent to it.">
+                  data-confirm="Unregister this device? Anything it is showing stays on screen, and nothing more is sent to it."
+                  hx-disabled-elt="find button[type=submit]">
               <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-              <button class="btn btn--danger" type="submit">Unregister</button>
+              <button class="btn btn--danger btn--sm" type="submit">Unregister</button>
             </form>
           </td>
         </tr>

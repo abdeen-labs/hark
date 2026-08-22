@@ -1,10 +1,11 @@
-// The dashboard's whole client, on top of a vendored htmx. hx-boost on the
-// body does the navigation — every same-origin link and form becomes a fetch
-// and a body swap — and this file adds the four behaviours that are ours: a
-// confirmation before a destructive submit, copying a one-time secret, keeping
-// the overview current without a reload, and keeping "3m ago" true while a
-// page sits open. Everything in here is delegated or re-resolved per use, so
-// content htmx swapped in five minutes ago is as covered as the first render.
+// The dashboard's whole client, on top of vendored htmx and idiomorph. hx-boost
+// on the body does the navigation — every same-origin link and form becomes a
+// fetch and a body swap — and this file adds the four behaviours that are
+// ours: a confirmation before a destructive submit, copying a one-time secret,
+// keeping the overview current without a reload, and keeping "3m ago" true
+// while a page sits open. Everything in here is delegated or re-resolved per
+// use, so content htmx swapped in five minutes ago is as covered as the first
+// render.
 "use strict";
 
 // Destructive forms carry data-confirm, answered by the layout's <dialog>.
@@ -76,8 +77,12 @@ const refreshLive = async () => {
   if (!res.ok) return;
   liveETag = res.headers.get("ETag") || "";
   // The body is this origin's own html/template output — the same escaped
-  // markup a reload would draw — so assigning it is as safe as the page.
-  live.innerHTML = await res.text();
+  // markup a reload would draw — so it is as safe as the page. It is morphed
+  // into place rather than assigned: a row that did not change keeps its
+  // nodes, so avatars do not reload and a hover or a selection survives the
+  // tick. The feed items carry ids for the purpose — a new delivery is an
+  // insertion at the top, not a rewrite of every row below it.
+  Idiomorph.morph(live, await res.text(), { morphStyle: "innerHTML" });
 };
 window.setInterval(refreshLive, 5000);
 document.addEventListener("visibilitychange", () => {

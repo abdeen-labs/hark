@@ -5,24 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>{{.Title}} · Hark</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23ce2020'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ce2020'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
 <link rel="stylesheet" href="{{.Assets.CSS}}">
 <link rel="stylesheet" href="{{.Assets.Docs}}">
 </head>
 <body>
-<div class="grain" aria-hidden="true"></div>
 
-<header class="topbar">
-  <div class="topbar__inner">
-    <a class="brand" href="{{.Paths.Docs}}"><span class="brand__mark" aria-hidden="true"></span>Hark</a>
+<header class="mast">
+  <div class="mast__inner">
+    <a class="brand" href="{{.Paths.Docs}}"><span class="brand__mark" aria-hidden="true"></span>Hark<span class="brand__sub meta">API contract</span></a>
     <nav class="nav" aria-label="Sections">
-      <a href="{{.Paths.Docs}}" aria-current="page">Docs</a>
-      <a href="{{.Paths.Home}}">Dashboard</a>
+      <a href="{{.Paths.Docs}}" aria-current="page"><span class="nav__index" aria-hidden="true">07</span>Docs</a>
+      <a href="{{.Paths.Home}}"><span class="nav__index" aria-hidden="true">01</span>Dashboard</a>
     </nav>
-    <nav class="docs-formats" aria-label="Documentation formats">
+    <nav class="docs-formats mast__out" aria-label="Documentation formats">
       <a href="{{.Paths.DocsMarkdown}}">Markdown</a>
       <a href="{{.Paths.OpenAPI}}">OpenAPI</a>
       <a href="{{.Paths.LLMs}}">llms.txt</a>
@@ -34,32 +33,47 @@
   <nav class="toc" aria-label="Contents">
     <label class="docs-search">
       <span class="visually-hidden">Search documentation</span>
-      <input type="search" placeholder="Search docs" autocomplete="off" data-docs-search>
+      <input type="search" placeholder="Search the contract" autocomplete="off" data-docs-search>
       <kbd>/</kbd>
     </label>
     <p class="toc__result" role="status" aria-live="polite" data-docs-result></p>
-    <p class="toc__title">On this page</p>
+    <p class="toc__title meta">Contents</p>
     <ul class="toc__list">
       {{range .Contents}}
       <li class="toc__item toc__item--h{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>
       {{end}}
     </ul>
   </nav>
+
   <main>
-    <aside class="docs-intro" aria-label="Documentation formats">
-      <p><strong>Build against Hark.</strong> Read the guide here, or give a tool the same contract in a format it understands.</p>
-      <div class="docs-intro__links">
-        <a href="{{.Paths.DocsMarkdown}}">Raw Markdown</a>
-        <a href="{{.Paths.OpenAPI}}">OpenAPI 3.1 JSON</a>
-        <a href="{{.Paths.LLMs}}">llms.txt</a>
-      </div>
-    </aside>
+    <header class="docs-head">
+      <p class="docs-head__eyebrow meta">
+        <span><span class="idx">07</span> API contract</span>
+        <span>Public · no credential</span>
+        {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
+      </p>
+      <aside class="docs-intro" aria-label="Documentation formats">
+        <p><strong>Build against Hark.</strong> Read the guide here, or give a tool the same contract in a format it understands.</p>
+        <div class="docs-intro__links">
+          <a href="{{.Paths.DocsMarkdown}}">Markdown</a>
+          <a href="{{.Paths.OpenAPI}}">OpenAPI 3.1</a>
+          <a href="{{.Paths.LLMs}}">llms.txt</a>
+        </div>
+      </aside>
+    </header>
     <article class="prose" data-docs-body>{{.Body}}</article>
     <p class="docs-empty" hidden data-docs-empty>No sections match that search.</p>
   </main>
+
+  <aside class="docs-rail" aria-hidden="true">
+    <span class="docs-rail__label meta">Hark · HTTP API{{if .Version}} · Rev {{.Version}}{{end}}</span>
+  </aside>
 </div>
 
-<footer class="footer">Hark{{if .Version}} · {{.Version}}{{end}}</footer>
+<footer class="foot meta">
+  <span>Hark</span>
+  {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
+</footer>
 <script src="{{.Assets.DocsJS}}" defer></script>
 </body>
 </html>{{end}}
