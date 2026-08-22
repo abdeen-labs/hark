@@ -15,6 +15,9 @@ import SwiftUI
 struct Mast: View {
     @Environment(AppModel.self) private var model
 
+    /// The bar, its rule, and the column ruler.
+    static let height: CGFloat = 44 + 1 + 6
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -39,9 +42,9 @@ struct Mast: View {
             .padding(.horizontal, Axis.gutter)
             .frame(height: 44)
             Hairline()
-            ColumnRuler()
+            ColumnRuler(height: 6)
         }
-        .background(Axis.paper)
+        .background(Axis.paper.ignoresSafeArea(edges: .top))
     }
 
     private var registered: Bool {
@@ -55,7 +58,9 @@ struct Rail: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    static let height: CGFloat = 56
+    static let itemHeight: CGFloat = 56
+    /// The rule and the row of sections.
+    static let height: CGFloat = 1 + itemHeight
 
     private static let sections: [(tab: AppModel.Tab, index: String, label: String)] = [
         (.inbox, "01", "Inbox"),
@@ -74,7 +79,7 @@ struct Rail: View {
             }
             .padding(.horizontal, Axis.gutter - 12)
         }
-        .background(Axis.paper)
+        .background(Axis.paper.ignoresSafeArea(edges: .bottom))
     }
 
     private func item(_ tab: AppModel.Tab, index: String, label: String) -> some View {
@@ -101,7 +106,7 @@ struct Rail: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 12)
-            .frame(height: Self.height)
+            .frame(height: Self.itemHeight)
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(Axis.signal)
@@ -120,7 +125,10 @@ struct Rail: View {
 // MARK: - Shell
 
 /// The four sections, all resident so each keeps its scroll position and its
-/// loaded state; only the selected one is visible and hit-testable.
+/// loaded state; only the selected one is visible and hit-testable. The mast
+/// and the rail are fixed overlays: a navigation stack resolves its own safe
+/// area from UIKit and ignores insets placed outside it, so each page insets
+/// itself with `shellInsets()` from inside the stack instead.
 struct RootTabView: View {
     @Environment(AppModel.self) private var model
 
@@ -131,8 +139,8 @@ struct RootTabView: View {
             section(.devices) { DevicesView() }
             section(.settings) { SettingsView() }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { Mast() }
-        .safeAreaInset(edge: .bottom, spacing: 0) { Rail() }
+        .overlay(alignment: .top) { Mast() }
+        .overlay(alignment: .bottom) { Rail() }
     }
 
     private func section<Content: View>(_ tab: AppModel.Tab, @ViewBuilder content: () -> Content) -> some View {
@@ -141,5 +149,14 @@ struct RootTabView: View {
             .opacity(active ? 1 : 0)
             .allowsHitTesting(active)
             .accessibilityHidden(!active)
+    }
+}
+
+extension View {
+    /// Keeps a page's content clear of the mast and the rail. Applied inside
+    /// every navigation stack, on each page and on each pushed destination.
+    func shellInsets() -> some View {
+        safeAreaPadding(.top, Mast.height)
+            .safeAreaPadding(.bottom, Rail.height)
     }
 }

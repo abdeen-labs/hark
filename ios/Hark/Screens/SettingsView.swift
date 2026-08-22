@@ -32,6 +32,7 @@ struct SettingsView: View {
                     .padding(.bottom, 24)
                 }
             }
+            .shellInsets()
             .toolbarVisibility(.hidden, for: .navigationBar)
         }
     }

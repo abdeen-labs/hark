@@ -20,9 +20,11 @@ struct InboxView: View {
                 Hairline()
                 content
             }
+            .shellInsets()
             .toolbarVisibility(.hidden, for: .navigationBar)
             .navigationDestination(for: InboxEntry.self) { entry in
                 InteractionDetailView(entry: entry)
+                    .shellInsets()
             }
             .task { await model.refreshInbox() }
             .alert("Inbox", isPresented: .init(

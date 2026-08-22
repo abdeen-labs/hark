@@ -38,6 +38,7 @@ struct HistoryView: View {
                 Hairline()
                 list
             }
+            .shellInsets()
             .toolbarVisibility(.hidden, for: .navigationBar)
             .task { if !loadedOnce { await reload() } }
         }

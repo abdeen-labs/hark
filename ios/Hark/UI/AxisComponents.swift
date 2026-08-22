@@ -628,7 +628,7 @@ struct Schematic: View {
             let count = nodes.count
             guard count > 1 else { return }
             let inset: CGFloat = 28
-            let y: CGFloat = 16
+            let y: CGFloat = note == nil ? 16 : 28
             let span = (size.width - inset * 2) / CGFloat(count - 1)
             let xs = (0 ..< count).map { inset + CGFloat($0) * span }
 

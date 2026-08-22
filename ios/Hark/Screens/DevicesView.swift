@@ -24,6 +24,7 @@ struct DevicesView: View {
                 Hairline()
                 content
             }
+            .shellInsets()
             .toolbarVisibility(.hidden, for: .navigationBar)
             .task { await reload() }
             .confirmationDialog(
