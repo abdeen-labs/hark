@@ -623,12 +623,17 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 
 /* Tabs ---------------------------------------------------------------------- */
 
+/* The row scrolls sideways when it must, so it is a scroll container — and a
+ * scroll container with a single pixel of vertical overflow scrolls that
+ * pixel under the wheel. The rule is an inset shadow rather than a border so
+ * the indicator can cover it from inside the padding box. */
 .tabs {
   display: flex;
   gap: 28px;
   margin: 0 0 4px;
-  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 -1px 0 var(--line);
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar { display: none; }
@@ -649,7 +654,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1px;
+  bottom: 0;
   height: 2px;
   background: var(--signal);
   transform: scaleX(0);
