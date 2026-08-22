@@ -65,7 +65,7 @@
   <aside class="span-5 tx-result" aria-label="Result">
     {{with .Result}}
     <p class="meta"><span class="idx">02</span> Result</p>
-    <div class="metric metric--xl">
+    <div class="metric metric--xl" data-accepted="{{.Accepted}}" data-attempted="{{.Attempted}}">
       <span class="metric__value"><span class="num">{{.Accepted}}</span><span class="metric__of">/{{.Attempted}}</span></span>
       <span class="metric__label meta">Messages accepted by APNs</span>
     </div>

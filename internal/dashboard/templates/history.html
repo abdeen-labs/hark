@@ -28,8 +28,8 @@
 
 {{if or .Older .Newest}}
 <nav class="pager" aria-label="Pages">
-  {{with .Newest}}<a class="btn" href="{{.}}"><span class="arrow arrow--back">←</span> Newest</a>{{end}}
-  {{with .Older}}<a class="btn" href="{{.}}">Older <span class="arrow">→</span></a>{{end}}
+  {{with .Newest}}<a class="btn" href="{{.}}" rel="prev"><span class="arrow arrow--back">←</span> Newest</a>{{end}}
+  {{with .Older}}<a class="btn" href="{{.}}" rel="next">Older <span class="arrow">→</span></a>{{end}}
 </nav>
 {{end}}
 {{end}}

@@ -74,8 +74,8 @@ func TestSendTestFansOutToEveryActiveDevice(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `<span class="num">2</span><span class="metric__of">/2</span>`) {
-		t.Errorf("the result plate does not show 2 of 2 accepted:\n%s", body)
+	if !strings.Contains(body, `data-accepted="2" data-attempted="2"`) {
+		t.Errorf("the result does not report 2 of 2 accepted:\n%s", body)
 	}
 	if !strings.Contains(body, "APNs accepted every message.") {
 		t.Errorf("the page does not carry the all-accepted banner:\n%s", body)
@@ -174,8 +174,8 @@ func TestSendTestRetiresTheDevicesAPNsDisowned(t *testing.T) {
 		t.Fatalf("fan-outs = %v, want one push to both devices", sender.sent)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `<span class="num">1</span><span class="metric__of">/2</span>`) {
-		t.Errorf("the result plate does not show 1 of 2 accepted:\n%s", body)
+	if !strings.Contains(body, `data-accepted="1" data-attempted="2"`) {
+		t.Errorf("the result does not report 1 of 2 accepted:\n%s", body)
 	}
 	// The provider's own words reach the page: this reader owns the account.
 	if !strings.Contains(body, "APNs request failed: Unregistered") {

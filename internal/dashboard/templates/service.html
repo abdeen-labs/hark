@@ -102,7 +102,7 @@
         <thead><tr><th>Status</th><th>Notification</th><th>Priority</th><th class="cell--right">Accepted</th><th>When</th></tr></thead>
         <tbody>
           {{range .Deliveries}}
-          <tr>
+          <tr data-delivery="{{.ID}}">
             <td><span class="tag tag--state tag--{{.Status}}">{{title .Status}}</span></td>
             <td class="cell--clamp"><span class="cell--strong block">{{.Title}}</span><span class="block muted" title="{{.Body}}">{{.Body}}</span>
               {{with text .Error}}<span class="feed__error" title="{{.}}">{{.}}</span>{{end}}</td>

@@ -24,7 +24,7 @@
      stylesheets and must load as a document. */}}
 <body hx-boost="true">
 
-{{if .Username}}
+{{if .SignedIn}}
 <header class="mast">
   <div class="mast__inner">
     <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark<span class="brand__sub meta">Push relay</span></a>
@@ -47,7 +47,7 @@
 <div class="ruler" aria-hidden="true"></div>
 {{end}}
 
-<main class="shell{{if not .Username}} shell--bare{{end}}">
+<main class="shell{{if not .SignedIn}} shell--bare{{end}}">
   {{with .Notice}}<p class="notice notice--{{.Kind}}" role="status">{{.Message}}</p>{{end}}
   {{template "content" .}}
 </main>

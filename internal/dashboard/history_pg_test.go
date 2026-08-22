@@ -47,7 +47,7 @@ func TestHistoryPagesThroughTheArchive(t *testing.T) {
 	svc := mustDashService(t, store, userID, "CI")
 	seedEvents(t, store, svc.ID, historyPageSize+5)
 
-	// The first page is full and offers Older but not Newest.
+	// The first page is full and links onward but not back.
 	rec := send(d, asOwner(signedIn(http.MethodGet, pathHistory, ""), userID))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("first page: status = %d: %s", rec.Code, rec.Body)
@@ -56,18 +56,15 @@ func TestHistoryPagesThroughTheArchive(t *testing.T) {
 	if got := strings.Count(body, `class="feed__item"`); got != historyPageSize {
 		t.Errorf("first page shows %d items, want %d", got, historyPageSize)
 	}
-	older, _, found := strings.Cut(body, "Older")
+	target, found := pagerLink(body, "next")
 	if !found {
-		t.Fatalf("the first page offers no Older link:\n%s", body)
+		t.Fatalf("the first page has no rel=next link:\n%s", body)
 	}
-	if strings.Contains(body, "Newest") {
-		t.Errorf("the first page offers a Newest link:\n%s", body)
+	if _, back := pagerLink(body, "prev"); back {
+		t.Errorf("the first page has a rel=prev link:\n%s", body)
 	}
 
-	// Follow the Older link the page actually rendered.
-	start := strings.LastIndex(older, `href="`)
-	target := strings.TrimSuffix(older[start+len(`href="`):], `">`)
-	target = strings.ReplaceAll(target, "&amp;", "&")
+	// Follow the link the page actually rendered.
 	rec = send(d, asOwner(signedIn(http.MethodGet, target, ""), userID))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("second page: status = %d: %s", rec.Code, rec.Body)
@@ -76,12 +73,27 @@ func TestHistoryPagesThroughTheArchive(t *testing.T) {
 	if got := strings.Count(body, `class="feed__item"`); got != 5 {
 		t.Errorf("second page shows %d items, want 5", got)
 	}
-	if strings.Contains(body, "Older") {
-		t.Errorf("the last page offers an Older link:\n%s", body)
+	if _, onward := pagerLink(body, "next"); onward {
+		t.Errorf("the last page has a rel=next link:\n%s", body)
 	}
-	if !strings.Contains(body, "Newest") {
-		t.Errorf("the last page offers no way back:\n%s", body)
+	if _, back := pagerLink(body, "prev"); !back {
+		t.Errorf("the last page has no rel=prev link:\n%s", body)
 	}
+}
+
+// pagerLink returns the href of the page's rel=next or rel=prev link.
+func pagerLink(body, rel string) (string, bool) {
+	_, anchor, found := strings.Cut(body, `rel="`+rel+`"`)
+	if !found {
+		return "", false
+	}
+	head := body[:len(body)-len(anchor)]
+	start := strings.LastIndex(head, `href="`)
+	if start < 0 {
+		return "", false
+	}
+	href, _, _ := strings.Cut(head[start+len(`href="`):], `"`)
+	return strings.ReplaceAll(href, "&amp;", "&"), true
 }
 
 func TestHistoryFiltersByKind(t *testing.T) {
@@ -155,8 +167,8 @@ func TestServicePageShowsItsOwnDeliveries(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
 	}
-	// One accepted-status tag per delivery row, and only this service's rows.
-	if got := strings.Count(rec.Body.String(), "tag--accepted"); got != 2 {
+	// Only this service's rows.
+	if got := strings.Count(rec.Body.String(), `data-delivery="`); got != 2 {
 		t.Errorf("the page shows %d delivery rows, want the service's own 2", got)
 	}
 }

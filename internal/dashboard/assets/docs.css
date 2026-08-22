@@ -261,6 +261,9 @@
   border: 0;
   border-top: 1px solid var(--line);
 }
+/* A section heading draws its own rule; the source's separator before it
+ * would double it. */
+.prose hr:has(+ h2) { display: none; }
 
 .prose blockquote {
   margin: 0 0 16px;

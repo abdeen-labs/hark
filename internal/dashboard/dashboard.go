@@ -478,8 +478,10 @@ type view struct {
 	Paths   paths
 	Assets  assetLinks
 	Version string
-	// Username is empty on the sign-in page, which is the one page with no
-	// account behind it.
+	// SignedIn draws the account's chrome. It is the layout's switch rather
+	// than Username, because the sign-in page echoes a typed username back
+	// under the same field name.
+	SignedIn bool
 	Username string
 	CSRF     string
 	Notice   *notice
@@ -489,6 +491,7 @@ type view struct {
 // redirect that landed here asked for.
 func (d *Dashboard) newView(r *http.Request, p *auth.Principal, title, section string) view {
 	v := d.shell(title, section, d.formToken(r), noticeFrom(r))
+	v.SignedIn = true
 	v.Username = p.User.Username
 	return v
 }
