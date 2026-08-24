@@ -122,7 +122,7 @@ struct SignInView: View {
                 .textCase(.uppercase)
                 .foregroundStyle(Axis.inkFaint)
             Spacer()
-            Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkDisabled)
+            Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkFaint)
         }
         .padding(.top, 14)
         .overlay(alignment: .top) { Hairline() }

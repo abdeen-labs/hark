@@ -23,7 +23,7 @@ const (
 	activityStateVersion = db.LiveActivitySchemaVersion
 
 	// defaultAccentColor is Hark's own red.
-	defaultAccentColor = "#E13B3B"
+	defaultAccentColor = "#E64949"
 )
 
 // Symbols name the glyph the widget draws.

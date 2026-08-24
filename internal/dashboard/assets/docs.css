@@ -99,14 +99,14 @@
   width: 100%;
   min-height: 40px;
   padding: 8px 32px 8px 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line-control);
   border-radius: var(--r-sm);
   background: var(--field);
   color: var(--ink);
   font: inherit;
   font-size: 13px;
 }
-.docs-search input::placeholder { color: var(--ink-disabled); }
+.docs-search input::placeholder { color: var(--ink-faint); }
 .docs-search input:focus { outline: 0; border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
 .docs-search kbd {
   position: absolute;
@@ -187,6 +187,14 @@
 }
 
 .prose > :first-child { margin-top: 0; }
+
+.prose a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--signal-line);
+  text-underline-offset: 0.15em;
+}
+.prose a:hover { text-decoration-color: currentColor; }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
   color: var(--ink);
@@ -370,7 +378,7 @@
 .prose th {
   color: var(--ink-faint);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -384,7 +392,7 @@
 .prose td code {
   overflow-wrap: normal;
 }
-.prose tbody tr:hover { background: rgba(244, 246, 249, 0.025); }
+.prose tbody tr:hover { background: rgba(244, 246, 249, 0.05); }
 
 /* Narrow viewports ---------------------------------------------------------
  *

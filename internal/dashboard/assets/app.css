@@ -18,16 +18,19 @@
   --ink: #f4f6f9;
   --ink-muted: #d5dbe4;
   --ink-subtle: #a2abb9;
-  --ink-faint: #7b8496;
+  --ink-faint: #8f99ab;
   --ink-disabled: #4d5665;
 
   --line: rgba(244, 246, 249, 0.12);
   --line-strong: rgba(244, 246, 249, 0.24);
   --line-faint: rgba(244, 246, 249, 0.06);
+  /* The edge of anything the hand operates: heavy enough to clear 3:1 against
+   * the surface behind it, which a rule never has to. */
+  --line-control: rgba(244, 246, 249, 0.36);
 
   --signal: #ce2020;
   --signal-hover: #a31818;
-  --signal-text: #e13b3b;
+  --signal-text: #e64949;
   --on-signal: #ffffff;
   --signal-wash: rgba(206, 32, 32, 0.12);
   --signal-line: rgba(206, 32, 32, 0.55);
@@ -36,7 +39,7 @@
   --ok-line: rgba(22, 179, 125, 0.5);
   --warn: #e2a81e;
   --warn-line: rgba(226, 168, 30, 0.5);
-  --danger: #e13b3b;
+  --danger: #e64949;
 
   --code: #090c11;
   --code-ink: #eef1f6;
@@ -129,7 +132,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 
 /* Type scale ---------------------------------------------------------------
  *
- * Four registers, far apart: 10px mono metadata, 14px interface copy,
+ * Four registers, far apart: 10–11px mono metadata, 14px interface copy,
  * 48–128px data, 64–150px display. Most of the hierarchy is the jump. */
 
 .display {
@@ -401,7 +404,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   margin: 0 auto;
   padding: 14px var(--gutter) 28px;
   border-top: 1px solid var(--line);
-  color: var(--ink-disabled);
+  color: var(--ink-faint);
 }
 
 /* Page head ------------------------------------------------------------------
@@ -611,7 +614,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   font-variant-numeric: tabular-nums;
 }
 .metric__of {
-  color: var(--ink-disabled);
+  color: var(--ink-faint);
   font-size: 0.42em;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -643,7 +646,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   padding: 14px 0 12px;
   color: var(--ink-subtle);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -693,7 +696,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   padding-bottom: 10px;
   color: var(--ink-faint);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -701,7 +704,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .table tbody th {
   color: var(--ink-faint);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -710,7 +713,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .table tbody tr { counter-increment: row; }
 .table tbody tr:last-child td,
 .table tbody tr:last-child th { border-bottom: 0; }
-.table tbody tr:hover { background: rgba(244, 246, 249, 0.025); }
+.table tbody tr:hover { background: rgba(244, 246, 249, 0.05); }
 .table th.cell--right, .table td.cell--right { text-align: right; }
 .table td.cell--strong { color: var(--ink); font-weight: 500; }
 .table td.cell--index {
@@ -816,7 +819,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   padding: 6px 10px;
   border-left: 2px solid var(--danger);
   background: var(--signal-wash);
-  color: var(--danger);
+  color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
   overflow-wrap: anywhere;
@@ -849,19 +852,19 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   padding: 0;
   color: var(--ink-subtle);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.field__label .muted { color: var(--ink-disabled); }
+.field__label .muted { color: var(--ink-faint); }
 .field__hint { margin: -2px 0 14px; color: var(--ink-faint); font-size: 12px; line-height: 1.45; text-wrap: pretty; }
 
 .input {
   width: 100%;
   min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line-control);
   border-radius: var(--r-sm);
   background: var(--field);
   color: var(--ink);
@@ -872,7 +875,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 }
 .input:hover { border-color: var(--ink-faint); }
 .input:focus { outline: 0; border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
-.input::placeholder { color: var(--ink-disabled); }
+.input::placeholder { color: var(--ink-faint); }
 textarea.input { min-height: 96px; resize: vertical; }
 select.input {
   appearance: none;
@@ -901,7 +904,7 @@ select.input {
   width: 14px;
   height: 14px;
   margin: 2px 0 0;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--line-control);
   border-radius: var(--r-xs);
   background: var(--field);
   cursor: pointer;
@@ -1202,7 +1205,7 @@ select.input {
   gap: 12px 24px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
-  color: var(--ink-disabled);
+  color: var(--ink-faint);
 }
 .wordmark { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); }
 

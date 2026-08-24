@@ -608,7 +608,7 @@
         "properties": {
           "key": { "type": "string", "minLength": 1, "maxLength": 100 }, "replace": { "type": "boolean", "default": false },
           "title": { "type": "string", "minLength": 1, "maxLength": 80 }, "status": { "type": "string", "minLength": 1, "maxLength": 60 }, "detail": { "type": "string", "minLength": 1, "maxLength": 240 }, "progress": { "type": "number", "minimum": 0, "maximum": 1 },
-          "symbol": { "type": "string", "enum": ["terminal", "code", "build", "success", "warning"], "default": "terminal" }, "privacy_mode": { "type": "string", "enum": ["standard", "private"], "default": "standard" }, "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$", "default": "#E13B3B" }, "style": { "type": "string", "enum": ["standard", "ring", "hero", "terminal", "steps"], "default": "standard" },
+          "symbol": { "type": "string", "enum": ["terminal", "code", "build", "success", "warning"], "default": "terminal" }, "privacy_mode": { "type": "string", "enum": ["standard", "private"], "default": "standard" }, "accent_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$", "default": "#E64949" }, "style": { "type": "string", "enum": ["standard", "ring", "hero", "terminal", "steps"], "default": "standard" },
           "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } },
           "expires_in_seconds": { "type": "integer", "minimum": 60, "maximum": 28800, "default": 28800 }, "stale_after_seconds": { "type": "integer", "minimum": 0, "maximum": 28800, "default": 14400 }
         }

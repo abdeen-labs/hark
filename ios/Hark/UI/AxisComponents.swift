@@ -215,7 +215,7 @@ struct FieldFrame<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let label {
-                Meta(label, color: Axis.inkSubtle)
+                Meta(label, size: 11, color: Axis.inkSubtle)
             }
             content()
                 .font(AxisType.copy(15))
@@ -264,7 +264,7 @@ struct Metric: View {
                         .font(.system(size: size * 0.42, weight: .medium))
                         .monospacedDigit()
                         .tracking(AxisType.tracking(-0.02, at: size * 0.42))
-                        .foregroundStyle(Axis.inkDisabled)
+                        .foregroundStyle(Axis.inkFaint)
                 }
             }
             .lineLimit(1)

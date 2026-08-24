@@ -140,7 +140,7 @@ struct SettingsView: View {
 
     private var foot: some View {
         HStack(alignment: .firstTextBaseline) {
-            Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkDisabled)
+            Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkFaint)
             Spacer()
             Text("Abdeen Labs")
                 .font(AxisType.meta(11))

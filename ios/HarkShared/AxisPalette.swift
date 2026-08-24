@@ -14,7 +14,7 @@ import SwiftUI
 nonisolated enum Axis {
     // MARK: Surfaces
 
-    static let paper = Color(axisRGB: 0x06080D)
+    static let paper = Color(axisRGB: axisPaperRGB)
     static let surface = Color(axisRGB: 0x0B0E14)
     static let surface2 = Color(axisRGB: 0x11161F)
     static let surface3 = Color(axisRGB: 0x1A212C)
@@ -25,7 +25,7 @@ nonisolated enum Axis {
     static let ink = Color(axisRGB: 0xF4F6F9)
     static let inkMuted = Color(axisRGB: 0xD5DBE4)
     static let inkSubtle = Color(axisRGB: 0xA2ABB9)
-    static let inkFaint = Color(axisRGB: 0x7B8496)
+    static let inkFaint = Color(axisRGB: 0x8F99AB)
     /// Decorative only — indexes and ledger numbers hidden from assistive
     /// technology. It does not meet AA against the paper.
     static let inkDisabled = Color(axisRGB: 0x4D5665)
@@ -41,8 +41,8 @@ nonisolated enum Axis {
     /// Fills, strips, rules. Not small text.
     static let signal = Color(axisRGB: 0xCE2020)
     static let signalPressed = Color(axisRGB: 0xA31818)
-    /// The signal colour at text weight; passes AA on the paper.
-    static let signalText = Color(axisRGB: 0xE13B3B)
+    /// The signal colour at text weight; passes AA on every surface.
+    static let signalText = Color(axisRGB: 0xE64949)
     static let onSignal = Color.white
     static let signalWash = signal.opacity(0.12)
     static let signalLine = signal.opacity(0.55)
@@ -56,7 +56,7 @@ nonisolated enum Axis {
     static let danger = signalText
 
     /// What a Live Activity's accent falls back to when the server's
-    /// `accent_color` does not parse.
+    /// `accent_color` does not parse, or is too dark to be seen on the pitch.
     static let accent = signalText
 
     // MARK: Geometry
@@ -83,27 +83,65 @@ nonisolated enum Axis {
     }
 }
 
+private let axisPaperRGB: UInt32 = 0x06080D
+
+/// The floor an accent has to clear against the paper it is drawn on: the
+/// 3:1 of WCAG's non-text contrast, since the accent carries glyphs, bars,
+/// and keylines rather than body copy.
+private let axisAccentFloor: Double = 3
+
+/// A `#RRGGBB` string as channel values in 0…1, or nil when the string is
+/// not that form.
+private func axisChannels(_ harkHex: String) -> (red: Double, green: Double, blue: Double)? {
+    var hex = harkHex.trimmingCharacters(in: .whitespacesAndNewlines)
+    if hex.hasPrefix("#") { hex.removeFirst() }
+    guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
+    return axisChannels(value)
+}
+
+private func axisChannels(_ value: UInt32) -> (red: Double, green: Double, blue: Double) {
+    (
+        red: Double((value >> 16) & 0xFF) / 255,
+        green: Double((value >> 8) & 0xFF) / 255,
+        blue: Double(value & 0xFF) / 255
+    )
+}
+
+/// WCAG 2.1 relative luminance.
+private func axisLuminance(_ channels: (red: Double, green: Double, blue: Double)) -> Double {
+    func linear(_ c: Double) -> Double {
+        c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+    }
+    return 0.2126 * linear(channels.red) + 0.7152 * linear(channels.green) + 0.0722 * linear(channels.blue)
+}
+
+private func axisContrast(_ one: Double, _ other: Double) -> Double {
+    (max(one, other) + 0.05) / (min(one, other) + 0.05)
+}
+
+private let axisPaperLuminance = axisLuminance(axisChannels(axisPaperRGB))
+
 nonisolated extension Color {
     init(axisRGB value: UInt32) {
-        self.init(
-            red: Double((value >> 16) & 0xFF) / 255,
-            green: Double((value >> 8) & 0xFF) / 255,
-            blue: Double(value & 0xFF) / 255
-        )
+        let channels = axisChannels(value)
+        self.init(red: channels.red, green: channels.green, blue: channels.blue)
     }
 
     /// Parses a `#RRGGBB` string, the form the server's `accent_color` uses.
     /// Returns nil for anything else; callers fall back to `Axis.accent`.
     init?(harkHex: String) {
-        var hex = harkHex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if hex.hasPrefix("#") { hex.removeFirst() }
-        guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
-        self.init(axisRGB: value)
+        guard let channels = axisChannels(harkHex) else { return nil }
+        self.init(red: channels.red, green: channels.green, blue: channels.blue)
     }
 
     /// The accent color a content state names, or lacquer red when the string
-    /// does not parse.
+    /// does not parse. A Live Activity draws its accent as text, tints, bars,
+    /// and keylines on the pitch surfaces, so an accent that cannot hold 3:1
+    /// against the paper falls back the same way an unparsable one does.
     static func harkAccent(_ hex: String) -> Color {
-        Color(harkHex: hex) ?? Axis.accent
+        guard let channels = axisChannels(hex),
+              axisContrast(axisLuminance(channels), axisPaperLuminance) >= axisAccentFloor
+        else { return Axis.accent }
+        return Color(red: channels.red, green: channels.green, blue: channels.blue)
     }
 }

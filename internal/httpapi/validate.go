@@ -191,7 +191,7 @@ func (v *validator) accentColor(field string, value *string) *string {
 		valid = c >= '0' && c <= '9' || c >= 'a' && c <= 'f'
 	}
 	if !valid {
-		v.add(field, "must be a hex colour such as #E13B3B")
+		v.add(field, "must be a hex colour such as #E64949")
 		return nil
 	}
 	return &got

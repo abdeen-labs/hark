@@ -1618,7 +1618,7 @@ soon as one ends.
   "updated_at": "2026-08-09T13:31:00.000Z",
   "symbol": "build",
   "privacy_mode": "standard",
-  "accent_color": "#E13B3B",
+  "accent_color": "#E64949",
   "style": "standard"
 }
 ```
@@ -1631,7 +1631,7 @@ soon as one ends.
 | `progress` | 0.0–1.0. Same omission rule. |
 | `symbol` | `terminal` (default), `code`, `build`, `success`, `warning`. |
 | `privacy_mode` | `standard` (default) or `private`. `private` redacts the banner announcing the start; the state itself always carries the real values, and the widget decides what to show. |
-| `accent_color` | `#RRGGBB`, default `#E13B3B`. |
+| `accent_color` | `#RRGGBB`, default `#E64949`. |
 | `style` | `standard` (default), `ring`, `hero`, `terminal`, `steps`. The four interactive styles belong to questions and are refused here. |
 | `interaction` | Present only on a card that presents a question: its id, kind, prompt, the two button labels and the actions they post, and the answer once there is one. |
 
@@ -1666,7 +1666,7 @@ Starts an activity. **API token with `activities:write`.** Honours
 | `progress` | number | no | 0.0–1.0. |
 | `symbol` | enum | no | Default `terminal`. |
 | `privacy_mode` | enum | no | Default `standard`. |
-| `accent_color` | string | no | `#RRGGBB`, default `#E13B3B`. |
+| `accent_color` | string | no | `#RRGGBB`, default `#E64949`. |
 | `style` | enum | no | Default `standard`. |
 | `device_ids` | array of id | no | 1–50 entries. |
 | `expires_in_seconds` | integer | no | 60 – 28800, default 28800. |
@@ -1961,7 +1961,7 @@ them for the life of the card:
       "updated_at": "2026-08-09T13:31:00.000Z",
       "symbol": "build",
       "privacy_mode": "standard",
-      "accent_color": "#E13B3B",
+      "accent_color": "#E64949",
       "style": "standard"
     },
     "attributes-type": "HarkActivityAttributes",

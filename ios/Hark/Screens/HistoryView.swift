@@ -75,7 +75,7 @@ struct HistoryView: View {
                     } label: {
                         HStack(spacing: 8) {
                             IndexLabel(entry.index, color: active ? Axis.signalText : Axis.inkDisabled)
-                            Meta(entry.label, color: active ? Axis.ink : Axis.inkSubtle)
+                            Meta(entry.label, size: 11, color: active ? Axis.ink : Axis.inkSubtle)
                         }
                         .padding(.vertical, 16)
                         .overlay(alignment: .bottom) {

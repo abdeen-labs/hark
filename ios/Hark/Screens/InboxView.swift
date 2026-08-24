@@ -52,7 +52,7 @@ struct InboxView: View {
                 value: String(format: "%02d", count),
                 label: count == 1 ? "Question waiting" : "Questions waiting",
                 size: 104,
-                color: count == 0 ? Axis.inkDisabled : Axis.ink
+                color: count == 0 ? Axis.inkFaint : Axis.ink
             )
             .padding(.top, 18)
             .padding(.bottom, 22)
