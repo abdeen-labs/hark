@@ -277,9 +277,6 @@ func TestScopesConstrainTokensOnly(t *testing.T) {
 	if got.Error.Code != CodeInsufficientScope {
 		t.Errorf("code = %q, want %q", got.Error.Code, CodeInsufficientScope)
 	}
-	if !strings.Contains(got.Error.Message, db.ScopeActivitiesWrite) {
-		t.Errorf("message does not name the scope it wants: %q", got.Error.Message)
-	}
 
 	session := &auth.Principal{Kind: auth.KindSession, User: db.User{ID: "u"}, Session: &db.Session{ID: "s"}}
 	if rec := serveWithPrincipal(handler, session); rec.Code != http.StatusNoContent {

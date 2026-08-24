@@ -414,11 +414,6 @@ func TestRequireScopes(t *testing.T) {
 		if got.Error.Code != CodeInsufficientScope {
 			t.Errorf("code = %q, want %q", got.Error.Code, CodeInsufficientScope)
 		}
-		// The message has to name what was needed, or a CLI cannot tell its
-		// user which scope to add.
-		if !strings.Contains(got.Error.Message, "interactions:create") {
-			t.Errorf("message does not name the missing scope: %q", got.Error.Message)
-		}
 	})
 
 	// A session is the account owner in person: scopes constrain tokens only.

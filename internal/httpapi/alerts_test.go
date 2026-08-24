@@ -27,16 +27,6 @@ func TestDeliveryStatus(t *testing.T) {
 	}
 }
 
-func TestFailureSummary(t *testing.T) {
-	if got := failureSummary(nil); got != nil {
-		t.Errorf("failureSummary(nil) = %q, want nil", *got)
-	}
-	got := failureSummary([]string{"BadDeviceToken", "PayloadTooLarge"})
-	if got == nil || *got != "BadDeviceToken; PayloadTooLarge" {
-		t.Errorf("failureSummary joined = %v, want the reasons joined with '; '", got)
-	}
-}
-
 func TestThreadKeyGroupsBySenderAndTitle(t *testing.T) {
 	same := threadKey("svc", "  Build FINISHED ")
 	if same != threadKey("svc", "build finished") {

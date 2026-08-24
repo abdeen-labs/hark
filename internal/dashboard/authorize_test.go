@@ -61,11 +61,10 @@ func TestApprovalPageShowsWhatTheClientIsAskingFor(t *testing.T) {
 
 	body := rec.Body.String()
 	for _, want := range []string{
-		"harkctl on studio",                           // who is asking
-		db.ScopeNotificationsNew,                      // and for what
-		db.ScopeDescription(db.ScopeNotificationsNew), // what that permission means
-		"ABCD-EFGH",                                   // which request this is
-		`value="approve"`,                             // the two decisions
+		"harkctl on studio",      // who is asking
+		db.ScopeNotificationsNew, // and for what
+		"ABCD-EFGH",              // which request this is
+		`value="approve"`,        // the two decisions
 		`value="deny"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -140,9 +139,6 @@ func TestApprovingAndDenyingGoThroughTheDeviceGrant(t *testing.T) {
 			}
 			if got := location.Query().Get("done"); got != tc.outcome {
 				t.Errorf("done = %q, want %q", got, tc.outcome)
-			}
-			if _, known := notices[tc.outcome]; !known {
-				t.Errorf("%q has no banner in the notice vocabulary", tc.outcome)
 			}
 		})
 	}

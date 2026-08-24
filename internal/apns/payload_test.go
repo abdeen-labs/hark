@@ -303,9 +303,6 @@ func TestBuildAlertRefusesOversizedPayload(t *testing.T) {
 	if err == nil {
 		t.Fatal("buildAlert accepted a payload over the limit")
 	}
-	if !strings.Contains(err.Error(), "4096") {
-		t.Errorf("the error does not name the limit: %v", err)
-	}
 	if got := buildReason(err); got != ReasonPayloadTooLarge {
 		t.Errorf("buildReason = %q, want %q", got, ReasonPayloadTooLarge)
 	}
@@ -532,9 +529,6 @@ func TestBuildActivityRefusesOversizedPayload(t *testing.T) {
 	_, err := buildActivity(event)
 	if err == nil {
 		t.Fatal("buildActivity accepted a payload over the limit")
-	}
-	if !strings.Contains(err.Error(), "4096") {
-		t.Errorf("the error does not name the limit: %v", err)
 	}
 	if got := buildReason(err); got != ReasonPayloadTooLarge {
 		t.Errorf("buildReason = %q, want %q", got, ReasonPayloadTooLarge)

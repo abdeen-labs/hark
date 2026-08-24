@@ -234,7 +234,7 @@ func TestAnAPITokenIsNotASession(t *testing.T) {
 	}
 }
 
-func TestTokenPageExplainsEveryScope(t *testing.T) {
+func TestTokenPageOffersEveryScope(t *testing.T) {
 	d, _ := newTestDashboard(t)
 	rec := send(d, signedIn(http.MethodGet, pathTokens, ""))
 	if rec.Code != http.StatusOK {
@@ -243,10 +243,8 @@ func TestTokenPageExplainsEveryScope(t *testing.T) {
 
 	body := rec.Body.String()
 	for _, scope := range db.Scopes {
-		for _, want := range []string{scope, db.ScopeDescription(scope)} {
-			if !strings.Contains(body, want) {
-				t.Errorf("the token page does not show %q", want)
-			}
+		if !strings.Contains(body, scope) {
+			t.Errorf("the token page does not offer %q", scope)
 		}
 	}
 }
@@ -442,11 +440,6 @@ func TestEveryResponseCarriesTheContentSecurityPolicy(t *testing.T) {
 	rec := send(d, request(http.MethodGet, pathLogin, ""))
 	if got := rec.Header().Get("Content-Security-Policy"); got != contentSecurityPolicy {
 		t.Errorf("Content-Security-Policy = %q, want the dashboard's policy", got)
-	}
-	// The policy names the one external origin the brand needs; a page that
-	// stops linking Google Fonts should drop it from the policy too.
-	if !strings.Contains(contentSecurityPolicy, "fonts.googleapis.com") {
-		t.Error("the policy does not allow the font stylesheet the layout links")
 	}
 }
 

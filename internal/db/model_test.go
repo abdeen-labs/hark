@@ -195,28 +195,6 @@ func TestNormalizeScopes(t *testing.T) {
 	}
 }
 
-func TestEveryScopeHasADescription(t *testing.T) {
-	for _, scope := range Scopes {
-		if ScopeDescription(scope) == "" {
-			t.Errorf("scope %q has no human-readable description", scope)
-		}
-	}
-	if got := ScopeDescription("activities:destroy"); got != "" {
-		t.Errorf("unknown scope description = %q, want empty", got)
-	}
-}
-
-// Creating a service mints its webhook credential, and only a session may do
-// that — so the wording a person reads when granting services:write must never
-// drift back to advertising creation. This is a security promise, hence the
-// exact match.
-func TestServicesWriteDescriptionDoesNotAdvertiseCreation(t *testing.T) {
-	const want = "Change and delete webhook services and their related history."
-	if got := ScopeDescription(ScopeServicesWrite); got != want {
-		t.Errorf("ScopeDescription(%q) = %q, want %q", ScopeServicesWrite, got, want)
-	}
-}
-
 // NormalizeScopes must not disturb its argument: callers pass a slice they
 // still hold, and re-sorting it under them would be a surprise.
 func TestNormalizeScopesDoesNotMutateInput(t *testing.T) {

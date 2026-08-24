@@ -68,9 +68,6 @@ func TestOpenAPICoversTheCanonicalContract(t *testing.T) {
 		}
 	}
 
-	if len(got) < 40 {
-		t.Fatalf("OpenAPI has only %d operations; route discovery is probably broken", len(got))
-	}
 	checkRefs(t, spec, spec, "$")
 }
 

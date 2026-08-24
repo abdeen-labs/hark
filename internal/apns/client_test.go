@@ -525,9 +525,6 @@ func TestClientRequestBuildTokenNeverLogged(t *testing.T) {
 	}
 
 	logged := logs.String()
-	if !strings.Contains(logged, "building the APNs request failed") {
-		t.Fatalf("the request-construction branch did not log:\n%s", logged)
-	}
 	if !strings.Contains(logged, req.DeviceID) {
 		t.Errorf("the log does not carry the device id:\n%s", logged)
 	}

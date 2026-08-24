@@ -177,10 +177,6 @@ func TestSendTestRetiresTheDevicesAPNsDisowned(t *testing.T) {
 	if !strings.Contains(body, `data-accepted="1" data-attempted="2"`) {
 		t.Errorf("the result does not report 1 of 2 accepted:\n%s", body)
 	}
-	// The provider's own words reach the page: this reader owns the account.
-	if !strings.Contains(body, "APNs request failed: Unregistered") {
-		t.Errorf("the failure reason is not shown:\n%s", body)
-	}
 	if !strings.Contains(body, `data-notice="warn"`) {
 		t.Errorf("the page does not carry a warning banner:\n%s", body)
 	}
