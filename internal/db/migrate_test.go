@@ -110,6 +110,24 @@ func TestEmbeddedMigrationsLoad(t *testing.T) {
 	t.Logf("embedded migrations: %d", len(migrations))
 }
 
+func TestInitialMigrationIsImmutable(t *testing.T) {
+	migrations, err := LoadMigrations(Migrations())
+	if err != nil {
+		t.Fatalf("load embedded migrations: %v", err)
+	}
+
+	const checksum = "46725824d77a862d63adde7245ee8dd6567ffd11a228c393572314e38d3f5e6f"
+	for _, migration := range migrations {
+		if migration.Version == 1 {
+			if migration.Checksum != checksum {
+				t.Fatalf("migration %s changed; applied migrations must remain byte-for-byte identical", migration)
+			}
+			return
+		}
+	}
+	t.Fatal("initial migration is missing")
+}
+
 func TestRedact(t *testing.T) {
 	for in, want := range map[string]string{
 		"postgres://hark:secret@db:5432/hark?sslmode=disable": "postgres://hark:xxxxx@db:5432/hark",
