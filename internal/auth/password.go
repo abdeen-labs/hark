@@ -30,8 +30,8 @@ var (
 	ErrPasswordTooShort = errors.New("auth: password is shorter than the minimum")
 	ErrPasswordTooLong  = errors.New("auth: password is longer than the maximum")
 
-	// ErrPasswordControl rejects control characters, which are always a paste
-	// accident rather than a deliberate choice.
+	// ErrPasswordControl rejects control characters, which are not valid in a
+	// password.
 	ErrPasswordControl = errors.New("auth: password contains a control character")
 
 	// ErrPasswordMismatch reports a correct-looking hash that the password does
@@ -55,8 +55,8 @@ type argonParams struct {
 
 // currentParams is what new hashes are made with: RFC 9106 §4's second
 // recommended Argon2id configuration (64 MiB, three passes, four lanes). It
-// costs roughly a tenth of a second per attempt on commodity hardware, which is
-// the point — this is the only credential in the system a human can guess.
+// costs roughly a tenth of a second per attempt on commodity hardware. Passwords
+// are the only credentials in this system that can be user-chosen.
 var currentParams = argonParams{MemoryKiB: 64 * 1024, Time: 3, Lanes: 4, KeyLen: 32}
 
 // saltLength is 16 bytes: enough that two accounts, or one account across two
@@ -117,8 +117,7 @@ func NeedsRehash(encoded string) bool {
 }
 
 // ValidatePassword reports whether plaintext satisfies the policy. It measures
-// the normalized form, so the length a user is told about is the length that is
-// actually checked.
+// the normalized form, so reported and enforced lengths match.
 func ValidatePassword(plaintext string) error {
 	_, err := preparePassword(plaintext)
 	return err

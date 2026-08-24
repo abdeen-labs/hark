@@ -1,17 +1,16 @@
-// Package push describes what the API asks of the push transport, and nothing
-// about how that transport works.
+// Package push defines the API-facing push transport interface.
 //
 // The API layer decides *what* to deliver and records the outcome; a [Sender]
-// decides how to reach Apple. Keeping the boundary this narrow is what lets the
-// whole request surface be exercised without APNs credentials: [Noop] answers
-// every send with a synthetic failure, so the failure paths — event status
+// decides how to reach Apple. [Noop] makes the API testable without APNs
+// credentials by returning a synthetic failure for each send. This exercises
+// failure paths such as event status
 // `failed`, `accepted: 0`, the reason strings a caller sees — are the ones that
 // run in tests and in a development deployment.
 //
-// Two things deliberately sit on the API side of the line:
+// The API layer also handles:
 //
-//   - Decryption. Push tokens are stored encrypted; the key belongs to whoever
-//     owns the account data, so a Sender is handed plaintext and never a key.
+//   - Decryption. Push tokens are stored encrypted; the API layer owns the key,
+//     so a Sender receives plaintext and never a key.
 //   - Bookkeeping. Attempt rows, delivery status, counter settlement and stale
 //     device pruning are persistence, and a Sender has no database.
 package push
@@ -23,9 +22,8 @@ import (
 )
 
 // Synthetic reasons recorded when no APNs call was made. They sit in the same
-// namespace as Apple's own reason strings (`BadDeviceToken`, `Unregistered`,
-// …), which is why they are spelled the same way: a delivery's last reason is
-// one field, and a reader should not have to know which side produced it.
+// namespace as Apple's reason strings (`BadDeviceToken`, `Unregistered`, …) so
+// callers can read one delivery-reason field.
 const (
 	// ReasonNotConfigured means no APNs credentials are configured.
 	ReasonNotConfigured = "ProviderNotConfigured"
@@ -152,8 +150,8 @@ type ActivityEvent struct {
 	// delivered verbatim, so its serialisation is the caller's choice.
 	State json.RawMessage
 	// Timestamp is the activity's monotonic APNs timestamp, in epoch seconds.
-	// ActivityKit discards a content state that is not newer than the one on
-	// screen, which is why it is a counter rather than a clock.
+	// ActivityKit discards content states that are not newer than the current
+	// state, so this value increases monotonically.
 	Timestamp int64
 	// StaleAt is when the phone should render the card as stale. DismissalAt is
 	// when it should disappear, and applies to EventEnd only.

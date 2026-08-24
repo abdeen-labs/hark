@@ -311,7 +311,7 @@
 }
 
 /* Syntax colors, on chroma's classes. Only tokens the contract's three fence
- * languages — json, http, sh — actually produce. Strings borrow jade and
+ * languages — json, http, sh — produce. Strings borrow jade and
  * numbers amber as reading colors, not as status. */
 .chroma .nt { color: var(--ink); }
 .chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }

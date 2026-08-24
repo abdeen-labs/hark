@@ -149,7 +149,7 @@ func TestBearerAPITokenAuthenticates(t *testing.T) {
 	}
 }
 
-// TestBadAuthorizationHeaderIs401 covers the deliberate asymmetry with cookies:
+// TestBadAuthorizationHeaderIs401 covers the different behavior from cookies:
 // a header is an explicit act, so a bad one is refused rather than downgraded
 // to anonymous.
 func TestBadAuthorizationHeaderIs401(t *testing.T) {

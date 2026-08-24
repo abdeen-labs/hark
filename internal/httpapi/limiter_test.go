@@ -48,7 +48,7 @@ func TestLimiterKeysAreIndependent(t *testing.T) {
 // TestLimiterRefusesWhenFull checks the memory bound. Reaching it is itself a
 // signal of abuse, so a new key arriving with the map full after a sweep is
 // refused rather than admitted — the alternative is unbounded growth driven by
-// whoever is attacking.
+// the source of the requests.
 func TestLimiterRefusesWhenFull(t *testing.T) {
 	l := newLimiter(time.Minute)
 	now := time.Now()
@@ -117,7 +117,7 @@ func TestRateLimitedRequestsGet429WithRetryAfter(t *testing.T) {
 	}
 }
 
-// TestClientKeyNeedsATrustedHeader is the whole reason per-client limiting is
+// TestClientKeyNeedsATrustedHeader verifies that per-client limiting is
 // opt-in: without a header a trusted edge overwrites, any caller could rotate
 // the value and mint itself a fresh bucket per request, which is worse than
 // having only a global one.

@@ -17,14 +17,13 @@ import (
 
 // fakeAuth stands in for *auth.Service. Every test in this file exercises the
 // routing, the session gate, CSRF and the templates — none of which reach the
-// database, which is why the store below is never queried.
+// database; the store below is not queried.
 type fakeAuth struct {
 	now       time.Time
 	loginErr  error
 	loggedOut []string
 
-	// The device grant's approval half: the request the code names, whatever
-	// the store would have answered with, and a record of what was decided.
+	// Device authorization request, configured result, and recorded decision.
 	grant     *db.DeviceAuthorization
 	grantErr  error
 	decideErr error

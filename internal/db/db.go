@@ -1,8 +1,8 @@
 // Package db owns the PostgreSQL connection pool and the embedded schema
 // migrations.
 //
-// It deliberately knows nothing about the rest of the server: callers translate
-// their own configuration into a [Config] and receive a *pgxpool.Pool.
+// Callers provide a [Config] and receive a *pgxpool.Pool; this package has no
+// dependency on higher server layers.
 package db
 
 import (
@@ -28,7 +28,7 @@ type Config struct {
 	MaxConnIdleTime time.Duration
 }
 
-// Open builds the pool and verifies that the database is actually reachable.
+// Open builds the pool and verifies that the database is reachable.
 //
 // It returns an error rather than a lazily-connecting pool so that a
 // misconfigured or unreachable database fails the process at boot, with the
@@ -36,8 +36,8 @@ type Config struct {
 func Open(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(cfg.URL)
 	if err != nil {
-		// pgx echoes the whole DSN in parse errors, password included, so this
-		// one is deliberately not wrapped.
+		// pgx includes the complete DSN and password in parse errors, so return a
+		// sanitized error.
 		return nil, errors.New("db: DATABASE_URL is not a valid PostgreSQL connection string")
 	}
 

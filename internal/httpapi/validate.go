@@ -205,10 +205,8 @@ func (v *validator) accentColor(field string, value *string) *string {
 // someone else's behalf, and accepting plain HTTP would put the traffic on the
 // wire in the clear.
 //
-// What "public" means lives in [netpolicy], on purpose: the callback worker
-// enforces the same classification against every address a hostname actually
-// resolves to when it dials, and the two checks agreeing is a security
-// property, not a convenience.
+// [netpolicy] defines public addresses. The callback worker applies the same
+// rules to every resolved address before dialing.
 func (v *validator) httpsURL(field string, value *string) *string {
 	raw := v.optionalText(field, value, maxURLLen)
 	if raw == nil {

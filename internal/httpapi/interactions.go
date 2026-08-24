@@ -15,10 +15,8 @@ import (
 
 // Interaction bounds, in seconds.
 //
-// A question has to expire: an agent blocked on an answer needs to know when to
-// give up, and a prompt that lives forever is a prompt nobody answers. A day is
-// the ceiling for a notification, and a Live Activity is additionally bound by
-// the eight hours iOS gives it.
+// Interactions expire so callers have a defined polling deadline. Notifications
+// allow up to one day; Live Activities also follow iOS's eight-hour limit.
 const (
 	minInteractionTTL = 30
 	maxInteractionTTL = 24 * 60 * 60
@@ -319,10 +317,8 @@ var (
 
 // handleCreateInteraction asks the phone a question.
 //
-// A question is a notification plus a promise: the answer comes back to whoever
-// asked. That is why creating one needs both scopes — it sends a push *and*
-// creates something the sender can read the answer to — and why the row is
-// written before anything is delivered.
+// Creating an interaction requires notification delivery and interaction read
+// access. The row is written before the push is sent.
 func (s *server) handleCreateInteraction(w http.ResponseWriter, r *http.Request) {
 	var body createInteractionRequest
 	if !decodeJSON(w, r, &body) {
@@ -599,10 +595,9 @@ type respondRequest struct {
 
 // handleRespondToInteraction records an answer.
 //
-// One route serves all three ways an answer arrives — the app with a session,
-// the notification-service extension, and the Lock Screen widget — because they
-// are the same act. The last two hold no session, so they present the one-shot
-// credential the push carried; a session needs none.
+// This route accepts answers from the app, notification-service extension, and
+// Lock Screen widget. Extensions authenticate with the single-use credential
+// from the push; the app uses its session.
 //
 // A credential of the right kind that does not open this question answers 404,
 // the same as an unknown id, so the route cannot be used to find out which
@@ -706,10 +701,8 @@ func (s *server) handleRespondToInteraction(w http.ResponseWriter, r *http.Reque
 // specific claim — it names one question — and because the extension and the
 // Lock Screen widget that present it hold no session at all.
 //
-// An API token is neither. It is the agent that asks questions, and a
-// credential that could answer its own request would make approval a formality:
-// an agent wanting a "yes" would simply grant itself one. So a token gets 403
-// rather than the account owner's authority, however broad its scopes.
+// API tokens create interactions but cannot answer them. They receive 403
+// regardless of scope.
 func (s *server) resolveRespondent(w http.ResponseWriter, r *http.Request, responseToken *string) (*db.Interaction, bool) {
 	if responseToken != nil {
 		if !auth.ValidResponseToken(*responseToken) {
@@ -766,11 +759,9 @@ func (s *server) writeAlreadyAnswered(w http.ResponseWriter, r *http.Request, in
 
 // handleCancelInteraction withdraws a question.
 //
-// The owner's session can withdraw any question addressed to them, whoever
-// asked it: an agent that crashed after asking should not be able to leave a
-// prompt on the Lock Screen until it expires. An API token withdraws only the
-// questions it asked itself (§ cancelInteractionForPrincipal) — anybody else's
-// is the same 404 as an id that never existed.
+// An owner session can cancel any account interaction. An API token can cancel
+// only interactions it created; other interactions return the same 404 as an
+// unknown id.
 func (s *server) handleCancelInteraction(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 

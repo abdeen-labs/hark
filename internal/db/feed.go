@@ -56,8 +56,7 @@ type FeedItem struct {
 	// it names the source rather than just the row.
 	ID   string `db:"id"`
 	Kind string `db:"kind"`
-	// SourceName is whatever sent this: a service title, an API token name, or
-	// a fallback.
+	// SourceName is the service title, API token name, or fallback sender name.
 	SourceName     string  `db:"source_name"`
 	SourceImageURL *string `db:"source_image_url"`
 	Title          string  `db:"title"`

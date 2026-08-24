@@ -163,10 +163,8 @@ func (s *Service) AuthenticateAPIToken(ctx context.Context, secret string) (*Pri
 		return nil, fmt.Errorf("auth: load token account: %w", err)
 	}
 
-	// Best effort, and throttled to once a minute per token: a failed stamp
-	// must never fail an otherwise valid request. The in-memory copy is only
-	// updated when the guarded write actually matched, so what a caller reads
-	// back is what the row holds.
+	// Last-use updates are best effort and limited to once a minute per token.
+	// The in-memory value changes only after the guarded database update succeeds.
 	if stamped, err := s.store.APITokens.TouchLastUsed(ctx, token.ID, now, touchInterval); err == nil && stamped {
 		token.LastUsedAt = &now
 	}

@@ -19,8 +19,8 @@ const (
 	defaultAccountRatePerMinute   = 1500
 
 	// rateWindow is the width of the count. It is computed from the rows that
-	// were actually written rather than from a counter, so a restart does not
-	// hand anyone a fresh allowance and two processes share one budget.
+	// were written rather than from a counter, so restarts do not reset limits
+	// and multiple processes share one budget.
 	rateWindow = time.Minute
 )
 
@@ -63,10 +63,8 @@ func (s *server) writeQuotaExceeded(w http.ResponseWriter, r *http.Request, mess
 //
 // A token is charged for its notifications, its questions and its Live Activity
 // operations; a service for its webhook deliveries and its Live Activity
-// operations. Implicit work nobody requested — an activity ended because a
-// question was answered, or because a newer activity took over the device — is
-// deliberately not counted, because refusing a request on the strength of work
-// the server chose to do would be inexplicable to the caller.
+// operations. Automatic work, such as ending an activity after an answer or
+// replacement, is not counted against the requester's quota.
 func (s *server) countRequesterWork(ctx context.Context, req requester, since time.Time) (int, error) {
 	store := s.store()
 	if req.TokenID != nil {
@@ -122,11 +120,9 @@ func (s *server) countAccountWork(ctx context.Context, userID string, since time
 
 // selectTargets resolves the devices one send should reach.
 //
-// An explicit selection is checked in full: naming a device that is not on the
-// account is a mistake worth reporting, not a silent no-op, because the caller
-// believes it addressed something. What survives the check is then filtered to
-// the devices a push can actually reach, which may be none — an account whose
-// only phone has gone inactive is a normal state, not an error.
+// An explicit device id outside the account returns a validation error. Valid
+// ids are then filtered to devices that can receive the push; an empty result is
+// allowed.
 func (s *server) selectTargets(w http.ResponseWriter, r *http.Request, userID string, ids []string) ([]db.Device, bool) {
 	if len(ids) == 0 {
 		devices, err := s.store().Devices.ListTargets(r.Context(), userID, nil)

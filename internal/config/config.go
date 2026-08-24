@@ -118,7 +118,7 @@ type Database struct {
 // created at boot from these values when the user table is empty.
 type Admin struct {
 	Username string
-	Password string // empty means "do not seed"; nobody can sign in
+	Password string // empty means "do not seed"; sign-in remains unavailable
 	Email    string
 }
 
@@ -217,7 +217,7 @@ func LoadFromEnv() (*Config, error) { return Load(os.Getenv) }
 func (c *Config) Warnings() []string {
 	var w []string
 	if !c.Admin.Seedable() {
-		w = append(w, "HARK_ADMIN_PASSWORD is not set: no account will be created and nobody can sign in")
+		w = append(w, "HARK_ADMIN_PASSWORD is not set: no account will be created and sign-in is unavailable")
 	}
 	if !c.APNs.Configured() {
 		w = append(w, "APNs is not configured (HARK_APNS_KEY_ID, HARK_APNS_TEAM_ID, HARK_APNS_PRIVATE_KEY): no push notifications can be delivered")
@@ -469,10 +469,8 @@ var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.]{3,30}$`)
 
 // Password bounds, checked here only so a bad HARK_ADMIN_PASSWORD fails at boot
 // instead of at the first seeding attempt. They must match the policy in
-// internal/auth, which is where it is actually enforced; config deliberately
-// does not import that package, since pulling the credential layer (and the
-// database driver behind it) into configuration parsing would invert the
-// dependency the whole package exists to avoid.
+// internal/auth, where the policy is enforced. This package does not import the
+// credential layer or its database dependency.
 const (
 	minPasswordLen = 12
 	maxPasswordLen = 256

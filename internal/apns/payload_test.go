@@ -9,9 +9,8 @@ import (
 	"github.com/abdeen-labs/hark/internal/push"
 )
 
-// decodePayload reads an encoded payload back as a generic document, which is
-// what the assertions below need: the point is what a phone sees on the wire,
-// not what a Go struct round-trips to.
+// decodePayload reads an encoded payload as the generic document received by a
+// device.
 func decodePayload(t *testing.T, encoded []byte) map[string]any {
 	t.Helper()
 

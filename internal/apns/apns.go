@@ -83,10 +83,8 @@ const (
 	expirationDoNotRetain = 0
 )
 
-// Reason strings Apple returns that the server acts on. They are Apple's
-// spelling, and the synthetic reasons below share the namespace deliberately: a
-// delivery's last reason is one field, and a reader should not have to know
-// which side produced it.
+// Reason strings returned by Apple. Synthetic reasons use the same namespace so
+// a delivery needs only one reason field.
 const (
 	ReasonUnregistered           = "Unregistered"
 	ReasonBadDeviceToken         = "BadDeviceToken"
@@ -326,14 +324,14 @@ func (c *Client) attempt(ctx context.Context, req Request) (Response, bool) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.host+devicePath+req.Token, bytes.NewReader(req.Payload))
 	if err != nil {
-		// The parse error quotes the URL it choked on, and the URL embeds the
-		// device token, so the raw error is deliberately not logged.
+		// The parse error includes the URL and its device token, so log only the
+		// classified reason and device id.
 		c.log.ErrorContext(ctx, "building the APNs request failed",
 			"reason", ReasonTransportError, "device_id", req.DeviceID)
 		return Response{Reason: ReasonTransportError}, false
 	}
 
-	// Apple defines these. Three headers are deliberately absent: no
+	// Apple defines these. Three headers are absent: no
 	// content-type, which APNs does not want; no apns-collapse-id, because
 	// nothing Hark sends should silently replace something else already on a
 	// Lock Screen; and no request apns-id, because Apple mints one and returns
@@ -349,9 +347,8 @@ func (c *Client) attempt(ctx context.Context, req Request) (Response, bool) {
 	httpResp, err := c.http.Do(httpReq)
 	if err != nil {
 		reason := transportReason(err)
-		// The error text carries the request URL, and the request URL carries a
-		// device token, so the raw error is deliberately omitted from the log
-		// as well as from callers. The classified reason is the diagnosis.
+		// The error text includes the request URL and its device token. Log and
+		// return only the classified reason.
 		c.log.WarnContext(ctx, "the APNs request failed",
 			"reason", reason, "device_id", req.DeviceID)
 		return Response{Reason: reason}, false
@@ -380,9 +377,8 @@ func (c *Client) attempt(ctx context.Context, req Request) (Response, bool) {
 
 	if resp.Status == http.StatusForbidden &&
 		(resp.Reason == ReasonExpiredProviderToken || resp.Reason == ReasonInvalidProviderToken) {
-		// Whatever is cached is what Apple just refused. Drop it either way; an
-		// expired one is worth one more attempt, an invalid one is a key or a
-		// team id that a retry cannot fix.
+		// Invalidate the rejected cached token. Retry an expired token once;
+		// invalid credentials require configuration changes.
 		c.tokens.invalidate(providerToken)
 		return resp, resp.Reason == ReasonExpiredProviderToken
 	}

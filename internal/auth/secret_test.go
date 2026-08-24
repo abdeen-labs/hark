@@ -196,7 +196,7 @@ func TestAPITokenDisplayPrefix(t *testing.T) {
 	if !strings.HasPrefix(secret, got) {
 		t.Errorf("display prefix %q is not a prefix of %q", got, secret)
 	}
-	// The point of a display prefix is that it is not the secret.
+	// A display prefix must not expose the complete secret.
 	if got == secret {
 		t.Error("the display prefix is the whole secret")
 	}

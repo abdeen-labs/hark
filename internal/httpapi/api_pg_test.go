@@ -100,8 +100,7 @@ func newFixture(t *testing.T, opts fixtureOptions) *fixture {
 			apiSchemaErr = err
 			return
 		}
-		// Drop rather than trust whatever the last run left behind: the
-		// migration ledger and the schema have to agree.
+		// Recreate the schema so it matches the migration ledger.
 		if _, err := pool.Exec(ctx,
 			"DROP SCHEMA IF EXISTS "+testSchema+" CASCADE; CREATE SCHEMA "+testSchema); err != nil {
 			apiSchemaErr = err
@@ -414,8 +413,8 @@ func TestWebhookQuestionIsAnsweredWithThePushCredential(t *testing.T) {
 // draw a card: no push-to-start token, so nothing can be started on it.
 //
 // The question is asked anyway, as an ordinary notification. Dropping it would
-// leave an agent blocked on an answer nobody was ever shown, and the plainer
-// surface carries the same buttons and the same credential.
+// leave the requester waiting for an interaction that no device received. The
+// notification carries the same buttons and credential.
 func TestALockScreenQuestionFallsBackToANotification(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 
@@ -474,9 +473,8 @@ func TestALockScreenQuestionFallsBackToANotification(t *testing.T) {
 // answer route against a real question: the API token that asked it is refused,
 // and the owner's session is not.
 //
-// The refusal is the point. An agent that can approve its own request has not
-// asked for approval, it has announced an intention — and the token used here
-// carries every scope, so nothing narrower would have saved it.
+// API tokens cannot approve their own authorization requests, including tokens
+// with every scope.
 func TestOnlyTheOwnerMayAnswerAQuestion(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	device := f.registerDevice(strings.Repeat("d4", 32))
@@ -795,7 +793,7 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 		`{"key":"other","title":"Tests","status":"Running"}`, http.StatusCreated, nil)
 }
 
-// TestIdempotencyKeyReplaysRatherThanResends is what makes a retry safe. The row
+// TestIdempotencyKeyReplaysRatherThanResends verifies safe retries. The row
 // is written before anything is sent, so a duplicate replays the stored outcome
 // instead of pushing a second copy to somebody's Lock Screen.
 func TestIdempotencyKeyReplaysRatherThanResends(t *testing.T) {
@@ -835,7 +833,7 @@ func TestIdempotencyKeyReplaysRatherThanResends(t *testing.T) {
 
 // TestDeliveryQuotaRefusesWithRetryAfter covers the ceiling that bounds a
 // runaway agent. It is counted from the rows that were written rather than from
-// an in-memory counter, so a restart hands nobody a fresh allowance.
+// an in-memory counter, so restarts do not reset the allowance.
 func TestDeliveryQuotaRefusesWithRetryAfter(t *testing.T) {
 	f := newFixture(t, fixtureOptions{requesterRate: 1, accountRate: 100})
 	f.registerDevice(strings.Repeat("f6", 32))

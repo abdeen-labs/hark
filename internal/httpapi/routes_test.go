@@ -263,7 +263,7 @@ func TestTheContractIsServedOutsideTheCredentialChain(t *testing.T) {
 		t.Fatalf("the public documents were served %d times, want four", served)
 	}
 
-	// The same header on an API route is refused, which is what makes the line
+	// The same header on an API route is refused, preserving the boundary
 	// above mean anything.
 	req := httptest.NewRequest(http.MethodGet, APIPrefix+"/interactions", nil)
 	req.Header.Set("Authorization", "Bearer not-a-credential")

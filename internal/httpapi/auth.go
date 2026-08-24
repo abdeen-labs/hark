@@ -118,9 +118,9 @@ type authenticator struct {
 // Authenticate resolves a session cookie, a bearer session token, or a bearer
 // API token, and puts the resulting principal on the request context.
 //
-// The two transports are treated differently on purpose:
+// The two credential transports have different failure behavior:
 //
-//   - An Authorization header is a deliberate act. If it is malformed or the
+//   - If an Authorization header is malformed or the
 //     credential behind it is unknown, the request is refused with 401 rather
 //     than quietly continuing as anonymous, because continuing would turn a
 //     typo into a confusing 404 further down.
@@ -291,8 +291,7 @@ func RequireSession(next http.Handler) http.Handler {
 
 // RequireScopes admits callers granted every listed scope.
 //
-// Scopes constrain API tokens only: a session is the account owner in person
-// and passes unconditionally.
+// Scopes constrain API tokens only. Owner sessions pass unconditionally.
 func RequireScopes(scopes ...string) Middleware {
 	required := strings.Join(scopes, ", ")
 	return func(next http.Handler) http.Handler {

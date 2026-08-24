@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Seed a running harkd with demo data, through its own API.
 
-Development only: it registers fake devices, mints real credentials and writes
-real history into whatever database the server is on. Never point it at a
+Development only: it registers fake devices, creates real credentials, and
+writes real history to the server's configured database. Never point it at a
 deployment you care about.
 
     HARK_ADMIN_PASSWORD=… python3 scripts/demo-seed.py [--url http://localhost:8080]
 
-Without APNs credentials the server records every delivery as failed, which
-is honest but makes for a monotone dashboard. `--sql` prints the statements
+Without APNs credentials the server records every delivery as failed, producing
+a uniform dashboard. `--sql` prints the statements
 that rewrite a handful of the seeded rows into accepted, partial and running
 states; pipe them into psql against the same database:
 

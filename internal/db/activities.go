@@ -89,7 +89,7 @@ func (a LiveActivity) Terminal() bool { return !a.Live() }
 // Interactive reports whether the activity presents an interaction.
 func (a LiveActivity) Interactive() bool { return a.InteractionID != nil }
 
-// ActivityListItem is an activity with the name of whatever started it.
+// ActivityListItem includes the name of the activity requester.
 type ActivityListItem struct {
 	LiveActivity
 	SourceName     string  `db:"source_name"`
@@ -232,8 +232,8 @@ type ResolveParams struct {
 	// Identifier is matched against both the activity id and its key, because
 	// the API lets a requester use either.
 	Identifier string
-	// Exactly one requester scope is set; an activity is only addressable by
-	// whoever started it.
+	// Exactly one requester scope is set; only the creator can address the
+	// activity.
 	RequesterTokenID   *string
 	RequesterServiceID *string
 	// IncludeInteractive admits interaction-backed activities. The agent
@@ -318,8 +318,8 @@ type ListActivitiesParams struct {
 	Limit    int
 }
 
-// List pages the account's activities, newest first, with the name of whatever
-// started each one.
+// List pages the account's activities newest first and includes each requester
+// name.
 //
 // Ordering is by creation rather than by last update: a paged list has to be
 // stable, and updated_at moves under the reader's feet on every push.

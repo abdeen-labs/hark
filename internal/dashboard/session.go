@@ -89,9 +89,7 @@ func (d *Dashboard) submitLogin(w http.ResponseWriter, r *http.Request) {
 
 // submitLogout retires the session behind the cookie and clears it.
 //
-// The cookie is cleared whatever the store says. A browser that keeps sending a
-// session the owner asked to end is the worse failure of the two, and the row
-// expires on its own.
+// The cookie is cleared even if deleting the stored session fails.
 func (d *Dashboard) submitLogout(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	if err := d.opts.Auth.Logout(r.Context(), p.Session.ID); err != nil {
 		d.log(r).ErrorContext(r.Context(), "dashboard sign-out failed", "error", err)

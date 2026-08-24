@@ -300,7 +300,7 @@ func TestLogValueRedactsSecrets(t *testing.T) {
 
 // TestLogValueIncludesAttemptRetention pins the retention window into the
 // startup configuration line: it is not a secret, and an operator reading the
-// boot log should see the window that is actually in force.
+// boot log should see the configured window.
 func TestLogValueIncludesAttemptRetention(t *testing.T) {
 	cfg, err := Load(env(map[string]string{"HARK_APNS_ATTEMPT_RETENTION_DAYS": "45"}))
 	if err != nil {

@@ -20,9 +20,8 @@ const (
 // Principal is the resolved identity behind one request.
 //
 // The two kinds differ in authority, not in tenancy: both act for the single
-// account, but a session has the account's full authority while an API token
-// has only the scopes it was granted — and, deliberately, no authority to mint
-// more tokens.
+// account. A session has full account access; an API token is limited to its
+// granted scopes and cannot create tokens.
 type Principal struct {
 	Kind Kind
 	User db.User

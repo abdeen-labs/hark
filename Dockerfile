@@ -19,7 +19,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/harkd ./cmd/harkd
 FROM alpine:3.22
 
 # ca-certificates: APNs is reached over TLS. tzdata: timestamps are rendered in
-# UTC, but a correct zone database keeps time handling honest.
+# UTC. The zone database provides complete timezone data.
 RUN apk add --no-cache ca-certificates tzdata \
  && addgroup -S -g 10001 hark \
  && adduser  -S -u 10001 -G hark hark

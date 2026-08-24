@@ -14,8 +14,8 @@ type User struct {
 	// DisplayName is the human-facing name; Username is the sign-in handle and
 	// is stored already normalised (lowercased) by the caller.
 	DisplayName string `db:"display_name"`
-	// PasswordHash is NULL only for an account seeded without a password, which
-	// nobody can sign in to.
+	// PasswordHash is NULL only for an account seeded without a password. Such an
+	// account cannot sign in.
 	PasswordHash      *string    `db:"password_hash"`
 	PasswordUpdatedAt *time.Time `db:"password_updated_at"`
 	// WelcomeSentAt is the claim flag for the one-shot welcome push. Once set it
@@ -58,12 +58,8 @@ func (s *Users) Create(ctx context.Context, p CreateUserParams) (*User, error) {
 // CreateFirst inserts the account only while the table is still empty,
 // returning [ErrNotFound] when one already exists.
 //
-// The guard lives in the statement rather than in a preceding SELECT because
-// that is what makes it a real invariant: two processes seeding at boot, or a
-// seed racing an operator running the CLI, cannot both succeed no matter how
-// their transactions interleave. It is the whole mechanism behind Hark being
-// single-user — there is no sign-up route to close because there is no second
-// way in.
+// The INSERT guard enforces the single-account invariant even when two startup
+// processes, or startup and the CLI, attempt account creation concurrently.
 func (s *Users) CreateFirst(ctx context.Context, p CreateUserParams) (*User, error) {
 	const q = `
 		INSERT INTO users (id, username, email, display_name, password_hash,
@@ -104,10 +100,8 @@ func (s *Users) SetPassword(ctx context.Context, id, hash string, now time.Time)
 	return execOne(ctx, s.q, "set password", q, id, hash, Millis(now))
 }
 
-// ClaimWelcome atomically claims the account's one-shot welcome notification,
-// reporting whether this caller won. It is the whole mechanism: the claim is
-// what authorises sending the welcome pushes, and it is deliberately not rolled
-// back when those pushes fail.
+// ClaimWelcome atomically claims the account's one-time welcome notification.
+// A failed push does not release the claim.
 func (s *Users) ClaimWelcome(ctx context.Context, id string, now time.Time) (bool, error) {
 	const q = `
 		UPDATE users SET welcome_sent_at = $2, updated_at = $2

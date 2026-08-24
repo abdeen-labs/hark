@@ -1,13 +1,13 @@
 # htmx
 
-The dashboard vendors [htmx](https://htmx.org) as a single unmodified file,
-`internal/dashboard/assets/htmx.min.js`, compiled into the binary alongside the
-first-party assets — there is no package manager and no frontend build step.
+The dashboard includes an unmodified copy of [htmx](https://htmx.org) at
+`internal/dashboard/assets/htmx.min.js`. It is compiled into the binary with the
+first-party assets. No package manager or frontend build step is required.
 
 The exact package, version, tarball URL, and SHA-256 digests are recorded in
 [`internal/dashboard/assets/htmx.provenance.json`](../../internal/dashboard/assets/htmx.provenance.json).
-That file is canonical: the vendoring script reads its pins, and a Go test
-binds the embedded bytes to the recorded digest.
+The vendoring script reads these pinned values, and a Go test verifies that the
+embedded file matches the recorded digest.
 
 `LICENSE` in this directory is `package/LICENSE` from the pinned npm tarball,
 byte-for-byte. htmx is published under the Zero-Clause BSD license (`0BSD`).
@@ -18,8 +18,8 @@ byte-for-byte. htmx is published under the Zero-Clause BSD license (`0BSD`).
 sh scripts/vendor-assets.sh --verify
 ```
 
-Offline: checks every vendored asset and license against the digests in its
-provenance file.
+This command works offline and verifies each vendored asset and license against
+the digests in its provenance file.
 
 ## Upgrading
 

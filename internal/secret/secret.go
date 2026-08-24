@@ -2,9 +2,8 @@
 // reversible encryption for credentials the server must replay, and detached
 // capability tokens for callers that hold no credential at all.
 //
-// Everything is derived from one root key (HARK_SECRET_KEY), so rotating it
-// invalidates every stored ciphertext and every outstanding capability at once
-// — which is the point of having a single root.
+// Everything is derived from HARK_SECRET_KEY. Rotating it invalidates all
+// stored ciphertext and outstanding capability tokens.
 //
 // Hashing is not here. A credential Hark only ever *verifies* is stored as a
 // digest by internal/auth; this package is for the ones it has to hand back
@@ -123,11 +122,9 @@ func (k *Keeper) Decrypt(purpose, ciphertext string) (string, error) {
 
 // Sign returns a detached capability over parts for a purpose.
 //
-// It is how a caller with no credential proves it was told something: the phone
-// reporting an ActivityKit update token holds nothing but what the start push
-// gave it, and this token says "the server issued this, for exactly this
-// delivery, until exactly this instant". Nothing is stored, so nothing has to
-// be cleaned up when it lapses.
+// A caller without a session uses this token to prove that Hark authorized a
+// specific operation. For example, an ActivityKit start push includes a token
+// limited to one delivery and expiration time. Tokens require no stored state.
 //
 // The parts are joined with a NUL, which no part may contain, so no two
 // different part lists can produce the same message.

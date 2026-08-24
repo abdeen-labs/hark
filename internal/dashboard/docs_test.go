@@ -12,8 +12,7 @@ import (
 func TestTheContractIsServedToAnybody(t *testing.T) {
 	d, _ := newTestDashboard(t)
 
-	// No session, no CSRF cookie, nothing: the page exists so a client author
-	// can read it before they have an account on this deployment at all.
+	// Public documentation does not require session or CSRF cookies.
 	rec := send(d, request(http.MethodGet, pathDocs, ""))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
@@ -51,9 +50,7 @@ func TestTheContractRendersTheMarkdown(t *testing.T) {
 		}
 	}
 
-	// Raw HTML in the source must be escaped rather than forwarded. The
-	// renderer is configured without WithUnsafe, and this is the assertion
-	// that notices if that ever changes.
+	// Raw HTML in the Markdown source must be escaped.
 	if strings.Contains(body, "<script>alert") {
 		t.Errorf("the renderer passed through raw HTML:\n%s", body)
 	}
@@ -96,8 +93,8 @@ func TestMachineReadableContractsArePublicAndVerbatim(t *testing.T) {
 	}
 }
 
-// TestTheContractOutlineFollowsTheDocument keeps the sidebar honest: every
-// entry has to point at a heading the page actually renders.
+// TestTheContractOutlineFollowsTheDocument verifies that each outline entry
+// points to a rendered heading.
 func TestTheContractOutlineFollowsTheDocument(t *testing.T) {
 	if len(contract.Contents) < 10 {
 		t.Fatalf("the outline has %d entries, want the document's sections and endpoints",
@@ -124,9 +121,7 @@ func TestTheContractOutlineFollowsTheDocument(t *testing.T) {
 	}
 }
 
-// TestTheContractsOwnCrossLinksResolve is the reason the ids are generated
-// rather than hand-written: docs/api.md is full of "#post-v1tokens" anchors, and
-// a renderer whose ids differ would publish a page of dead links.
+// TestTheContractsOwnCrossLinksResolve verifies commonly used heading anchors.
 func TestTheContractsOwnCrossLinksResolve(t *testing.T) {
 	body := string(contract.Body)
 

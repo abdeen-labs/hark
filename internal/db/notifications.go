@@ -86,9 +86,8 @@ func (s *Notifications) ByIdempotencyKey(ctx context.Context, tokenID, key strin
 }
 
 // Settle records what the fan-out achieved: the terminal status and how many
-// messages APNs took. Every send reaches it, including one with no device to
-// send to — a row left at processing would be a send whose outcome nobody ever
-// wrote down.
+// messages APNs accepted. Every send reaches it, including sends with no target
+// device, so records do not remain in processing state.
 func (s *Notifications) Settle(ctx context.Context, id, status string, accepted int) (*AgentNotification, error) {
 	const q = `UPDATE agent_notifications SET status = $2, accepted_count = $3 WHERE id = $1
 		RETURNING ` + notificationColumns

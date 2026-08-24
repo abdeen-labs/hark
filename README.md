@@ -1,23 +1,20 @@
 # Hark
 
-Hark turns webhooks and agent API calls into iOS push notifications, Live
-Activities, and approval prompts you can answer from the Lock Screen. The whole
-server is one Go binary over PostgreSQL: the API, the admin dashboard and the
-published contract all come out of a single process, with no build step and no
-assets to deploy alongside it.
+Hark turns webhooks and API client requests into iOS push notifications, Live
+Activities, and approval prompts you can answer from the Lock Screen. It runs as
+one Go binary backed by PostgreSQL. The binary includes the API, admin dashboard,
+and API documentation.
 
-Hark is free and open source, and built to be self-hosted. Every deployment
-is single-user by design: one account, seeded at boot, with no sign-up
-surface, no billing, and no analytics of any kind. The instance Abdeen Labs
-runs is an internal tool, not a hosted service — to use Hark, run your own.
+Hark is free, open source, and self-hosted. Each deployment supports one account.
+There is no sign-up flow, billing, or analytics. Abdeen Labs does not provide a
+hosted Hark service.
 
-* **API contract:** [`docs/api.md`](docs/api.md) — the document iOS and CLI
-  clients are built from. It is compiled into the binary and served as a
-  searchable page at [`/docs`](#the-published-contract), which needs no
-  credential. Machines get the same contract as raw Markdown at `/docs.md`, as
-  OpenAPI 3.1 at [`/openapi.json`](docs/openapi.json), and through the compact
-  [`/llms.txt`](docs/llms.txt) discovery index. It also documents the embedded
-  [dashboard](docs/api.md#dashboard).
+* **API reference:** [`docs/api.md`](docs/api.md) is the authoritative guide to
+  API behavior and client development. Hark also serves it as searchable HTML at
+  `/docs`, raw Markdown at `/docs.md`, OpenAPI 3.1 at
+  [`/openapi.json`](docs/openapi.json), and a discovery index at
+  [`/llms.txt`](docs/llms.txt). These routes are public. The contract also covers
+  the embedded [dashboard](docs/api.md#dashboard).
 
 ---
 
@@ -26,7 +23,7 @@ runs is an internal tool, not a hosted service — to use Hark, run your own.
 * Go 1.26
 * PostgreSQL 17
 
-Or just Docker, via Compose.
+If you use Docker Compose, you do not need to install Go or PostgreSQL locally.
 
 ---
 
@@ -49,13 +46,10 @@ curl -s localhost:8080/healthz
 # {"status":"ok","database":"ok","version":"dev"}
 ```
 
-The admin UI is compiled into the binary and served on the site root: open
-<http://localhost:8080/> and sign in with the account below. It is a single-user
-admin surface — a live overview that updates as deliveries land, the full paged
-history, the account's webhook services with each one's recent deliveries, its
-devices, its API tokens, a form that sends a test push, and the screen at
-`/cli/authorize` where a command-line client is let in. Everything it does, the
-API does too; see [`docs/api.md`](docs/api.md#dashboard).
+Open <http://localhost:8080/> to use the admin dashboard. It includes the current
+delivery status, history, webhook services, registered devices, API tokens, test
+notifications, and command-line client authorization. See the
+[dashboard reference](docs/api.md#dashboard) for its routes and behavior.
 
 ### The published contract
 
@@ -64,14 +58,13 @@ an endpoint outline, and copyable examples. The machine-facing forms are:
 
 | URL | Format | Best for |
 | --- | --- | --- |
-| <http://localhost:8080/docs.md> | Markdown | Agents and source ingestion |
+| <http://localhost:8080/docs.md> | Markdown | Raw reference and text-based tools |
 | <http://localhost:8080/openapi.json> | OpenAPI 3.1 JSON | Client generation, discovery, validation |
-| <http://localhost:8080/llms.txt> | Plain text | Agent discovery |
+| <http://localhost:8080/llms.txt> | Plain text | Documentation discovery |
 
-All four need no credential at all — the routes are mounted outside the
-server's authentication middleware, so nothing is read off the request. The
-files are embedded at build time and the HTML is rendered once at startup, so
-every representation and the binary serving it always ship together.
+All four documentation routes are public and require no authentication. Their
+content is embedded at build time, so each binary serves the documentation for
+that build.
 
 ### Locally, against your own PostgreSQL
 
@@ -83,39 +76,35 @@ export HARK_ADMIN_PASSWORD='choose-something-long'
 go run ./cmd/harkd
 ```
 
-For hacking on the dashboard, `sh scripts/dev.sh` does all of that against a
-throwaway PostgreSQL container on port 54318, seeds it with
-[`scripts/demo-seed.py`](scripts/demo-seed.py) the first time, and signs you
-in as `admin` / `hark-dev-password`.
+For dashboard development, run `sh scripts/dev.sh`. It starts a temporary
+PostgreSQL container on port 54318, seeds sample data with
+[`scripts/demo-seed.py`](scripts/demo-seed.py), and creates the development
+account `admin` / `hark-dev-password`.
 
-Migrations run automatically at startup. A database that is unreachable, or a
-configuration that does not validate, fails the process immediately with a
-single diagnostic line on stderr — the server never starts half-configured.
+Migrations run automatically at startup. Hark exits immediately if the database
+is unreachable or the configuration is invalid.
 
-Shutdown is graceful: `SIGINT` or `SIGTERM` stops accepting connections, lets
-in-flight requests finish within `HARK_SHUTDOWN_TIMEOUT`, then closes the pool.
-The one background worker — the outbound answer callback, described in
-[`docs/api.md`](docs/api.md#the-answer-callback) — stops on the same signal.
-Whatever it had not sent keeps its row and goes out after the next boot.
+On `SIGINT` or `SIGTERM`, Hark stops accepting connections, waits up to
+`HARK_SHUTDOWN_TIMEOUT` for active requests, and closes the database pool.
+Pending [answer callbacks](docs/api.md#the-answer-callback) remain in the
+database and resume after restart.
 
 ---
 
 ## The account
 
-Hark is single-user. **There is no sign-up endpoint**, and there never will be:
-the guard lives in the `INSERT` itself, so the second account cannot be created
-by any code path, racing process, or future bug in a route table.
+Hark is single-user. **There is no sign-up endpoint.** The database enforces the
+one-account limit, including when multiple processes try to create an account at
+the same time.
 
-The account comes into being one of two ways.
+Create the account in one of two ways.
 
 ### Seeded at boot
 
-Set `HARK_ADMIN_PASSWORD` (and optionally `HARK_ADMIN_USERNAME`,
-`HARK_ADMIN_EMAIL`) and start the server. If the user table is empty, the
-account is created; if it is not, nothing happens. This is what makes
-`docker compose up` work out of the box. Seeding never fails the boot: a server
-that cannot seed still serves, it just has nobody who can sign in, and it says
-so in the log.
+Set `HARK_ADMIN_PASSWORD` and, optionally, `HARK_ADMIN_USERNAME` and
+`HARK_ADMIN_EMAIL`. At startup, Hark creates the account only when the user table
+is empty. If account creation fails, the server continues running, logs the
+error, and has no account that can sign in.
 
 ### Created from the command line
 
@@ -127,13 +116,12 @@ printf '%s' 'correct horse battery staple' | harkd create-user -username admin
 | --- | --- | --- |
 | `-username` | `HARK_ADMIN_USERNAME`, else `admin` | 3–30 characters of letters, digits, `_`, `.`. Lowercased. |
 | `-email` | `HARK_ADMIN_EMAIL`, else `<username>@hark.local` | Display only. Hark sends no mail. |
-| `-display-name` | the username | The human-facing name. |
+| `-display-name` | the username | Name shown in the interface. |
 
-The password is read from **standard input** when something is piped in, and
-from `HARK_ADMIN_PASSWORD` otherwise. Piping wins because it is the more
-specific instruction, and because it keeps the password out of your shell
-history and out of an `argv` any process on the box can read. It must be 12–256
-characters; there are no composition rules.
+When input is piped, the command reads the password from **standard input**.
+Otherwise it uses `HARK_ADMIN_PASSWORD`. Standard input keeps the password out
+of shell history and process arguments. Passwords must be 12–256 characters;
+there are no composition rules.
 
 Running it a second time fails: the account already exists.
 
@@ -164,33 +152,32 @@ them from the dashboard if the old password was compromised.
 cmd/harkd/            The server binary and the account CLI: wiring, signals,
                       graceful shutdown.
 internal/auth/        Credentials: password hashing, sessions, API tokens, the
-                      device grant. Knows nothing about HTTP.
-internal/callbacks/   The one piece of background work: posting a question's
-                      answer back to the webhook caller that asked to be told.
+                      device authorization flow. Contains no HTTP handlers.
+internal/callbacks/   Delivers interaction answers to webhook callback URLs.
 internal/config/      Environment parsing and validation. No global state.
 internal/db/          pgx pool, migration runner, and the typed store: one file
                       per domain, plus keyset pagination and error helpers.
 internal/db/migrations/   Ordered .sql files, compiled into the binary.
 internal/dashboard/   The embedded admin UI and the /docs page: html/template,
                       two stylesheets, no build step.
-internal/httpapi/     Route table, middleware chain, JSON and error envelope.
+internal/httpapi/     Route table, middleware chain, JSON and error responses.
 internal/id/          UUIDv7 generation and validation.
 docs/                 The Markdown, OpenAPI and llms.txt contracts, and the
                       embed directive that compiles them into the binary.
 ```
 
-Dependencies are deliberately few: the standard library, `jackc/pgx/v5` for
-PostgreSQL, `golang.org/x/crypto` for Argon2id, `golang.org/x/text` for the
-Unicode normalization a password goes through before it is hashed, and
-`yuin/goldmark` to render the contract page. Routing is `net/http`'s `ServeMux`
-with method patterns — there is no web framework and no ORM.
+The main dependencies are `jackc/pgx/v5` for PostgreSQL,
+`golang.org/x/crypto` for Argon2id, `golang.org/x/text` for password
+normalization, and `yuin/goldmark` for rendering the API documentation. Routing
+uses the standard library's `net/http` package. Hark does not use a web framework
+or ORM.
 
 ---
 
 ## Credentials
 
-The full contract is in [`docs/api.md`](docs/api.md#authentication); the design
-in one page:
+See [`docs/api.md`](docs/api.md#authentication) for the full authentication
+contract. In summary:
 
 * **Passwords** are Argon2id (64 MiB, three passes, four lanes — RFC 9106's
   second recommended configuration), stored as PHC strings that carry their own
@@ -204,11 +191,11 @@ in one page:
   30 days after last use, sliding forward at most once an hour, and can never
   outlive 180 days from creation.
 * **API tokens** are `hark_` plus 43 base62 characters, stored as digests and
-  shown exactly once. They carry scopes, and they can never mint or widen a
-  credential — token management and device approval require a session.
-* **Device pairing** is an OAuth 2.0 device grant (RFC 8628) in this API's own
-  dress, so a CLI can obtain a scoped token with the owner's approval without
-  ever touching their password.
+  shown exactly once. They cannot create credentials or increase their own
+  permissions; token management and device approval require a session.
+* **Device pairing** follows the OAuth 2.0 device authorization grant (RFC 8628).
+  It lets a CLI obtain a scoped token with the owner's approval without handling
+  the owner's password.
 * Every digest is domain-separated by credential kind, so a value read out of
   one table cannot be replayed against another.
 
@@ -219,8 +206,8 @@ in one page:
 Every setting comes from the environment. All Hark-specific variables use the
 `HARK_` prefix; `DATABASE_URL` keeps its conventional name.
 
-Invalid configuration is reported in full — every problem at once, not one per
-restart — and the process exits non-zero.
+Hark reports all detected configuration errors before exiting with a non-zero
+status.
 
 ### Required
 
@@ -243,13 +230,13 @@ restart — and the process exits non-zero.
 
 ### Account
 
-Hark is single-user. The one account is seeded at boot when the user table is
+Hark is single-user. The account is seeded at boot when the user table is
 empty; there is no sign-up endpoint.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `HARK_ADMIN_USERNAME` | `admin` | 3–30 characters of letters, digits, `_`, `.`. |
-| `HARK_ADMIN_PASSWORD` | *(unset)* | 12–256 characters. **Without it no account is created and nobody can sign in** — the server warns at boot and keeps running. Also supplies the password to `harkd create-user` and `harkd set-password` when nothing is piped into them. |
+| `HARK_ADMIN_PASSWORD` | *(unset)* | 12–256 characters. **Without it no account is created and sign-in is unavailable** — the server warns at boot and keeps running. Also supplies the password to `harkd create-user` and `harkd set-password` when no password is piped into them. |
 | `HARK_ADMIN_EMAIL` | `<username>@hark.local` | Internal only; no mail is ever sent. |
 
 ### Database pool
@@ -265,10 +252,9 @@ empty; there is no sign-up endpoint.
 
 ### Apple Push Notification service
 
-Set all three credentials or none. With none, the server runs normally and
-records every send as a provider-not-configured failure. Setting only some is a
-configuration error, and so is a key that is present but unusable: a deployment
-that plainly meant pushes to work does not start pretending otherwise.
+Set all three APNs credentials or leave all three unset. Without them, Hark runs
+but records every send as `ProviderNotConfigured`. A partial or invalid APNs
+configuration prevents startup.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -277,14 +263,14 @@ that plainly meant pushes to work does not start pretending otherwise.
 | `HARK_APNS_PRIVATE_KEY` | *(unset)* | The ES256 key: PEM text, PEM whose newlines are escaped as `\n`, or base64 of either. Validated at boot. |
 | `HARK_APNS_PRIVATE_KEY_FILE` | *(unset)* | Alternative to the above: a path to the `.p8` file. Setting both is an error. |
 | `HARK_APNS_BUNDLE_ID` | `dev.abdeen.hark` | Base of the APNs topic. Live Activities are sent to `<bundle id>.push-type.liveactivity`. |
-| `HARK_APNS_ENVIRONMENT` | `sandbox` | `sandbox` or `production`. One host per process: a Live Activity token minted in the other environment is refused rather than routed. |
-| `HARK_APNS_ATTEMPT_RETENTION_DAYS` | `30` | How many days of APNs delivery-attempt rows to keep. The rows are diagnostic-only — an audit trail of individual push calls that nothing reads at request time — and a background worker deletes older ones at boot and then daily. 1–3650; notification and event history are untouched. |
+| `HARK_APNS_ENVIRONMENT` | `sandbox` | `sandbox` or `production`. One host per process: a Live Activity token issued for the other environment is refused rather than routed. |
+| `HARK_APNS_ATTEMPT_RETENTION_DAYS` | `30` | How many days of APNs delivery-attempt rows to keep. These diagnostic rows are not used while serving requests. A background worker deletes older rows at boot and then daily. 1–3650; notification and event history are untouched. |
 
 The connection is HTTP/2 with provider-token (JWT) authentication; one token is
-cached process-wide and re-minted every 50 minutes. Nothing is retried, with one
-exception that cannot duplicate a delivery: a `403 ExpiredProviderToken` means
-Apple rejected the JWT rather than the notification, so the token is re-minted
-and that push is sent again exactly once. See
+cached process-wide and refreshed every 50 minutes. Hark does not retry failed
+pushes, with one exception that cannot duplicate a delivery: a `403
+ExpiredProviderToken` means Apple rejected the JWT rather than the notification,
+so Hark refreshes the token and sends that push again once. See
 [Push payloads](docs/api.md#push-payloads) in the API contract for what the
 phone receives and what a client can rely on.
 
@@ -292,7 +278,7 @@ phone receives and what a client can rely on.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `HARK_TRUSTED_CLIENT_IP_HEADER` | *(unset)* | Name of the single header a trusted reverse proxy overwrites with the real client address. **Leave unset behind no proxy:** per-client rate limiting is then disabled entirely rather than keyed off a value the client can forge. Behind a controlled edge, set it — without it, sign-in and device-pairing limits are global, so one abusive caller shares a bucket with you. |
+| `HARK_TRUSTED_CLIENT_IP_HEADER` | *(unset)* | Header set by a trusted reverse proxy with the real client address. **Leave unset when there is no proxy.** Without this setting, sign-in and device-pairing limits apply globally instead of per client. |
 | `HARK_RATE_LIMIT_REQUESTER_PER_MINUTE` | `300` | Per webhook service or API token. |
 | `HARK_RATE_LIMIT_ACCOUNT_PER_MINUTE` | `1500` | Across the whole account. |
 
@@ -326,30 +312,28 @@ To add one, drop a new numbered file into `internal/db/migrations` and restart.
 ## Development
 
 ```sh
-gofmt -l .          # must print nothing
+gofmt -l .          # no output when files are formatted
 go build ./...
 go vet ./...
 go test ./...
 ```
 
-Tests that need a live PostgreSQL skip unless `TEST_DATABASE_URL` points at a
-**scratch** database. They drop and recreate the schemas they use, so never aim
-it at anything worth keeping:
+Tests that need PostgreSQL run only when `TEST_DATABASE_URL` points to a test
+database. **These tests drop and recreate schemas. Never use a database that
+contains data you need.**
 
 ```sh
 TEST_DATABASE_URL='postgres://hark:hark@localhost:5432/hark_test' go test ./...
 ```
 
-`HARK_TEST_DATABASE_URL` is accepted as an alias. With neither set, the
-database-backed tests skip and the rest of the suite still runs, so
-`go test ./...` is always a valid thing to type.
+`HARK_TEST_DATABASE_URL` is accepted as an alias. If neither variable is set,
+database-backed tests are skipped and the rest of the suite still runs.
 
-Packages that need PostgreSQL each work inside a schema of their own —
+Each package that needs PostgreSQL uses its own schema:
 `internal/db` in `public`, `internal/auth` in `hark_auth_test`, `internal/httpapi`
-in `hark_api_test`, `internal/callbacks` in `hark_callbacks_test`. `go test ./...`
-runs packages in parallel, so a package that shared a schema would keep pulling
-the tables out from under another. A new package that needs a database claims a
-new name.
+in `hark_api_test`, and `internal/callbacks` in `hark_callbacks_test`. This keeps
+parallel package tests isolated. Add a new schema name for any new package that
+uses the database.
 
 Every endpoint added or changed must be documented in [`docs/api.md`](docs/api.md)
 in the same change.

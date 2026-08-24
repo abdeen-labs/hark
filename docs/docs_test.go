@@ -10,10 +10,8 @@ import (
 
 var endpointHeading = regexp.MustCompile(`(?m)^#{3,4} \x60(GET|POST|PUT|PATCH|DELETE) (/[^\x60]+)\x60$`)
 
-// TestOpenAPICoversTheCanonicalContract makes the two useful representations
-// one contract rather than parallel documents that can drift. Every HTTP API
-// endpoint named in the prose must have exactly one OpenAPI operation, and
-// every OpenAPI operation must still be explained to a person.
+// TestOpenAPICoversTheCanonicalContract checks that the Markdown reference and
+// OpenAPI document list the same HTTP API operations.
 func TestOpenAPICoversTheCanonicalContract(t *testing.T) {
 	var spec map[string]any
 	if err := json.Unmarshal([]byte(OpenAPIContract), &spec); err != nil {
@@ -85,8 +83,7 @@ func object(t *testing.T, parent map[string]any, key string) map[string]any {
 	return value
 }
 
-// checkRefs verifies local JSON pointers. A syntactically valid document with
-// one misspelled schema name is still useless to a generator.
+// checkRefs verifies that each local JSON pointer resolves.
 func checkRefs(t *testing.T, root map[string]any, value any, at string) {
 	t.Helper()
 	switch value := value.(type) {

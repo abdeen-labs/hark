@@ -14,9 +14,8 @@ import (
 )
 
 // assetProvenance mirrors the string fields of an assets/<name>.provenance.json
-// file, the canonical record of where a vendored asset came from. The same
-// files drive scripts/vendor-assets.sh, so the pins cannot drift between the
-// script, the test, and the embedded bytes.
+// file, which records where a vendored asset came from. The same files drive
+// scripts/vendor-assets.sh and these tests.
 type assetProvenance struct {
 	Package              string `json:"package"`
 	Version              string `json:"version"`
@@ -33,9 +32,8 @@ type assetProvenance struct {
 }
 
 // vendored lists every third-party asset compiled into the binary, with the
-// pins its provenance record is expected to hold. The digests are not repeated
-// here: the record is the source of truth for those, and the test checks the
-// embedded and checked-in bytes against it.
+// pins its provenance record is expected to hold. The test reads digests from
+// the provenance record and checks the embedded and checked-in bytes.
 var vendored = []struct {
 	name string
 	want assetProvenance
@@ -73,7 +71,7 @@ var vendored = []struct {
 }
 
 // TestProvenanceMatchesVendoredAssets binds each provenance record to the bytes
-// actually compiled into the binary and checked into the tree: the metadata
+// compiled into the binary and checked into the tree: the metadata
 // names the expected package, the embedded <name>.min.js hashes to exactly the
 // recorded artifact digest, and the license file hashes to the recorded
 // license digest.

@@ -108,10 +108,8 @@ const hooksPrefix = APIPrefix + "/hooks/"
 
 // redactPath replaces a webhook token with a placeholder.
 //
-// The webhook credential travels in the URL — that is what makes a webhook
-// usable by a system that can only be given a link — so the access log is the
-// one place it would otherwise be written down in the clear, forever, in a file
-// that gets shipped somewhere else.
+// Webhook credentials are part of the URL, so redact them before writing access
+// logs.
 func redactPath(path string) string {
 	if !strings.HasPrefix(path, hooksPrefix) {
 		return path

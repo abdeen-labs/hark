@@ -12,20 +12,10 @@ import (
 
 // CSRF protection is a double-submit cookie.
 //
-// The choice over a pure same-site-plus-Origin check is deliberate, and it is
-// belt and braces rather than a replacement: internal/httpapi already refuses a
-// cookie-authenticated unsafe method whose fetch metadata or Origin header
-// marks it cross-origin, and the session cookie is SameSite=Lax. What that
-// pair does not cover is sign-in,
-// where the browser holds no session cookie yet and so nothing triggers the
-// origin gate — a forged sign-in would log the owner into an attacker's
-// account, and every page they then look at would be the attacker's. The
-// double-submit token covers it without a server-side store.
-//
-// The cookie is HttpOnly. That is possible here, and worth doing, because the
-// pages are server-rendered: the value is read on the server and written into a
-// hidden field, so no script ever needs to see it. A cross-origin page cannot
-// read it either, which is the whole mechanism.
+// The API already enforces same-origin rules for unsafe cookie-authenticated
+// requests. The double-submit token also protects sign-in, which happens before
+// the browser has a session cookie. Server-rendered forms copy the HttpOnly
+// cookie value into a hidden field without exposing it to scripts.
 const (
 	csrfCookieName = "hark_csrf"
 	csrfField      = "csrf_token"

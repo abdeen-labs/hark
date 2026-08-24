@@ -1,9 +1,8 @@
 #!/bin/sh
 # vendor-assets.sh verifies or refreshes the dashboard's vendored assets. Each
 # one is described by internal/dashboard/assets/<name>.provenance.json, and the
-# pins in that file — version, tarball URL, artifact paths, and SHA-256 digests
-# — are the only source the script reads, so it cannot drift from the recorded
-# provenance.
+# script reads the version, tarball URL, artifact paths, and SHA-256 digests
+# directly from that file.
 #
 #   sh scripts/vendor-assets.sh --verify    offline check of every installed file
 #   sh scripts/vendor-assets.sh --refresh   re-fetch each pinned tarball, verify,
@@ -27,7 +26,7 @@ else
 fi
 
 # field extracts one required string value from the current provenance file.
-# It is a deliberately strict line matcher, not a JSON parser: the file must
+# It is a strict line matcher, not a JSON parser: the file must
 # hold exactly one `"key": "value"` line for the key, with a non-empty value —
 # anything else is an error. Nothing is ever sourced or eval'd.
 field() {
@@ -62,7 +61,7 @@ check() {
 
 # check_tarball authenticates the archive before tar is allowed to parse it.
 # npm integrity values are an algorithm name plus a base64-encoded digest; the
-# vendor records deliberately pin SHA-512 rather than relying on the
+# vendor records pin SHA-512 rather than relying on the
 # registry's older SHA-1 shasum.
 check_tarball() {
 	case $tarball_integrity in

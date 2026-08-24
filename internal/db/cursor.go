@@ -18,8 +18,7 @@ import (
 // same millisecond — so the id breaks ties, which works because ids are UUIDv7
 // and therefore sort in creation order.
 //
-// The encoded form is opaque to clients: it is deliberately not documented as
-// parseable and its layout may change.
+// The encoded form is opaque to clients and may change.
 type Cursor struct {
 	// Time is the ordering timestamp of the last item on the previous page:
 	// created_at for most lists, responded_at for answered interactions.
@@ -108,8 +107,8 @@ type Page[T any] struct {
 func (p Page[T]) HasMore() bool { return !p.Next.IsZero() }
 
 // paginate trims an over-fetched slice to limit and derives the next cursor
-// from the last surviving item. Every list query asks for limit+1 rows: that is
-// what makes "is there a next page" answerable without a second count query.
+// from the last surviving item. Queries request limit+1 rows to detect another
+// page without a count query.
 func paginate[T any](items []T, limit int, key func(T) Cursor) Page[T] {
 	if limit <= 0 || len(items) <= limit {
 		return Page[T]{Items: items}

@@ -14,11 +14,8 @@ import (
 
 // Live Activity durations, in seconds.
 //
-// The ceiling is Apple's: an activity may run for eight hours, after which iOS
-// removes it whatever the server thinks. Expiry is therefore not a policy Hark
-// invented but the truth about the thing being modelled, and an activity that
-// has passed it is expired on the next read rather than left claiming a Lock
-// Screen it no longer occupies.
+// iOS removes an activity after eight hours. Hark marks overdue activities as
+// expired on the next read.
 const (
 	minActivityTTL    = 60
 	maxActivityTTL    = 8 * 60 * 60
@@ -67,8 +64,7 @@ func newActivityDTO(a db.LiveActivity) activityDTO {
 	}
 }
 
-// activityListItemDTO adds the sender, which a list shows and a single read does
-// not need: whoever asked for one activity by id already knows who started it.
+// activityListItemDTO adds requester details used by list responses.
 type activityListItemDTO struct {
 	activityDTO
 	SourceName     string  `json:"source_name"`
@@ -224,10 +220,9 @@ type activityStartPayload struct {
 
 // startActivity creates an activity and puts it on every capable device.
 //
-// A phone shows at most one ordinary activity at a time — that is an iOS
-// constraint, enforced here by a partial unique index rather than discovered
-// later as a silent failure — so a start either takes the slot, refuses, or is
-// told to replace whatever holds it.
+// iOS shows at most one ordinary activity at a time. A partial unique index
+// enforces the slot, and a start either uses it, returns a conflict, or replaces
+// the current activity.
 func (s *server) startActivity(w http.ResponseWriter, r *http.Request, req requester) {
 	var body startActivityRequest
 	if !decodeJSON(w, r, &body) {
@@ -475,10 +470,8 @@ func (s *server) writeActivityConflict(w http.ResponseWriter, r *http.Request, r
 
 // writeStartConflict turns a failed insert into the right answer.
 //
-// Every one of these is a race that the unique indexes caught: a duplicate
-// idempotency key, a key claimed a moment ago, or a device that took another
-// activity while this request was deciding. The index is what makes the
-// invariant true; this only has to explain which one held.
+// Unique indexes catch duplicate idempotency keys, newly claimed activity keys,
+// and device-slot races. This function maps the violation to an API response.
 func (s *server) writeStartConflict(w http.ResponseWriter, r *http.Request, req requester, key *string, hash string, err error) {
 	if !db.IsUniqueViolation(err) {
 		s.writeInternal(w, r, "starting a Live Activity failed", err)
@@ -731,9 +724,7 @@ type activityEndPayload struct {
 
 // endActivity finishes an activity and pushes the final state.
 //
-// The end is a state transition with content, not a deletion: the last thing a
-// person sees is the card saying how it went, which is why this is a POST with a
-// body rather than a DELETE. The row stays for the history.
+// Ending records and pushes a final state. The row remains in history.
 func (s *server) endActivity(w http.ResponseWriter, r *http.Request, req requester) {
 	var body endActivityRequest
 	if !decodeJSON(w, r, &body) {

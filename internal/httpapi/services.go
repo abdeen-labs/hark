@@ -41,9 +41,8 @@ func newServiceDTO(s db.Service, webhookURL *string) serviceDTO {
 // webhookURL rebuilds a service's ingest URL from the stored ciphertext, for a
 // caller allowed to see it.
 //
-// A ciphertext this key cannot open is reported as "no URL" rather than as an
-// error: the service still works for whoever already holds the token, and the
-// owner's remedy — rotate it — is one request away.
+// If the stored ciphertext cannot be decrypted, return no URL. Existing webhook
+// URLs continue to work, and the owner can rotate the credential.
 func (s *server) webhookURL(r *http.Request, svc db.Service) *string {
 	if principal := auth.PrincipalFrom(r.Context()); !principal.IsSession() {
 		return nil
@@ -71,10 +70,8 @@ type serviceResponse struct {
 	Service serviceDTO `json:"service"`
 }
 
-// createdServiceResponse carries the plaintext ingest URL alongside the service.
-// Creation and rotation are both session-only, so the URL goes to the
-// authenticated session that minted it — shown this once, because the stored
-// form is a ciphertext nobody else will decrypt for them.
+// createdServiceResponse includes the plaintext webhook URL. Creation and
+// rotation are session-only; storage keeps only the encrypted form.
 type createdServiceResponse struct {
 	Service    serviceDTO `json:"service"`
 	WebhookURL string     `json:"webhook_url"`

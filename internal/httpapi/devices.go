@@ -173,9 +173,7 @@ func (s *server) handleRegisterDevice(w http.ResponseWriter, r *http.Request) {
 
 	device := registered.Device
 	if welcome {
-		// The claim is what authorises the welcome, and it is deliberately not
-		// released when the send fails: the welcome is one-shot per account for
-		// all time, and a second copy is worse than none.
+		// A failed send does not release the one-time welcome claim.
 		device = s.sendWelcome(r, device)
 	}
 	WriteJSON(w, r, http.StatusCreated, deviceResponse{Device: newDeviceDTO(device)})
@@ -204,10 +202,9 @@ func (s *server) sendWelcome(r *http.Request, device db.Device) db.Device {
 
 // handleDeleteDevice unregisters a phone.
 //
-// The row is deleted rather than deactivated, which takes its Live Activity
-// deliveries with it without sending any end push — an activity can therefore
-// stay on a screen with no record of it. That is the right trade for "this is
-// not my phone any more": leaving a row behind would keep sending to it.
+// Deleting the row also removes its Live Activity deliveries without sending an
+// end push. This prevents future pushes to an unregistered device, although an
+// activity may remain visible until iOS removes it.
 func (s *server) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 
@@ -230,10 +227,8 @@ type pushToStartTokenRequest struct {
 
 // handleSetPushToStartToken records the ActivityKit push-to-start token.
 //
-// It is what makes a device Live-Activity-capable: without it the server can
-// send alerts but cannot create anything on the Lock Screen. PUT because it is
-// a replace — the phone re-reports the token whenever iOS reissues it, and the
-// same value arriving twice must not be an error.
+// This token enables Live Activity starts on the device. PUT replaces the value
+// idempotently when iOS reissues it.
 func (s *server) handleSetPushToStartToken(w http.ResponseWriter, r *http.Request) {
 	var body pushToStartTokenRequest
 	if !decodeJSON(w, r, &body) {
@@ -303,9 +298,8 @@ type activityTokenResponse struct {
 // previously reported native id wins, and failing that the search is narrowed
 // to deliveries still waiting to be associated.
 //
-// Two candidates is a refusal, not a guess. Attaching the token to the wrong
-// activity would silently break both, and the phone can simply try again once
-// the other pending start has resolved.
+// Multiple candidates return a conflict so the token is not attached to the
+// wrong activity. The device can retry after another pending start resolves.
 func (s *server) handleRegisterUpdateToken(w http.ResponseWriter, r *http.Request) {
 	var body activityUpdateTokenRequest
 	if !decodeJSON(w, r, &body) {
@@ -391,9 +385,8 @@ type deliveryUpdateTokenRequest struct {
 //
 // It takes no session because the process that has the token may not have one:
 // a Live Activity outlives the app that started it, and the widget extension
-// holds nothing but the attributes of the push that created it. The capability
-// in the body is the credential — it is bound to this delivery, this activity
-// and this deadline, so it grants exactly one thing and expires on its own.
+// holds only the attributes of the start push. The credential in the body is
+// limited to this delivery, activity, and deadline.
 //
 // Every failure is the same 404, including a well-formed capability that does
 // not verify, so the route cannot be used to discover which delivery ids exist.

@@ -77,7 +77,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 /// The notification-center delegate. The completion-handler variants are
-/// implemented deliberately: the async forms let the compiler-generated thunk
+/// implemented explicitly: the async forms let the compiler-generated thunk
 /// invoke UIKit's completion on a background executor, and the didReceive
 /// completion drives UIKit's snapshot/state-restoration pass, which asserts
 /// off the main thread. Everything Sendable is extracted before hopping to

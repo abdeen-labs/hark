@@ -9,21 +9,14 @@ import (
 	"github.com/abdeen-labs/hark/internal/push"
 )
 
-// Two vocabularies meet in this file, and it is worth being explicit about
-// which is which.
+// The `aps` dictionary uses Apple's hyphenated keys and values, including
+// `mutable-content`, `interruption-level`, `content-state`, and
+// `input-push-token`.
 //
-// The `aps` dictionary is Apple's. Its keys are hyphenated, its values mean
-// what Apple says they mean, and none of it is negotiable: `mutable-content`,
-// `interruption-level`, `content-state`, `input-push-token` and the rest are
-// the contract iOS decodes.
-//
-// Everything alongside `aps` is Hark's. It lives under a single top-level
-// `hark` key — one place, not two: spreading the same object across the top
-// level as well would give a client two sources of truth for one fact, and
-// eventually they disagree. Those keys are snake_case like the rest of this
-// API, they are versioned by [PayloadSchemaVersion], and they are documented in
-// docs/api.md under "Push payloads", which is what the iOS client is written
-// from.
+// Hark-specific notification data lives under one top-level `hark` key to avoid
+// duplicate values. Its keys use snake_case, are versioned by
+// [PayloadSchemaVersion], and are documented in docs/api.md under "Push
+// payloads."
 
 // PayloadSchemaVersion versions the Hark half of every payload. A client
 // announces the version it understands when it registers; the server does not
@@ -34,9 +27,8 @@ const PayloadSchemaVersion = 1
 // phone. It has to match the client's `ActivityAttributes` conformance exactly.
 const ActivityAttributesType = "HarkActivityAttributes"
 
-// Notification categories. A category is what makes iOS draw answer buttons on
-// a notification, and the client registers these three identifiers with their
-// actions at launch.
+// Notification categories control the answer buttons displayed by iOS. The
+// client registers these identifiers and actions at launch.
 //
 // Each is "hark." plus the question's kind plus a version, so the mapping is
 // mechanical rather than a table anyone has to remember. The version is there
@@ -212,8 +204,7 @@ func buildAlert(alert push.Alert) ([]byte, error) {
 }
 
 // categoryFor maps a question's kind onto the category the client registered.
-// An unknown kind renders as a reply, which is the only category that can
-// express an answer nobody anticipated.
+// An unknown kind uses the reply category so the user can enter free text.
 func categoryFor(kind string) string {
 	switch kind {
 	case "approval":
@@ -233,14 +224,13 @@ type activityPayload struct {
 
 type apsActivity struct {
 	// Timestamp is the activity's monotonic counter, in epoch seconds.
-	// ActivityKit discards a content state that is not newer than the one on
-	// screen, which is why it is a counter and not a clock.
+	// ActivityKit discards content states that are not newer than the current
+	// state, so this value increases monotonically.
 	Timestamp int64 `json:"timestamp"`
 	// Event is start, update or end.
 	Event string `json:"event"`
-	// ContentState is Hark's state document, delivered verbatim. It is the same
-	// JSON the API accepts and returns, so what a requester wrote is literally
-	// what the widget renders.
+	// ContentState is Hark's state document, delivered unchanged. The API and
+	// widget use the same JSON structure.
 	ContentState json.RawMessage `json:"content-state"`
 
 	// The rest exists only on a start: an activity's attributes are immutable

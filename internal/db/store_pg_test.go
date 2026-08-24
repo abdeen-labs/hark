@@ -58,8 +58,7 @@ func requireStore(t *testing.T) (context.Context, *Store) {
 			schemaErr = err
 			return
 		}
-		// Drop everything rather than trusting whatever the last run left
-		// behind: the migration ledger and the schema have to agree.
+		// Recreate the schema so it matches the migration ledger.
 		if _, err := pool.Exec(ctx, "DROP SCHEMA public CASCADE; CREATE SCHEMA public"); err != nil {
 			schemaErr = err
 			return
@@ -187,7 +186,7 @@ func TestUsersAndSessions(t *testing.T) {
 		t.Errorf("ByUsername(unknown) error = %v, want ErrNotFound", err)
 	}
 
-	// The welcome claim is one-shot: whoever wins sends the push, and it is
+	// The welcome claim is one-shot: the successful claimant sends the push, and it is
 	// never handed out again.
 	claimed, err := s.Users.ClaimWelcome(ctx, user.ID, now)
 	if err != nil || !claimed {
@@ -862,7 +861,7 @@ func TestInteractionExpiryAndCancel(t *testing.T) {
 	if expired.Status != InteractionExpired || expired.RespondedAt != nil || expired.CanceledAt != nil {
 		t.Errorf("expired = %+v, want a bare expiry", expired)
 	}
-	// Expiry is idempotent: whoever loses the race just re-reads.
+	// Expiry is idempotent; concurrent callers re-read the stored result.
 	if _, err := s.Interactions.ExpireIfDue(ctx, lapsed.ID, now); !errors.Is(err, ErrNotFound) {
 		t.Errorf("second ExpireIfDue error = %v, want ErrNotFound", err)
 	}
@@ -1087,7 +1086,7 @@ func TestCallbackClaimLeases(t *testing.T) {
 		t.Fatalf("claim = (%d, %v), want 1", len(claimed), err)
 	}
 
-	// The lease is what makes a second worker safe: the row is not due again
+	// The lease prevents a second worker from claiming the row while it is active:
 	// until the first worker's attempt has had time to finish.
 	again, err := s.Interactions.ClaimDueCallbacks(ctx, now, 20, time.Minute)
 	if err != nil || len(again) != 0 {
@@ -1467,7 +1466,7 @@ func TestDeliveryAttemptAndTokenAssociation(t *testing.T) {
 		t.Errorf("associated = %+v", associated)
 	}
 
-	// A second registration for the same ActivityKit id finds it exactly.
+	// A second registration finds the same ActivityKit id.
 	exact, err := s.Deliveries.AssociationCandidates(ctx, AssociationParams{
 		DeviceID: device.ID, UserID: user.ID, SchemaVersion: LiveActivitySchemaVersion,
 		NativeActivityID: ptr("native-1"), Limit: 2,
@@ -2036,7 +2035,7 @@ func TestWebhookInteractionSurface(t *testing.T) {
 	}
 
 	// A service may cancel its own question even once the deadline has passed:
-	// the phone showing it is the thing being withdrawn, and the outcome is
+	// the interaction shown on the device is being withdrawn, and the outcome is
 	// the same either way.
 	canceled, err := s.Interactions.CancelForEvent(ctx, event.ID, svc.ID, now.Add(time.Hour))
 	if err != nil {

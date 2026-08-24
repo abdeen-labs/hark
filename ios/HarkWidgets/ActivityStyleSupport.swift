@@ -3,8 +3,7 @@
 //  HarkWidgets
 //
 //  Vocabulary resolution for the content state: symbols, styles, and the
-//  pieces every layout shares. Unknown members always fall back — a card
-//  that renders plainly beats a card that renders nothing.
+//  pieces every layout shares. Unknown values use the standard fallback.
 //
 
 import AppIntents

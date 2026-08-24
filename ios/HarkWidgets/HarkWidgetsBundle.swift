@@ -2,7 +2,7 @@
 //  HarkWidgetsBundle.swift
 //  HarkWidgets
 //
-//  The widget extension exists for one thing: Hark's Live Activities.
+//  Widget extension for Hark Live Activities.
 //
 
 import SwiftUI

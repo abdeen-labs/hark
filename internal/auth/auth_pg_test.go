@@ -16,8 +16,8 @@ import (
 )
 
 // The credential flows are guarded UPDATEs and transactions, and none of that
-// can be exercised against a fake — a fake would agree with whatever the code
-// believes. These tests therefore need a real PostgreSQL and skip without one:
+// can be exercised against a fake. These tests require PostgreSQL and skip
+// without it:
 //
 //	TEST_DATABASE_URL=postgres://hark:hark@localhost:5432/hark_test go test ./internal/auth
 //
@@ -66,8 +66,7 @@ func requireService(t *testing.T) (context.Context, *Service, *testClock) {
 			schemaErr = err
 			return
 		}
-		// Drop rather than trust whatever the last run left behind: the
-		// migration ledger and the schema have to agree.
+		// Recreate the schema so it matches the migration ledger.
 		if _, err := pool.Exec(ctx,
 			"DROP SCHEMA IF EXISTS "+testSchema+" CASCADE; CREATE SCHEMA "+testSchema); err != nil {
 			schemaErr = err
@@ -500,8 +499,7 @@ func TestAPITokenValidation(t *testing.T) {
 	}
 }
 
-// TestAPITokenCap keeps a runaway script from filling the account with
-// credentials nobody will ever revoke.
+// TestAPITokenCap verifies the maximum number of active credentials.
 func TestAPITokenCap(t *testing.T) {
 	ctx, service, _ := requireService(t)
 	user := seedAccount(t, ctx, service)
@@ -558,7 +556,7 @@ func TestDeviceGrantEndToEnd(t *testing.T) {
 		t.Errorf("token expiry = %s, want the default lifetime %s", grant.Request.TokenExpiresAt, want)
 	}
 
-	// Nobody has decided yet.
+	// The request is still awaiting a decision.
 	result, err := service.PollDeviceGrant(ctx, grant.DeviceCode)
 	if err != nil {
 		t.Fatalf("PollDeviceGrant: %v", err)

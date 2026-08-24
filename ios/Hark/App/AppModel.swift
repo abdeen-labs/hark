@@ -2,9 +2,9 @@
 //  AppModel.swift
 //  Hark
 //
-//  The app's one source of truth: authentication, the registered device,
-//  Live Activity token plumbing, the inbox, and routing. MainActor —
-//  everything the UI observes lives here.
+//  Shared application state for authentication, device registration,
+//  Live Activity tokens, the inbox, and routing. UI-observed state runs on
+//  MainActor.
 //
 
 import ActivityKit

@@ -10,8 +10,8 @@ import (
 	"github.com/abdeen-labs/hark/internal/id"
 )
 
-// Username bounds. The handle is only ever typed into a sign-in form, so it is
-// deliberately narrow: ASCII letters, digits, underscore and dot.
+// Username bounds. Sign-in handles allow ASCII letters, digits, underscores,
+// and dots.
 const (
 	MinUsernameLength = 3
 	MaxUsernameLength = 30

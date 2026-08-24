@@ -1,24 +1,7 @@
-// Package dashboard is the admin UI embedded in the harkd binary.
-//
-// It is a server-rendered HTML surface for one person: the account owner,
-// signed in with the same session cookie the API issues, looking at their own
-// deliveries and managing their own credentials. It also serves the two pages
-// that are addressed from outside — the device-grant approval screen and the
-// published API contract — because they share this shell. There is no build
-// step and no bundler: the templates, two stylesheets, two small scripts and
-// vendored copies of htmx and idiomorph are compiled into the binary with
-// embed.FS. htmx's hx-boost is what makes moving between sections a fetch and
-// a swap rather than a document teardown, and the overview's liveness stays
-// inside the same shape — the page polls for a fragment this same package
-// rendered, and idiomorph morphs it into place.
-//
-// It talks to the same layers the API does rather than to the API over HTTP:
-// [Authenticator] is the slice of *auth.Service it needs, the store is read
-// directly, and the test push goes through the same [push.Sender]. What it
-// deliberately does not do is reimplement policy — the session cookie's flags
-// come from internal/httpapi, and every page runs inside that package's
-// middleware chain, so the origin gate on cookie-authenticated writes covers
-// these forms too.
+// Package dashboard implements the server-rendered owner interface embedded in
+// harkd. It shares authentication, storage, push delivery, and request policy
+// with the HTTP API. Templates and vendored frontend assets are compiled into
+// the binary.
 package dashboard
 
 import (
@@ -123,8 +106,7 @@ const (
 	// published API contract. Both sit outside the dashboard's prefix because
 	// they are addresses other things hand out: a CLI prints the first into a
 	// terminal, and the second is a link people paste. internal/httpapi owns
-	// both spellings, so the link a client is given and the page that answers
-	// it cannot drift apart.
+	// both path constants.
 	pathAuthorize = httpapi.DeviceVerificationPath
 	pathDocs      = httpapi.DocsPath
 	pathDocsMD    = httpapi.DocsMarkdownPath
@@ -236,9 +218,7 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathAuthorize, d.page(d.showAuthorize))
 	d.mux.HandleFunc("POST "+pathAuthorize, d.form(d.submitAuthorize))
 
-	// The API contract. It is the one page with no credential anywhere near
-	// it, so it is registered raw: no session gate, no CSRF token, nothing to
-	// read off the request at all.
+	// Public documentation routes do not use session or CSRF middleware.
 	d.mux.HandleFunc("GET "+pathDocs, d.showDocs)
 	d.mux.HandleFunc("GET "+pathDocsMD, d.showDocsMarkdown)
 	d.mux.HandleFunc("GET "+pathOpenAPI, d.showOpenAPI)
@@ -487,8 +467,8 @@ type view struct {
 	Notice   *notice
 }
 
-// newView builds the frame for a signed-in page, carrying whatever banner the
-// redirect that landed here asked for.
+// newView builds the frame for a signed-in page and includes any redirect
+// notice.
 func (d *Dashboard) newView(r *http.Request, p *auth.Principal, title, section string) view {
 	v := d.shell(title, section, d.formToken(r), noticeFrom(r))
 	v.SignedIn = true

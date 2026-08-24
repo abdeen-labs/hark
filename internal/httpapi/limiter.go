@@ -44,9 +44,8 @@ const (
 // runaway polling impractical, not to meter a paid resource, and a fixed window
 // costs one map entry instead of a queue of timestamps.
 //
-// It is per process. Two replicas therefore allow twice the traffic — a
-// deliberate trade against putting a shared counter in the request path of
-// every sign-in.
+// It is per process, so two replicas allow twice the traffic. This avoids a
+// shared counter on every sign-in request.
 type limiter struct {
 	mu      sync.Mutex
 	window  time.Duration

@@ -13,17 +13,9 @@ import (
 
 // The device-grant approval screen.
 //
-// A headless client — `harkctl`, a CI job, anything that cannot hold a password
-// — opens a pairing request at POST /v1/auth/device/code and is handed a short
-// code and a link to this page. The owner arrives here in a browser that
-// already holds a session, reads what the client is asking for, and says yes or
-// no. That decision is what makes the client's next poll mint a token.
-//
-// The page is deliberately a *session* surface, mounted inside the same gate
-// every other dashboard page runs behind. It is the same boundary the JSON
-// routes draw with httpapi.RequireSession, and the reason is the same one: an
-// API token that could approve a pairing request could mint its own successor,
-// and a scoped credential would stop being a bound one.
+// A command-line or other input-limited client creates a device authorization
+// request and directs the owner to this page. The owner must have a session to
+// approve or deny the requested API token.
 
 // Form values. The decision is a fixed vocabulary rather than free text, so a
 // submission either names one of two acts or is a lookup.
@@ -103,10 +95,7 @@ func (d *Dashboard) renderAuthorize(
 
 // submitAuthorize records the owner's decision, or looks up a typed code.
 //
-// The lookup shares the form because the alternative is a GET that reflects
-// whatever was typed straight back into a URL. Going through the POST means the
-// code is normalised on the way to the redirect, and the address bar ends up
-// holding a canonical code or nothing.
+// The POST normalizes a typed code before redirecting to its canonical URL.
 func (d *Dashboard) submitAuthorize(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	code := strings.TrimSpace(r.PostFormValue("code"))
 

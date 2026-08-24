@@ -59,11 +59,8 @@ func (o dispatchOutcome) message() *string {
 // dispatchActivity pushes one operation to every delivery and records what
 // happened to each.
 //
-// Deliveries are handled one at a time rather than in parallel. An account has a
-// handful of devices, the transport keeps its own connection pool, and doing it
-// in order means an attempt row is never written for a push that has not
-// returned — which is what makes the delivery log worth reading when something
-// has gone wrong.
+// Deliveries run sequentially. An attempt row is written only after its push
+// returns.
 func (s *server) dispatchActivity(r *http.Request, d activityDispatch) dispatchOutcome {
 	var outcome dispatchOutcome
 	for _, delivery := range d.Deliveries {
@@ -201,8 +198,8 @@ func failedActivity(reason string) push.ActivityResult {
 // activity's status.
 //
 // A settle that arrives after a newer mutation is dropped by the store's
-// sequence guard rather than overwriting fresher counts with stale ones, so this
-// returns whatever is current rather than insisting on its own view.
+// sequence guard rather than overwriting newer counts. The current stored state
+// is returned.
 func (s *server) settleActivity(r *http.Request, act db.LiveActivity, op db.LiveActivityOperation, outcome dispatchOutcome) db.LiveActivity {
 	ctx := detach(r.Context())
 
@@ -227,9 +224,8 @@ func (s *server) settleActivity(r *http.Request, act db.LiveActivity, op db.Live
 		case outcome.Accepted > 0:
 			status = db.ActivityActive
 		default:
-			// Nothing landed. That is only fatal when nothing can land later:
-			// a delivery still waiting for its update token will accept the next
-			// push, and calling the activity failed would end it prematurely.
+			// A delivery waiting for its update token may accept a later push. Mark
+			// the activity failed only when no live delivery remains.
 			live, err := s.store().Activities.CountLiveDeliveries(ctx, act.ID)
 			if err != nil {
 				LoggerFrom(r.Context()).ErrorContext(r.Context(), "counting live deliveries failed", "error", err)
@@ -300,15 +296,12 @@ func (s *server) expireInteractionIfDue(r *http.Request, in *db.Interaction) *db
 
 // takeOver ends the activities occupying what a start has asked for.
 //
-// This is what `replace: true` buys: the device slot, or the key, is freed by
-// ending whatever holds it. The end is unmetered — no operation row, no attempt
-// row, no rate-limit charge — because the requester did not ask for it; only the
-// start that displaced it is charged.
+// `replace: true` ends activities holding the device slot or key. Automatic end
+// operations are not recorded or charged against rate limits; only the new start
+// is charged.
 //
-// A delivery is released whether or not its end push worked. The alternative is
-// a device slot held forever by an activity nobody can reach, and a phone
-// showing a stale card is a smaller problem than a phone that can never show
-// another.
+// A delivery is released even when its end push fails so an unreachable
+// activity cannot permanently occupy the device slot.
 func (s *server) takeOver(r *http.Request, activityIDs []string) int {
 	replaced := 0
 	for _, activityID := range activityIDs {

@@ -236,9 +236,8 @@ func serveCommand(ctx context.Context, args []string) error {
 // A deployment without credentials is a supported state — the server runs, and
 // every send is recorded as a provider failure rather than as a delivery that
 // did not happen — so the absence of credentials is a warning and not an error.
-// Credentials that are present and unusable are a different matter: the
-// operator plainly meant pushes to work, and starting anyway would hide that
-// behind a delivery log nobody reads until a phone stays quiet.
+// Present but invalid credentials prevent startup so configuration errors are
+// reported immediately.
 func newPushSender(cfg *config.Config, log *slog.Logger) (push.Sender, error) {
 	if !cfg.APNs.Configured() {
 		// The boot warning naming the three variables has already been logged.
@@ -311,9 +310,8 @@ func createUserCommand(ctx context.Context, args []string) error {
 	return nil
 }
 
-// setPasswordCommand is the operator's recovery path. It is deliberately not an
-// endpoint: the API can only change a password when the current one is known,
-// so this is what remains when it is not.
+// setPasswordCommand lets an operator reset a password without knowing the
+// current value. This recovery operation is available only on the server.
 func setPasswordCommand(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("set-password", flag.ContinueOnError)
 	username := fs.String("username", "", "sign-in handle (defaults to HARK_ADMIN_USERNAME)")
@@ -418,7 +416,7 @@ func readPipedPassword() (string, error) {
 	if err != nil || info.Mode()&os.ModeCharDevice != 0 {
 		// A character device is an interactive terminal: reading it would hang
 		// waiting for input the caller never meant to give.
-		return "", nil //nolint:nilerr // an unstattable stdin is simply not a source
+		return "", nil //nolint:nilerr // an unstattable stdin is not an input source
 	}
 	raw, err := io.ReadAll(os.Stdin)
 	if err != nil {
@@ -428,8 +426,8 @@ func readPipedPassword() (string, error) {
 }
 
 // seedAccount creates the account at boot when one is configured and none
-// exists. It is idempotent and never fatal: a server that cannot seed still
-// serves, it just has nobody who can sign in, and the warning says so.
+// exists. It is idempotent and non-fatal; a failure leaves sign-in unavailable
+// and is written to the log.
 func seedAccount(ctx context.Context, log *slog.Logger, service *auth.Service, cfg *config.Config) {
 	if !cfg.Admin.Seedable() {
 		return
@@ -444,7 +442,7 @@ func seedAccount(ctx context.Context, log *slog.Logger, service *auth.Service, c
 	case errors.Is(err, auth.ErrAccountExists):
 		// The normal case on every restart after the first.
 	case err != nil:
-		log.Error("could not create the configured account; nobody may be able to sign in", "error", err)
+		log.Error("could not create the configured account; sign-in may be unavailable", "error", err)
 	default:
 		log.Info("created the configured account", "username", user.Username, "id", user.ID)
 	}

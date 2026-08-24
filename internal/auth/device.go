@@ -70,8 +70,8 @@ type DeviceGrant struct {
 	DeviceCode string
 }
 
-// StartDeviceGrant opens a pairing request. It requires no credential — that is
-// the point of the flow — so the transport must rate limit it.
+// StartDeviceGrant opens an unauthenticated pairing request. The transport must
+// rate-limit this operation.
 func (s *Service) StartDeviceGrant(ctx context.Context, p StartDeviceGrantParams) (*DeviceGrant, error) {
 	name := strings.TrimSpace(p.ClientName)
 	if name == "" || len(name) > MaxDeviceClientNameLength {
@@ -126,13 +126,13 @@ func (s *Service) StartDeviceGrant(ctx context.Context, p StartDeviceGrantParams
 type DeviceGrantState string
 
 const (
-	// DeviceGrantPending means nobody has decided yet. Keep polling.
+	// DeviceGrantPending means the request is awaiting a decision.
 	DeviceGrantPending DeviceGrantState = "pending"
 	// DeviceGrantSlowDown means the client polled early; the interval grew.
 	DeviceGrantSlowDown DeviceGrantState = "slow_down"
-	// DeviceGrantDenied means the human refused.
+	// DeviceGrantDenied means the owner denied the request.
 	DeviceGrantDenied DeviceGrantState = "denied"
-	// DeviceGrantExpired means nobody decided in time.
+	// DeviceGrantExpired means the request expired before a decision.
 	DeviceGrantExpired DeviceGrantState = "expired"
 	// DeviceGrantConsumed means this request already issued its token.
 	DeviceGrantConsumed DeviceGrantState = "consumed"
@@ -218,9 +218,8 @@ func (s *Service) PollDeviceGrant(ctx context.Context, deviceCode string) (*Devi
 		}
 
 		if request.ApprovedUserID == nil {
-			// Approved with nobody attached is not a state the store can
-			// produce; treat it as never approved rather than issuing a token
-			// with no owner.
+			// The store should not produce approval without an owner. Treat that
+			// state as pending instead of issuing an ownerless token.
 			return fmt.Errorf("auth: device authorization %s is approved without an approver", request.ID)
 		}
 		userID := *request.ApprovedUserID

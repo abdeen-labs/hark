@@ -15,10 +15,8 @@ import (
 //
 // Apple accepts a provider token for one hour after its iat, and rejects a
 // provider that mints them too often. Neither extreme works: a token per
-// request is rate limited, and a token per hour expires while the last requests
-// are still using it. Fifty minutes sits inside the window with ten minutes of
-// margin for clock drift, which is what makes a background refresh
-// unnecessary.
+// request is rate limited, and a token kept for the full hour may expire during
+// a request. Fifty minutes leaves ten minutes for clock drift.
 const DefaultTokenTTL = 50 * time.Minute
 
 // tokenSource mints and caches the ES256 provider token.

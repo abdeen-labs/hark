@@ -183,9 +183,8 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 
 	out := notificationResponse{Notification: newNotificationDTO(*settled)}
 	if result.Accepted == 0 {
-		// The provider's own text stays in the owner-visible delivery log: it can
-		// embed a device token, and this response goes to whoever holds the API
-		// token, who is not necessarily the account owner.
+		// Provider text remains in the owner-only delivery log because it may
+		// include a device token. API-token responses use a safe summary.
 		out.Message = ptr(messageNoneAccepted)
 	}
 	WriteJSON(w, r, http.StatusCreated, out)
@@ -193,10 +192,9 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 
 // settleNotification writes the outcome of a send and returns the row to render.
 //
-// It runs on a detached context: once the push has been made, losing the record
-// of it because the caller hung up would leave a send nobody can account for.
-// A settle that fails is logged and the unsettled row is rendered — the caller
-// still gets an accurate count, it is the history that is one row poorer.
+// It uses a detached context so client cancellation after the push does not
+// prevent recording the result. Settlement failures are logged, and the caller
+// still receives the in-memory result.
 func (s *server) settleNotification(r *http.Request, n *db.AgentNotification, status string, accepted int) *db.AgentNotification {
 	settled, err := s.store().Notifications.Settle(detach(r.Context()), n.ID, status, accepted)
 	if err != nil {

@@ -21,9 +21,8 @@ type servicesPage struct {
 	Form       serviceForm
 }
 
-// serviceRow is a service with its ingest URL read back out of the ciphertext.
-// A nil URL means the stored ciphertext would not open; the row still works
-// for whoever holds the token, and the remedy on the page is Rotate.
+// serviceRow includes the decrypted webhook URL. A nil URL means decryption
+// failed; the owner can rotate the credential.
 type serviceRow struct {
 	db.Service
 	WebhookURL *string
@@ -70,10 +69,7 @@ func serviceFormFrom(r *http.Request) serviceForm {
 	return form
 }
 
-// validate reports every problem at once, phrased for a person rather than as
-// field errors. The rules are the API's own: the URL predicates are exported
-// by internal/httpapi so this form cannot drift from what POST /v1/services
-// accepts.
+// validate reports all form problems using the API's shared URL rules.
 func (f serviceForm) validate() *notice {
 	var problems []string
 	// 80 is the API's title limit, mirrored by the template's maxlength.

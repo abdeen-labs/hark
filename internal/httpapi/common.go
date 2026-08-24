@@ -20,8 +20,7 @@ func (s *server) now() time.Time { return s.opts.Auth.Now() }
 // auth surface, and [New] refuses to build a handler without it.
 func (s *server) store() *db.Store { return s.opts.Store }
 
-// requester is whatever asked for a push: an API token, or a service acting for
-// an inbound webhook.
+// requester identifies the API token or webhook service that requested a push.
 //
 // Exactly one of the two ids is set — the database enforces it on every row a
 // requester creates — so this type is how a handler carries "who is asking"
@@ -94,9 +93,7 @@ func nextCursor[T any](page db.Page[T]) *string {
 	return &s
 }
 
-// writeNotFound is the one answer for "no such thing here", whether the row does
-// not exist, belongs to nobody, or was addressed by a credential that does not
-// open it.
+// writeNotFound returns the same response for missing and inaccessible rows.
 func (s *server) writeNotFound(w http.ResponseWriter, r *http.Request, what string) {
 	WriteError(w, r, http.StatusNotFound, CodeNotFound, "No "+what+" matches that identifier.")
 }
@@ -118,11 +115,8 @@ func (s *server) writeStoreError(w http.ResponseWriter, r *http.Request, what st
 
 // RequireAPIToken admits only an API token, and names why when it refuses.
 //
-// Three creation surfaces sit behind it — notifications, interactions and Live
-// Activities — because every row they write records which credential asked for
-// it. A session is a person, not a requester, so there is nothing to attribute
-// the row to; the owner sends themselves a notification by minting a token for
-// whatever is doing the sending.
+// Notification, interaction, and Live Activity records require an API token for
+// requester attribution.
 func RequireAPIToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		principal := auth.PrincipalFrom(r.Context())

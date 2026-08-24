@@ -1,17 +1,14 @@
-// Package netpolicy is Hark's single opinion about which network destinations
-// a caller-supplied URL may point at.
-//
-// Two enforcement points share it, and sharing is the point. Request
+// Package netpolicy defines which network destinations a caller-supplied URL
+// may use. Request
 // validation uses the static half — [PublicHTTPSURL], [PublicHost],
 // [PublicAddr] — to refuse URLs whose host is unroutable by definition: a
 // loopback or RFC 1918 literal, `localhost`, a `.local` name. A DNS name
 // passes that check unresolved, because resolving it at validation time would
 // be a request in itself and the answer could change before it matters. The
 // callback worker's [Dialer] is the dynamic half: it applies the same
-// classification to every address the name actually resolves to, at the
+// classification to every address the name resolves to, at the
 // moment a socket is opened, which is the only moment the answer is known to
-// be the one that gets used. Keeping both halves in one package is what stops
-// the deny lists drifting apart.
+// be the one that gets used. Both checks use the same address classification.
 package netpolicy
 
 import (
@@ -78,9 +75,8 @@ func PublicHTTPSURL(raw string) bool {
 	return err == nil && u.Scheme == "https" && u.Host != "" && PublicHost(u.Hostname())
 }
 
-// The sentinel errors deliberately carry no host, address or port: everything
-// the [Dialer] returns ends up in the callback worker's log and in the stored
-// last-error column, and the destination is the caller's URL.
+// Sentinel errors omit the host, address, and port because errors are stored and
+// logged by the callback worker.
 var (
 	// ErrNotPublic refuses a destination that is not publicly routable: a
 	// refused literal, a local name, or a DNS answer with even one non-public

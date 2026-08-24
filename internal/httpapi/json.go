@@ -109,7 +109,7 @@ type optional[T any] struct {
 	set   bool
 }
 
-// UnmarshalJSON records that the field appeared, whatever it held.
+// UnmarshalJSON records that the field was present.
 func (o *optional[T]) UnmarshalJSON(b []byte) error {
 	o.set = true
 	return json.Unmarshal(b, &o.value)

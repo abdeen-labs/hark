@@ -101,8 +101,8 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
-    /// Downloads the sender's avatar. Public HTTPS only, bounded in size;
-    /// any failure is simply "no avatar".
+    /// Downloads the sender's avatar from public HTTPS with a size limit.
+    /// Failures return no avatar.
     private static func downloadAvatar(_ urlString: String?) async -> INImage? {
         guard
             let urlString,

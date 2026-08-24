@@ -188,10 +188,8 @@ func ResponseTokenHash(token string) string { return digest(domainResponseToken,
 // digest is SHA-256 over the domain, a NUL separator, and the secret, rendered
 // as lowercase hex.
 //
-// A bare hash is the right construction here and a KDF would not be: these
-// secrets carry 256 bits of uniform randomness, so there is nothing for an
-// attacker to grind. The NUL is what makes the domain unambiguous — no domain
-// contains one, so no two (domain, secret) pairs can produce the same input.
+// These secrets contain 256 bits of uniform randomness, so SHA-256 is sufficient
+// without a KDF. A NUL separator makes each (domain, secret) input unambiguous.
 func digest(domain, secret string) string {
 	h := sha256.New()
 	h.Write([]byte(domain))

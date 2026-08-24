@@ -199,7 +199,7 @@ func TestClientRequestShape(t *testing.T) {
 		t.Errorf("the request carried a token for kid %v", header["kid"])
 	}
 
-	// Headers Hark deliberately never sends. An apns-id of our own would
+	// Headers Hark never sends. An apns-id of our own would
 	// replace the one Apple mints and returns, and a collapse id would let one
 	// notification silently replace another.
 	for _, name := range []string{"apns-id", "apns-collapse-id", "content-type"} {
@@ -210,7 +210,7 @@ func TestClientRequestShape(t *testing.T) {
 }
 
 // TestDefaultTransportNegotiatesHTTP2 exercises the transport a deployment
-// actually uses, rather than the one httptest hands out.
+// uses, rather than the one httptest provides.
 //
 // It is worth its own test because the failure mode is invisible here: a
 // transport that quietly falls back to HTTP/1.1 passes every other test in this
@@ -452,7 +452,7 @@ func (hostileTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // TestClientTransportErrorLogOmitsToken is the regression for the leak: a
-// transport failure whose error deliberately quotes the tokenized URL must
+// transport failure whose error includes the tokenized URL must
 // still produce a log with the stable reason and device id, and nothing else.
 func TestClientTransportErrorLogOmitsToken(t *testing.T) {
 	const sentinelToken = "feedfacecafef00d00112233445566778899aabbccddeeff0011223344556677"

@@ -224,8 +224,8 @@ type SetPushToStartTokenParams struct {
 	Now           time.Time
 }
 
-// SetPushToStartToken records the push-to-start credential, which is what makes
-// a device Live-Activity-capable. It targets active devices only.
+// SetPushToStartToken records the credential required to start Live Activities
+// on an active device.
 func (s *Devices) SetPushToStartToken(ctx context.Context, p SetPushToStartTokenParams) (*Device, error) {
 	const q = `
 		UPDATE devices SET
@@ -274,9 +274,9 @@ func (s *Devices) DeactivateByID(ctx context.Context, id string, now time.Time) 
 
 // Delete unregisters a device by id.
 //
-// Two consequences worth knowing: the cascade removes the device's Live
-// Activity deliveries without sending any end push, so an activity can stay on
-// screen with no record of it; and interactions the device answered lose their
+// The cascade removes the device's Live Activity deliveries without sending an
+// end push, so an activity may remain on screen without a server record.
+// Interactions the device answered lose their
 // responding_device_id.
 func (s *Devices) Delete(ctx context.Context, id, userID string) (bool, error) {
 	const q = `DELETE FROM devices WHERE id = $1 AND user_id = $2`

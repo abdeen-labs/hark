@@ -130,10 +130,8 @@ func (s *Sender) SendActivity(ctx context.Context, event push.ActivityEvent) pus
 		Token:    event.PushToken,
 		PushType: pushTypeLiveActivity,
 		Topic:    s.client.activityTopic(),
-		// Every Live Activity push is priority 10. Apple suggests 5 for
-		// frequent low-urgency updates, but Hark's updates are driven by an
-		// agent reporting that something actually changed, and a progress bar
-		// that lags behind the work is worse than no progress bar.
+		// Live Activity pushes use priority 10 because Hark sends explicit state
+		// changes rather than frequent background refreshes.
 		Priority: priorityImmediate,
 		Payload:  payload,
 		DeviceID: event.Target.DeviceID,
@@ -183,17 +181,14 @@ func buildReason(err error) string {
 	return push.ReasonDeliveryFailed
 }
 
-// tokenIsDead reports that a push token will never work again, whatever it is
-// addressed to.
+// tokenIsDead reports whether a push token is permanently invalid.
 //
 // One rule serves alerts and Live Activities. The three reasons below say the
 // same thing in three ways — the app was removed, the token was never valid,
 // the token has aged out — and a 410 says it without a reason at all.
 //
-// DeviceTokenNotForTopic is deliberately not here. It indicts this server's
-// bundle id rather than the phone's token, and treating a topic typo as a dead
-// token would deactivate every device in the account for a mistake none of them
-// made. It is logged as the configuration error it is instead.
+// DeviceTokenNotForTopic indicates a server bundle-id error, not an invalid
+// device token, so it must not deactivate the device.
 func tokenIsDead(response Response) bool {
 	if response.Status == http.StatusGone {
 		return true
@@ -208,9 +203,8 @@ func tokenIsDead(response Response) bool {
 
 // failureText renders one failed send for the owner's delivery log.
 //
-// These strings are shown to the account owner and to nobody else: a provider
-// error names the status and reason of a push to a specific phone, which is
-// more than the holder of an API token or a webhook URL is entitled to know.
+// These strings are available only to the account owner because they include
+// the status and reason for a push to a specific device.
 func failureText(response Response) string {
 	if response.Status > 0 {
 		if response.Reason != "" {

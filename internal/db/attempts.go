@@ -5,10 +5,8 @@ import (
 	"time"
 )
 
-// Synthetic APNs reasons, written when no HTTP call was made at all. They are
-// stored in the same column as APNs's own reasons because, from the point of
-// view of someone reading the audit trail later, "we did not send this" is one
-// more way a push failed.
+// Synthetic APNs reasons are written when no HTTP request was made. They share
+// the APNs reason column so the audit trail has one failure field.
 const (
 	// ReasonInteractionTerminal: the question was answered or withdrawn before
 	// its Live Activity could be started.
@@ -30,10 +28,8 @@ const (
 
 // LiveActivityDeliveryAttempt is one APNs call.
 //
-// The table is append-only and nothing reads it at request time: it exists so
-// that "why did this Live Activity never appear" is answerable after the fact.
-// Because nothing depends on it, it is also the one table safe to prune — see
-// [Attempts.DeleteBefore].
+// This append-only diagnostic table is not read while serving requests. Old
+// rows can be pruned with [Attempts.DeleteBefore].
 type LiveActivityDeliveryAttempt struct {
 	ID                 string  `db:"id"`
 	ActivityID         string  `db:"activity_id"`

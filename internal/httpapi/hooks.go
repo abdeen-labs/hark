@@ -11,8 +11,7 @@ import (
 	"github.com/abdeen-labs/hark/internal/secret"
 )
 
-// Callback bearer-token bounds. Long enough to be a real credential, short
-// enough that nobody is storing a certificate in there.
+// Callback bearer-token length bounds.
 const (
 	minCallbackTokenLen = 16
 	maxCallbackTokenLen = 512
@@ -20,9 +19,8 @@ const (
 
 // webhookEventDTO is what the sender of a webhook is told about its delivery.
 //
-// It is deliberately smaller than the owner-facing event: no provider error
-// text, because an APNs failure can embed a device token and the holder of a
-// webhook URL is not necessarily the account owner.
+// It omits provider error text because an APNs failure may include a device
+// token, and webhook callers do not have owner access.
 type webhookEventDTO struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
@@ -125,13 +123,9 @@ type webhookPayload struct {
 	CallbackURL      *string  `json:"callback_url"`
 }
 
-// handleWebhookNotify is the ingest endpoint: one request, one notification.
-//
-// The credential is in the path because that is what a webhook is — a URL you
-// give to something that can only be given a URL. Everything that follows from
-// that is deliberate: the token is never written to the access log, every
-// authentication failure is the same 404, and rotating the token is one request
-// away.
+// handleWebhookNotify accepts one webhook request and creates one notification.
+// The path credential is redacted from access logs, and authentication failures
+// use the same 404 response.
 //
 // Fields the request omits fall back to the service's defaults, so a sender that
 // can only produce a body still produces a notification with a name, an avatar
@@ -438,9 +432,8 @@ func (s *server) handleWebhookCancel(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, r, http.StatusOK, interactionReadResponse{Interaction: newInteractionDTO(*canceled)})
 }
 
-// The Live Activity half of the webhook surface. It is the same code as the
-// token surface with a different requester, which is the point: an integration
-// that can only hold a URL drives an activity exactly the way an agent does.
+// Webhook Live Activity handlers share the API-token implementation with a
+// service requester.
 
 func (s *server) handleWebhookStartActivity(w http.ResponseWriter, r *http.Request) {
 	if svc, ok := s.authenticateWebhook(w, r); ok {

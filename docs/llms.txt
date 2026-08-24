@@ -1,22 +1,22 @@
 # Hark
 
-> Hark turns webhook and agent API calls into iOS notifications, Live Activities, and approval prompts that can be answered from the Lock Screen.
+> Hark is a self-hosted service for sending iOS notifications, Live Activities, and interactive prompts from webhooks and API clients.
 
-Hark is a self-hosted, single-user Go service backed by PostgreSQL. Its JSON API is versioned under `/v1`; identifiers are UUIDv7, timestamps are RFC 3339 UTC, and errors use a stable `error.code` envelope. Sessions represent the owner. Scoped `hark_…` API tokens represent software. Webhook URLs carry a service token in their path.
+Each Hark deployment has one owner account. Its JSON API is versioned under `/v1`. Identifiers are UUIDv7, timestamps use RFC 3339 UTC, and errors include a stable `error.code`. Owner sessions, scoped `hark_…` API tokens, and service-specific webhook URLs provide access.
 
 ## Documentation
 
-- [Complete API contract](/docs.md): Canonical, detailed Markdown reference with conventions, authentication, endpoint request and response examples, push payloads, callbacks, and dashboard behavior.
-- [OpenAPI 3.1 contract](/openapi.json): Structured operation, authentication, parameter, request, response, and schema definitions for client generation and validation.
-- [Human-readable API docs](/docs): Searchable HTML rendering of the canonical contract.
-- [Readiness probe](/healthz): Public instance and database health.
+- [Complete API reference](/docs.md): Markdown documentation for authentication, endpoints, payloads, callbacks, and the dashboard.
+- [OpenAPI 3.1 document](/openapi.json): Operations and schemas for client generation and validation.
+- [HTML API reference](/docs): Searchable rendering of the Markdown reference.
+- [Readiness check](/healthz): Reports application and database availability.
 
 ## Important rules
 
 - Send JSON with `Content-Type: application/json`; unknown request fields are rejected.
-- Use `Authorization: Bearer <credential>` unless an operation explicitly uses a webhook token, device code, or response capability.
-- A session may manage credentials. An API token cannot mint or widen credentials.
+- Use `Authorization: Bearer <credential>` unless an operation explicitly uses a webhook token, device code, or single-use response token.
+- A session may manage credentials. An API token cannot create credentials or increase its own permissions.
 - API-token operations declare their required scopes in the OpenAPI `x-hark-scopes` extension.
-- Use an `Idempotency-Key` when sending notifications, interactions, webhook events, or starting Live Activities.
-- Treat cursors as opaque and branch on stable `error.code` values, not human messages.
+- Use an `Idempotency-Key` when sending notifications, interactions, webhook events, or Live Activity changes.
+- Treat cursors as opaque. Handle errors by `error.code`, not by matching `message` text.
 - A `201` delivery response means Hark recorded and attempted the request; inspect its status/count fields to learn what APNs accepted.

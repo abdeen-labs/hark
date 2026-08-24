@@ -12,14 +12,9 @@ import (
 
 // Session lifetime.
 //
-// The two numbers describe an *idle* timeout, not a fixed one: every request
-// that arrives more than SessionRefreshInterval after the last refresh pushes
-// expiry back out to now + SessionTTL. A client used weekly never signs in
-// again; one abandoned for a month has to.
-//
-// SessionMaxLifetime is the ceiling refresh cannot cross. Without it a session
-// that is used forever lives forever, and the only way to be sure a credential
-// is gone becomes "revoke it by hand".
+// SessionTTL is an idle timeout. Requests refresh expiry at most once per
+// SessionRefreshInterval. SessionMaxLifetime is the fixed upper limit from
+// creation and cannot be extended by activity.
 const (
 	SessionTTL             = 30 * 24 * time.Hour
 	SessionRefreshInterval = time.Hour
@@ -31,13 +26,10 @@ const (
 // The returned string is the session secret. It is the only time the plaintext
 // exists outside the caller's request: the row keeps a digest.
 //
-// Every failure is [ErrInvalidCredentials] — unknown user, no password set,
-// wrong password. Note that an unknown username answers faster than a wrong
-// password, because no hash is computed: on a deployment with exactly one
-// account whose name the operator chose, hiding which of the two failed buys
-// nothing, and running a 64 MiB hash for anonymous callers would hand out a
-// memory-amplification lever. Guessing is bounded by the transport's rate
-// limit instead.
+// Every failure is [ErrInvalidCredentials] — unknown user, no password set, or
+// wrong password. Unknown usernames return faster because no password hash is
+// computed. The transport rate limit bounds guessing attempts without running
+// a 64 MiB hash for arbitrary usernames.
 func (s *Service) Login(ctx context.Context, username, password string) (*Principal, string, error) {
 	normalized, err := normalizeUsername(username)
 	if err != nil {

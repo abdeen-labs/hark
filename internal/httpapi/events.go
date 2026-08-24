@@ -104,8 +104,7 @@ type historyItemDTO struct {
 	// names the source and not just the row.
 	ID   string `json:"id"`
 	Kind string `json:"kind"`
-	// SourceName is whatever sent this: a service title, a token name, or a
-	// fallback.
+	// SourceName is the service title, token name, or fallback sender name.
 	SourceName     string  `json:"source_name"`
 	SourceImageURL *string `json:"source_image_url"`
 	Title          string  `json:"title"`

@@ -50,9 +50,7 @@ type deviceCodeResponse struct {
 // rather than inventing its own.
 const DeviceVerificationPath = "/cli/authorize"
 
-// handleDeviceCode opens a pairing request. It is unauthenticated by design —
-// the client has no credential yet, which is the whole reason this flow exists
-// — and is therefore rate limited.
+// handleDeviceCode opens an unauthenticated, rate-limited pairing request.
 func (s *server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 	var body deviceCodeRequest
 	if !decodeJSON(w, r, &body) {
@@ -129,7 +127,7 @@ func (s *server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 	case auth.DeviceGrantPending:
 		writeRetryAfter(w, result.Interval)
 		WriteError(w, r, http.StatusBadRequest, CodeAuthorizationPending,
-			"Nobody has approved this request yet. Keep polling.")
+			"This request is still awaiting approval. Keep polling.")
 	case auth.DeviceGrantSlowDown:
 		writeRetryAfter(w, result.Interval)
 		WriteError(w, r, http.StatusTooManyRequests, CodeSlowDown,
@@ -151,9 +149,7 @@ func (s *server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// deviceRequestDTO is what the approval screen renders. It deliberately omits
-// the device code: the human approving a request has no use for the client's
-// secret, and a value on a screen is a value in a screenshot.
+// deviceRequestDTO omits the client-side device code from the approval screen.
 type deviceRequestDTO struct {
 	UserCode       string    `json:"user_code"`
 	ClientName     string    `json:"client_name"`
@@ -191,9 +187,8 @@ func (s *server) handleDeviceRequest(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, r, http.StatusOK, deviceRequestResponse{Request: newDeviceRequestDTO(*request)})
 }
 
-// handleApproveDeviceRequest records the account owner's consent. Approval is
-// what makes the next poll mint a token, so it is session-only: an API token
-// cannot approve its own successor.
+// handleApproveDeviceRequest records owner approval. It is session-only because
+// the next poll creates an API token.
 func (s *server) handleApproveDeviceRequest(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 

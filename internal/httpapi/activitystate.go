@@ -10,12 +10,9 @@ import (
 
 // The Live Activity content state, and the vocabulary it is built from.
 //
-// This document is what a phone renders. It is stored as-is, delivered as-is,
-// and re-validated whenever it is merged, so the shape below is simultaneously
-// the API's request vocabulary, the stored representation, and the push
-// payload. Keeping them one thing is what makes a partial update expressible:
-// the server merges into the last state it sent rather than into a translation
-// of it.
+// This document is stored, delivered, and rendered by the device. The same
+// structure is used for API requests, storage, and push payloads, allowing
+// partial updates to merge into the last transmitted state.
 const (
 	// activityStateVersion is the content-state schema this server emits. A
 	// device announces the version it understands at registration, and one that
@@ -62,9 +59,8 @@ type activityState struct {
 	ActivityID    string `json:"activity_id"`
 	Title         string `json:"title"`
 	Status        string `json:"status"`
-	// Detail and Progress are omitted rather than nulled when absent: the widget
-	// lays itself out differently with and without them, and "present but empty"
-	// is a third state nobody wants to render.
+	// Detail and Progress are omitted when absent so the widget can distinguish
+	// missing values from present values.
 	Detail    *string   `json:"detail,omitempty"`
 	Progress  *float64  `json:"progress,omitempty"`
 	UpdatedAt Timestamp `json:"updated_at"`

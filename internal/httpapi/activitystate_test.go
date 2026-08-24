@@ -8,7 +8,7 @@ import (
 	"github.com/abdeen-labs/hark/internal/db"
 )
 
-// TestActivityBanner covers the one thing privacy mode actually changes.
+// TestActivityBanner verifies the banner redaction applied by privacy mode.
 //
 // The redaction is of the banner alone. The state document delivered alongside
 // it still carries the real title and status, because what a locked screen

@@ -25,7 +25,7 @@ func TestEncryptRoundTrips(t *testing.T) {
 	}
 }
 
-// TestEncryptIsNotDeterministic is why a fresh nonce is drawn per call: a
+// TestEncryptIsNotDeterministic verifies that each call uses a fresh nonce: a
 // deterministic ciphertext would let anyone with the column see which two rows
 // hold the same secret.
 func TestEncryptIsNotDeterministic(t *testing.T) {
@@ -89,7 +89,7 @@ func TestMalformedCiphertextIsRejected(t *testing.T) {
 	}
 }
 
-// TestSignBindsEveryPart is what makes a capability a capability: it grants one
+// TestSignBindsEveryPart verifies that a capability grants one
 // delivery, of one activity, until one instant, and nothing else.
 func TestSignBindsEveryPart(t *testing.T) {
 	k := newTestKeeper()

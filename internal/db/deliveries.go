@@ -203,9 +203,8 @@ type EndParams struct {
 
 // End releases a delivery after an end push, whether or not the push worked.
 //
-// Releasing regardless is deliberate: the alternative is a device slot held
-// forever by an activity nobody can reach, and a phone that shows a stale Live
-// Activity is a smaller problem than one that can never show another.
+// The delivery is released even when the end push fails so an unreachable
+// activity cannot permanently occupy the device slot.
 func (s *Deliveries) End(ctx context.Context, p EndParams) (*LiveActivityDelivery, error) {
 	const q = `
 		UPDATE live_activity_deliveries SET

@@ -85,7 +85,7 @@ func NewAttemptPruner(opts Options) *AttemptPruner {
 //
 // Only this goroutine touches the store, so passes never overlap themselves: a
 // deletion still in flight delays the next tick rather than racing it, and a
-// tick that fires meanwhile is simply dropped. An error is logged and waits for
+// tick that fires meanwhile is dropped. An error is logged and waits for
 // the next interval; a replica running the same loop is safe because the delete
 // is strict and idempotent.
 func (p *AttemptPruner) Run(ctx context.Context) {

@@ -37,9 +37,8 @@ const DashboardPrefix = "/dashboard"
 // something the deployment says about itself.
 const DocsPath = "/docs"
 
-// DocsMarkdownPath, OpenAPIPath and LLMsPath are the machine-facing forms of
-// the same public contract. They deliberately sit beside DocsPath rather than
-// under /v1: they describe the API, they are not versioned API operations.
+// DocsMarkdownPath, OpenAPIPath, and LLMsPath publish public documentation
+// outside the versioned API.
 const (
 	DocsMarkdownPath = "/docs.md"
 	OpenAPIPath      = "/openapi.json"
@@ -224,8 +223,8 @@ func (s *server) routes(rt *router) {
 	rt.handle(http.MethodPost, APIPrefix+"/auth/password",
 		RequireSession(http.HandlerFunc(s.handleChangePassword)))
 
-	// The two public halves of the device grant: the client has no credential
-	// yet, so both are rate limited instead.
+	// Device authorization starts and polls without a credential, so both routes
+	// are rate limited.
 	rt.handle(http.MethodPost, APIPrefix+"/auth/device/code",
 		s.rateLimit("device_start", limitDeviceStart, http.HandlerFunc(s.handleDeviceCode)))
 	rt.handle(http.MethodPost, APIPrefix+"/auth/device/token",
@@ -347,8 +346,7 @@ func (s *server) routes(rt *router) {
 // scoped admits the account owner's session unconditionally and an API token
 // that carries every listed scope.
 //
-// It is the default policy for the read surface: a session is the owner in
-// person, and a token is whatever the owner granted it.
+// Owner sessions pass unconditionally; API tokens require the listed scope.
 func (s *server) scoped(scope string, h http.HandlerFunc) http.Handler {
 	return RequireAuth(RequireScopes(scope)(h))
 }

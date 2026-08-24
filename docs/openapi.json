@@ -3,8 +3,8 @@
   "info": {
     "title": "Hark HTTP API",
     "version": "1",
-    "summary": "Turn webhook and agent requests into iOS notifications, approval prompts, and Live Activities.",
-    "description": "The structured companion to the canonical Markdown contract. Hark is single-user: sessions represent the owner, scoped API tokens represent software, and webhook tokens represent services.",
+    "summary": "Send iOS notifications, approval prompts, and Live Activities from webhooks and API clients.",
+    "description": "OpenAPI definition for Hark. Each deployment has one owner. Sessions provide owner access, scoped API tokens provide software access, and webhook tokens identify services. See /docs.md for detailed behavior and examples.",
     "license": { "name": "MIT", "identifier": "MIT" }
   },
   "externalDocs": { "description": "Complete API contract and examples", "url": "/docs" },
@@ -43,14 +43,14 @@
     },
     "/v1/auth/logout": {
       "post": {
-        "tags": ["Authentication"], "summary": "Retire the presented session or API token", "operationId": "logout",
+        "tags": ["Authentication"], "summary": "Invalidate the presented session or API token", "operationId": "logout",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token",
-        "responses": { "204": { "description": "Credential retired." }, "401": { "$ref": "#/components/responses/Error" } }
+        "responses": { "204": { "description": "Credential invalidated." }, "401": { "$ref": "#/components/responses/Error" } }
       }
     },
     "/v1/auth/session": {
       "get": {
-        "tags": ["Authentication"], "summary": "Describe the current principal", "operationId": "getCurrentSession",
+        "tags": ["Authentication"], "summary": "Describe the current authenticated user and credential", "operationId": "getCurrentSession",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "401": { "$ref": "#/components/responses/Error" } }
       }
@@ -211,7 +211,7 @@
     "/v1/activity-deliveries/{id}/update-token": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "put": {
-        "tags": ["Devices"], "summary": "Register a delivery update token using its capability", "operationId": "putDeliveryUpdateToken",
+        "tags": ["Devices"], "summary": "Register a delivery update token using its single-use credential", "operationId": "putDeliveryUpdateToken",
         "security": [], "x-hark-auth": "capability_in_body",
         "requestBody": { "$ref": "#/components/requestBodies/DeliveryUpdateToken" },
         "responses": { "204": { "description": "Token registered." }, "default": { "$ref": "#/components/responses/Error" } }
@@ -229,7 +229,7 @@
     "/v1/interactions": {
       "get": {
         "tags": ["Interactions"], "summary": "List interactions", "operationId": "listInteractions",
-        "description": "A session lists the account-wide inbox. An API token lists only the questions it asked itself: rows created by another token or by a webhook service are absent from every page, cursors included.",
+        "description": "A session lists all interactions in the account. An API token lists only interactions created by that token. Pagination also excludes interactions from other requesters.",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:read"],
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Status" }],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
@@ -246,7 +246,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
         "tags": ["Interactions"], "summary": "Get an interaction", "operationId": "getInteraction",
-        "description": "A session reads any question on the account; an API token reads only questions created by that exact token. Another requester's question is the same 404 not_found as an unknown id, with or without a wait.",
+        "description": "A session can read any interaction in the account. An API token can read only interactions created by that token. Interactions from another requester return the same 404 not_found response as an unknown id, including during long polling.",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:read"],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
@@ -264,7 +264,7 @@
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
         "tags": ["Interactions"], "summary": "Cancel a pending interaction", "operationId": "cancelInteraction",
-        "description": "A session withdraws any pending question on the account, whoever asked it. An API token withdraws only questions created by that exact token; another requester's answers the same 404 not_found as an unknown id and stays pending.",
+        "description": "A session can cancel any pending interaction in the account. An API token can cancel only interactions created by that token. Interactions from another requester return the same 404 not_found response as an unknown id and remain pending.",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["interactions:create"],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
@@ -421,7 +421,7 @@
       "Cursor": { "name": "cursor", "in": "query", "required": false, "description": "Opaque next_cursor from the previous page.", "schema": { "type": "string" } },
       "Status": { "name": "status", "in": "query", "required": false, "schema": { "type": "string" } },
       "Kind": { "name": "kind", "in": "query", "required": false, "schema": { "type": "string", "enum": ["all", "notification", "response", "live_activity"], "default": "all" } },
-      "IdempotencyKey": { "name": "Idempotency-Key", "in": "header", "required": false, "description": "1-128 printable ASCII characters. Replays the first response for the same requester and payload.", "schema": { "type": "string", "minLength": 1, "maxLength": 128 } }
+      "IdempotencyKey": { "name": "Idempotency-Key", "in": "header", "required": false, "description": "1-200 characters. Replays the first response for the same requester and payload.", "schema": { "type": "string", "minLength": 1, "maxLength": 200 } }
     },
     "requestBodies": {
       "Login": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } } },
@@ -452,9 +452,9 @@
       "UUID": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "examples": ["0198f3a1-2b4c-7d8e-9f01-23456789abcd"] },
       "Timestamp": { "type": "string", "format": "date-time", "examples": ["2026-08-09T12:34:56.789Z"] },
       "Priority": { "type": "string", "enum": ["normal", "time_sensitive", "critical"] },
-      "Scope": { "type": "string", "description": "Token capability. Meanings:\n- `activities:read`: view Live Activities and delivery state\n- `activities:write`: start, update, and end Live Activities\n- `devices:read`: view registered devices and their capabilities\n- `events:read`: view webhook notification delivery history and errors\n- `interactions:create`: ask questions and cancel pending questions; asking also needs `notifications:send`\n- `interactions:read`: view questions, status, and answers\n- `notifications:send`: send one-shot push notifications\n- `services:read`: view configured webhook services and defaults; webhook credentials stay hidden\n- `services:write`: change and delete webhook services and their related history", "enum": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "services:read", "services:write"] },
+      "Scope": { "type": "string", "description": "API token permission. Meanings:\n- `activities:read`: view Live Activities and delivery state\n- `activities:write`: start, update, and end Live Activities\n- `devices:read`: view registered devices and their supported features\n- `events:read`: view webhook notification delivery history and errors\n- `interactions:create`: ask questions and cancel pending questions; asking also needs `notifications:send`\n- `interactions:read`: view questions, status, and answers\n- `notifications:send`: send one-shot push notifications\n- `services:read`: view configured webhook services and defaults; webhook credentials stay hidden\n- `services:write`: change and delete webhook services and their related history", "enum": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "services:read", "services:write"] },
       "InteractionKind": { "type": "string", "enum": ["approval", "yes_no", "reply"] },
-      "JSONDocument": { "type": "object", "description": "A JSON response documented field-by-field in the canonical Markdown contract.", "additionalProperties": true },
+      "JSONDocument": { "type": "object", "description": "A JSON response documented field by field in /docs.md.", "additionalProperties": true },
       "Health": {
         "type": "object", "additionalProperties": false, "required": ["status", "database"],
         "properties": { "status": { "const": "ok" }, "database": { "const": "ok" }, "version": { "type": "string" } }

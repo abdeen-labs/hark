@@ -512,8 +512,8 @@ struct LoadingMark: View {
 
 // MARK: - Page furniture
 
-/// The mono line above a title: the section index, its label, and whatever
-/// metadata sits at the far end.
+/// The mono line above a title containing its section index, label, and trailing
+/// metadata.
 struct Eyebrow<Trailing: View>: View {
     let index: String
     let label: String

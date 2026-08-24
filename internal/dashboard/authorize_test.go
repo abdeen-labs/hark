@@ -149,7 +149,7 @@ func TestApprovingAndDenyingGoThroughTheDeviceGrant(t *testing.T) {
 }
 
 // TestApprovingUserIsTheSignedInOwner pins what the approval is attributed to:
-// the token the client collects is minted for whoever said yes.
+// the resulting token belongs to the owner who approved it.
 func TestApprovingUserIsTheSignedInOwner(t *testing.T) {
 	d, service := newTestDashboard(t)
 	service.grant = pendingGrant(service.now)

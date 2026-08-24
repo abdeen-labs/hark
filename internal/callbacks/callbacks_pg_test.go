@@ -65,8 +65,7 @@ func requireStore(t *testing.T) (context.Context, *db.Store) {
 			schemaErr = err
 			return
 		}
-		// Drop rather than trust whatever the last run left behind: the
-		// migration ledger and the schema have to agree.
+		// Recreate the schema so it matches the migration ledger.
 		if _, err := pool.Exec(ctx,
 			"DROP SCHEMA IF EXISTS "+testSchema+" CASCADE; CREATE SCHEMA "+testSchema); err != nil {
 			schemaErr = err
@@ -225,7 +224,7 @@ func TestConcurrentDeliveriesAreBounded(t *testing.T) {
 	release := make(chan struct{})
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Drained so a failure path that cancels these requests is noticed by
-		// the server and the handler's context escape below actually fires.
+		// the server and triggers the handler's context cancellation below.
 		_, _ = io.Copy(io.Discard, r.Body)
 		mu.Lock()
 		inflight++
@@ -426,7 +425,7 @@ func TestCanceledRunSettlesStartedRowsAndKeepsLeases(t *testing.T) {
 	receiver := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		// Drained first: with the body unread the server never watches for the
 		// client hanging up, so r.Context() would outlive the abandoned request
-		// and Close would wait forever on a handler nobody is coming back for.
+		// and Close would wait indefinitely on the abandoned handler.
 		_, _ = io.Copy(io.Discard, r.Body)
 		started <- struct{}{}
 		// Held until the canceled client abandons the request; nothing is ever
@@ -585,8 +584,7 @@ func TestCallbackRetriesThenFails(t *testing.T) {
 	in := answeredWithCallback(ctx, t, store, receiver.URL, "a-secret-bearer-token")
 	worker := newWorker(store, receiver.Client())
 
-	// Each pass is made due by hand, because the point of the schedule is that
-	// the next attempt is *not* immediate.
+	// Make each pass due manually; the retry schedule does not run immediately.
 	for want := 1; want <= len(backoff); want++ {
 		if n, err := worker.RunOnce(ctx); err != nil || n != 1 {
 			t.Fatalf("attempt %d: RunOnce = (%d, %v)", want, n, err)
@@ -720,9 +718,8 @@ func TestDefaultClientConstruction(t *testing.T) {
 	}
 }
 
-// TestRunDeliversOnANudge covers the loop main actually starts: a nudge has to
-// produce a delivery without waiting out the sweep interval, which is 30
-// seconds and would otherwise be the latency of every answer.
+// TestRunDeliversOnANudge verifies that a nudge delivers without waiting for
+// the 30-second sweep interval.
 func TestRunDeliversOnANudge(t *testing.T) {
 	ctx, store := requireStore(t)
 
@@ -801,8 +798,7 @@ func TestUnansweredQuestionIsNotCalledBack(t *testing.T) {
 
 	now := time.Now().UTC()
 	in := answeredWithCallback(ctx, t, store, receiver.URL, "a-secret-bearer-token")
-	// Put it back to pending: a question nobody has answered has no answer to
-	// report, however due its row looks.
+	// Restore pending state; unanswered interactions have no callback payload.
 	if _, err := schemaPool.Exec(ctx,
 		"UPDATE interactions SET status = 'pending', responded_at = NULL, callback_next_attempt_at = $2 WHERE id = $1",
 		in.ID, now); err != nil {

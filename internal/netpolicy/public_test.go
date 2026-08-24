@@ -247,7 +247,7 @@ func TestDialerResolvesExactlyOnce(t *testing.T) {
 			if lookups == 1 {
 				return addrs("203.0.113.5"), nil
 			}
-			return addrs("10.0.0.5"), nil // the rebound answer nobody may see
+			return addrs("10.0.0.5"), nil // private address returned after rebinding
 		},
 		Dial: func(_ context.Context, _, address string) (net.Conn, error) {
 			dialed = append(dialed, address)

@@ -15,9 +15,8 @@ import (
 
 // fakeSender stands in for the APNs transport.
 //
-// It records what it was asked to deliver and answers with whatever the test
-// needs, which is what makes the delivery paths — counters, statuses, the
-// credential a push carries — testable without credentials or a network.
+// It records delivery requests and returns configured test responses, allowing
+// delivery paths to run without APNs credentials or network access.
 type fakeSender struct {
 	mu sync.Mutex
 	// accept decides whether APNs "took" each message.
@@ -188,8 +187,8 @@ func TestRequireAPITokenNamesWhyItRefused(t *testing.T) {
 
 // TestCreateServiceRequiresSession pins the credential boundary on service
 // creation. The 201 carries the plaintext webhook URL — a second credential
-// that can send, ask, and drive Live Activities — so no API token, whatever
-// its scopes, may mint one; only the signed-in owner may.
+// that can send, ask, and manage Live Activities. Only an owner session may
+// create one.
 func TestCreateServiceRequiresSession(t *testing.T) {
 	h := newTestServer(t, stubPinger{})
 
@@ -299,7 +298,7 @@ func serveWithPrincipal(h http.Handler, p *auth.Principal) *httptest.ResponseRec
 }
 
 // TestWebhookTokensAreNeverLogged is the reason redactPath exists: the webhook
-// credential travels in the URL, so the access log is the one place it would
+// credential travels in the URL, so the access log could otherwise
 // otherwise be written down in the clear, forever.
 func TestWebhookTokensAreNeverLogged(t *testing.T) {
 	secretToken := "harkhook_V3kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv"

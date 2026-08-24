@@ -16,9 +16,8 @@ import (
 	"github.com/abdeen-labs/hark/internal/push"
 )
 
-// How much of each list the overview shows. It is a glance, not an archive:
-// everything here is paged in full on the API, and a dashboard that tries to be
-// the archive is a dashboard nobody reads.
+// Maximum item counts shown in the overview. Full lists are available through
+// history and the API.
 const (
 	overviewActivities = 10
 	overviewHistory    = 25
@@ -47,10 +46,8 @@ type overviewStats struct {
 	LiveActivities         int
 }
 
-// loadOverview assembles the overview's data. It is shared by the full page
-// and the live fragment, which is the point: whatever the poll swaps in is the
-// same markup a reload would have drawn. It reports false after answering the
-// request itself.
+// loadOverview assembles data shared by the full page and live fragment. It
+// returns false after writing an error response.
 func (d *Dashboard) loadOverview(w http.ResponseWriter, r *http.Request, p *auth.Principal) (overviewPage, bool) {
 	ctx, userID, now := r.Context(), p.UserID(), d.opts.Auth.Now()
 
@@ -110,9 +107,8 @@ func (d *Dashboard) showOverview(w http.ResponseWriter, r *http.Request, p *auth
 //
 // The ETag is a digest of the rendered bytes, and the script sends it back as
 // If-None-Match, so a poll that would change nothing costs a 304 and no swap.
-// The relative times participate in the digest deliberately: once a minute
-// they move, the bytes change, and the swap is what keeps "3m ago" honest on a
-// page nobody reloads.
+// Relative timestamps change the digest as they update, which refreshes their
+// displayed age without a full page reload.
 func (d *Dashboard) liveOverview(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	page, ok := d.loadOverview(w, r, p)
 	if !ok {
@@ -140,8 +136,7 @@ func (d *Dashboard) liveOverview(w http.ResponseWriter, r *http.Request, p *auth
 	_, _ = buf.WriteTo(w)
 }
 
-// historyPageSize is how much of the archive one page shows. Deeper is a
-// click, not a scroll: fifty rows is already a screenful of reading.
+// historyPageSize is the number of archive entries shown per page.
 const historyPageSize = 50
 
 // historyPage is the account's full archive, paged.
@@ -155,8 +150,7 @@ type historyPage struct {
 	Newest string
 }
 
-// historyURL spells one page of the archive: the path alone for the default
-// view, and only otherwise a query.
+// historyURL builds an archive page URL and omits default query values.
 func historyURL(filter string, after db.Cursor) string {
 	q := url.Values{}
 	if filter != db.FeedFilterAll {
@@ -438,10 +432,7 @@ func (d *Dashboard) renderTest(
 
 // sendTest pushes one alert through the same [push.Sender] the API uses.
 //
-// Nothing is written to the history: an agent notification is attributed to the
-// API token that asked for it, and a session is a person rather than a
-// requester. This is a diagnostic — "can this account reach that phone" — and
-// the answer is on the page rather than in the log.
+// Test notifications are diagnostic and are not written to account history.
 func (d *Dashboard) sendTest(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	form := testForm{
 		Title:    strings.TrimSpace(r.PostFormValue("title")),

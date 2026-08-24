@@ -86,7 +86,7 @@ func TestProviderTokenShape(t *testing.T) {
 		t.Errorf("iss = %v, want TEAM123456", claims["iss"])
 	}
 	// iat is whole seconds, floored — never a fraction, and never rounded up
-	// past the moment the token was actually minted.
+	// past the token creation time.
 	if iat, ok := claims["iat"].(float64); !ok || int64(iat) != issued.Unix() {
 		t.Errorf("iat = %v, want %d", claims["iat"], issued.Unix())
 	}

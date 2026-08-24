@@ -27,8 +27,7 @@ func ValidPriority(p string) bool {
 }
 
 // Service is a named webhook endpoint. Its token, carried in the URL path, is
-// the only credential; the row also holds the defaults that fill in whatever a
-// webhook request leaves out.
+// the only credential. The row also holds defaults for omitted webhook fields.
 type Service struct {
 	ID       string  `db:"id"`
 	UserID   string  `db:"user_id"`

@@ -92,7 +92,7 @@ CREATE TABLE devices (
     -- are kept so history keeps resolving.
     active                            boolean     NOT NULL DEFAULT true,
     -- ActivityKit push-to-start token. Presence plus a known environment and
-    -- schema version is what makes a device Live-Activity-capable.
+    -- schema version declares Live Activity support for the device.
     push_to_start_token_ciphertext    text,
     push_to_start_environment         text        CHECK (push_to_start_environment IN ('sandbox', 'production')),
     push_to_start_updated_at          timestamptz,

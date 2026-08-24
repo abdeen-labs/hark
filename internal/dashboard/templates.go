@@ -14,10 +14,8 @@ import (
 //go:embed templates/*.html
 var templateFS embed.FS
 
-// Each page is its own template set: the shared layout plus one page file that
-// defines the "content" block. Parsing them separately rather than into one
-// namespace is what lets every page name its block "content" instead of
-// inventing a unique name per page.
+// Each page has a separate template set containing the shared layout and its
+// "content" block.
 var (
 	tmplLogin     = mustParse("login.html")
 	tmplOverview  = mustParse("overview.html")
@@ -30,9 +28,7 @@ var (
 	tmplAuthorize = mustParse("authorize.html")
 	tmplError     = mustParse("error.html")
 
-	// The contract page stands on its own: it is public, it is the one page
-	// with no session behind it, and it has a table of contents where every
-	// other page has the account's nav.
+	// The public documentation page uses its own layout and table of contents.
 	tmplDocs = template.Must(template.New("docs.html").Funcs(funcs).
 			ParseFS(templateFS, "templates/docs.html"))
 )

@@ -64,7 +64,7 @@ func TestHistoryPagesThroughTheArchive(t *testing.T) {
 		t.Errorf("the first page has a rel=prev link:\n%s", body)
 	}
 
-	// Follow the link the page actually rendered.
+	// Follow the rendered pagination link.
 	rec = send(d, asOwner(signedIn(http.MethodGet, target, ""), userID))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("second page: status = %d: %s", rec.Code, rec.Body)

@@ -47,8 +47,8 @@ const (
 // MaxCallbackErrorLen bounds the stored callback failure message.
 const MaxCallbackErrorLen = 200
 
-// answeredStatuses are the statuses that mean a person actually answered, as
-// opposed to the question lapsing or being withdrawn. They decide which
+// answeredStatuses are the statuses produced by an owner response rather than
+// expiry or cancellation. They decide which
 // interactions appear in the history feed and which may be deleted from it.
 var answeredStatuses = []string{
 	InteractionApproved, InteractionDenied, InteractionYes, InteractionNo, InteractionReplied,
@@ -144,7 +144,7 @@ type Interaction struct {
 // Terminal reports whether the interaction has reached a final status.
 func (i Interaction) Terminal() bool { return i.Status != InteractionPending }
 
-// Answered reports whether a person actually answered.
+// Answered reports whether the interaction received an owner response.
 func (i Interaction) Answered() bool { return slices.Contains(answeredStatuses, i.Status) }
 
 // Live reports whether the interaction can still be answered at now.
@@ -152,8 +152,7 @@ func (i Interaction) Live(now time.Time) bool {
 	return i.Status == InteractionPending && i.ExpiresAt.After(now)
 }
 
-// InteractionListItem is an interaction with the name of whatever asked the
-// question, which is what the inbox shows above the prompt.
+// InteractionListItem includes the requester name displayed above the prompt.
 type InteractionListItem struct {
 	Interaction
 	SourceName     string  `db:"source_name"`
@@ -390,7 +389,7 @@ func (s *Interactions) CancelForToken(ctx context.Context, id, tokenID string, n
 	return queryOne[Interaction](ctx, s.q, "cancel interaction", q, id, tokenID, Millis(now))
 }
 
-// CancelForUser withdraws a pending question on the account, whoever asked it.
+// CancelForUser cancels a pending interaction for the account owner.
 //
 // The owner can always withdraw a question addressed to them: an agent that
 // crashed after asking should not be able to leave a prompt on the Lock Screen
@@ -451,9 +450,8 @@ func (s *Interactions) CountForUserSince(ctx context.Context, userID string, sin
 	return queryValue[int](ctx, s.q, "count account interactions", q, userID, Millis(since))
 }
 
-// Delete removes an answered interaction from the account's history. Pending
-// questions cannot be deleted: they must be answered, canceled or left to
-// expire, so nothing can make a live prompt silently vanish from the phone.
+// Delete removes an answered interaction from account history. Pending,
+// canceled, and expired interactions are not deleted by this operation.
 func (s *Interactions) Delete(ctx context.Context, id, userID string) (bool, error) {
 	const q = `
 		DELETE FROM interactions
@@ -464,21 +462,10 @@ func (s *Interactions) Delete(ctx context.Context, id, userID string) (bool, err
 
 // ClaimDueCallbacks takes ownership of up to limit callbacks that are due.
 //
-// The claim is a lease: the rows' next attempt is pushed forward by lease
-// before they are returned, and SKIP LOCKED means a second worker takes
-// different rows rather than blocking. Together those make it safe to run the
-// worker in more than one process — without them two replicas would deliver
-// every callback twice.
-//
-// A worker that crashes mid-flight loses nothing: the lease simply expires and
-// the row becomes due again. Delivery therefore stays at-least-once, never
-// exactly-once — a crash between sending and settling legitimately repeats a
-// callback, which is why receivers must treat interaction_id as idempotent.
-//
-// Callers should ask only for what they can start immediately: the lease clock
-// runs from the claim, so a row claimed into a queue spends its lease standing
-// still, and one that outlives the lease is handed to the next worker while
-// the first is still holding it.
+// Each claim advances the next-attempt time by the lease duration. SKIP LOCKED
+// lets concurrent workers claim different rows. If a worker stops before
+// settling, the row becomes due again after the lease, providing at-least-once
+// delivery. Callers should claim only work they can start immediately.
 func (s *Interactions) ClaimDueCallbacks(ctx context.Context, now time.Time, limit int, lease time.Duration) ([]Interaction, error) {
 	const q = `
 		WITH due AS (

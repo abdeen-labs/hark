@@ -3,9 +3,7 @@
 //
 // A webhook may ask its question with a callback URL and a bearer token
 // ([`POST /v1/hooks/{token}`] in the API contract). When the question is
-// answered, the row is armed — callback_status pending, next attempt now — and
-// this worker is what actually posts. Without it, arming a row would be a
-// promise the server never keeps.
+// answered, the row becomes pending and this worker sends the callback.
 //
 // The worker owns nothing: the claim, the retry schedule and the terminal
 // states all live in the store, so two processes running it deliver each answer
@@ -75,9 +73,7 @@ const (
 const _ = uint64(leaseDuration - 2*(RequestTimeout+SettleTimeout) - 1)
 
 // backoff is the delay before attempt n+1, indexed by the attempt that just
-// failed. Running off the end is what makes a callback permanently failed:
-// after this many tries the receiver is not coming back, and a queue that
-// retries forever is a queue nobody can drain.
+// failed. After these retries, the callback is marked permanently failed.
 var backoff = []time.Duration{
 	30 * time.Second,
 	2 * time.Minute,
@@ -155,7 +151,7 @@ func New(opts Options) *Worker {
 		// target itself, outside the dial policy below. And every socket is
 		// opened by the netpolicy dialer, which resolves the hostname once,
 		// requires every address in the answer to be public, and dials one of
-		// those vetted literals. TLS is deliberately untouched: the handshake
+		// those vetted literals. The TLS handshake still verifies the
 		// still verifies the certificate against the URL's hostname, even
 		// though the socket underneath was dialed by IP.
 		transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -255,9 +251,8 @@ func (w *Worker) RunOnce(ctx context.Context) (int, error) {
 	started := 0
 	for _, in := range due {
 		if ctx.Err() != nil {
-			// Whatever was claimed but not started keeps its lease and comes
-			// back on its own. It is not counted as handled: a canceled pass
-			// must read as short, never as full.
+			// Claimed work that did not start keeps its lease for a later pass.
+			// Do not count it as handled during this canceled pass.
 			break
 		}
 		started++
