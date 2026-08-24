@@ -329,7 +329,7 @@ func (d *Dashboard) createToken(w http.ResponseWriter, r *http.Request, p *auth.
 
 	d.renderTokens(w, r, p, http.StatusOK, tokenForm{ExpiresIn: "90d"}, secret, &notice{
 		Kind:    noticeOK,
-		Message: "Created " + token.Name + ". Copy the secret now — it is not stored and cannot be shown again.",
+		Message: "Created " + token.Name + ". Copy the token now; it won't be shown again.",
 	})
 }
 
@@ -340,7 +340,7 @@ func tokenNotice(err error) *notice {
 	case errors.As(err, &invalid):
 		return &notice{Kind: noticeError, Message: titleCase(invalid.Field) + " " + invalid.Message + "."}
 	case errors.Is(err, auth.ErrTokenLimit):
-		return &notice{Kind: noticeError, Message: "This account already holds the maximum number of active API tokens. Revoke one first."}
+		return &notice{Kind: noticeError, Message: "Token limit reached. Revoke a token before creating another."}
 	default:
 		return &notice{Kind: noticeError, Message: "The token could not be created."}
 	}
@@ -512,10 +512,10 @@ func (d *Dashboard) sendTest(w http.ResponseWriter, r *http.Request, p *auth.Pri
 func testNotice(result testResult) *notice {
 	switch {
 	case result.Accepted == 0:
-		return &notice{Kind: noticeError, Message: "APNs accepted nothing."}
+		return &notice{Kind: noticeError, Message: "APNs accepted no notifications."}
 	case result.Accepted < result.Attempted:
-		return &notice{Kind: noticeWarn, Message: "APNs accepted some of the messages."}
+		return &notice{Kind: noticeWarn, Message: "APNs accepted some notifications."}
 	default:
-		return &notice{Kind: noticeOK, Message: "APNs accepted every message. That is not proof a phone showed one."}
+		return &notice{Kind: noticeOK, Message: "APNs accepted all notifications."}
 	}
 }

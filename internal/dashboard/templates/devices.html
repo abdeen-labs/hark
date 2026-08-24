@@ -2,23 +2,18 @@
 <header class="page-head page-head--count">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">04</span> Registry</span>
-    <span>Keyed on the APNs token</span>
   </p>
   <h1 class="page-head__title display">Devices</h1>
   <div class="page-head__count metric metric--lg">
     <span class="metric__value num">{{len .Devices}}</span>
     <span class="metric__label meta">Registered</span>
   </div>
-  <p class="page-head__lede lede">A phone registers itself, keyed on its APNs token. iOS reissues that
-    token whenever it likes, so the same handset can appear twice — the old row stops being used once a
-    push to it fails.</p>
 </header>
 
 <section class="module">
   <span class="module__edge meta" aria-hidden="true">Registry · 04</span>
   <div class="module__head">
     <h2 class="module__label"><span class="module__index">01</span>Registered devices</h2>
-    <span class="meta">A retired row stays so history keeps resolving</span>
   </div>
   {{if .Devices}}
   <div class="scroll">
@@ -53,7 +48,7 @@
           <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
           <td class="cell--right cell--actions">
             <form method="post" action="{{$.Paths.Devices}}/{{.ID}}/delete"
-                  data-confirm="Unregister this device? Anything it is showing stays on screen, and nothing more is sent to it."
+                  data-confirm="Unregister this device? It will stop receiving notifications."
                   hx-disabled-elt="find button[type=submit]">
               <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
               <button class="btn btn--danger btn--sm" type="submit">Unregister</button>
@@ -65,7 +60,7 @@
     </table>
   </div>
   {{else}}
-  <p class="empty">No device is registered. Sign in on the iOS app to register this account's first phone.</p>
+  <p class="empty">No devices yet. Sign in through the iOS app to register one.</p>
   {{end}}
 </section>
 {{end}}

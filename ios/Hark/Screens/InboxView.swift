@@ -72,10 +72,7 @@ struct InboxView: View {
                         Notice(kind: .error, message: error)
                             .padding(.top, 16)
                     }
-                    EmptyNote(
-                        text: "Nothing waiting.",
-                        detail: "Questions your agents ask land here, and on the Lock Screen."
-                    )
+                    EmptyNote(text: "No questions waiting.")
                     Schematic(note: "Question")
                         .padding(.bottom, 12)
                     Hairline()

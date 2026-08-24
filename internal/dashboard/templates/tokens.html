@@ -2,11 +2,9 @@
 <header class="page-head">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">05</span> Credentials</span>
-    <span>Scoped · revocable · never shown twice</span>
   </p>
   <h1 class="page-head__title display">Tokens</h1>
-  <p class="page-head__lede lede">An agent sends with one of these. A token can act within its scopes but
-    can never mint another — that needs this page.</p>
+  <p class="page-head__lede lede">Create and revoke API tokens for agents and integrations.</p>
 </header>
 
 <div class="grid">
@@ -14,7 +12,7 @@
   <section class="module module--signal span-12">
     <div class="module__head">
       <h2 class="module__label"><span class="module__index">01</span>Your new token</h2>
-      <span class="meta meta--signal">Shown once · not stored · no one can recover it</span>
+      <span class="meta meta--signal">Copy it now. It won't be shown again.</span>
     </div>
     <div class="module__body">
       <div class="secret">
@@ -29,7 +27,7 @@
 
   <section class="module module--marked span-4">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">02</span>Mint a token</h2>
+      <h2 class="module__label"><span class="module__index">02</span>Create a token</h2>
     </div>
     <div class="module__body">
       <form method="post" action="{{.Paths.Tokens}}" class="stack" hx-disabled-elt="find button[type=submit]">
@@ -54,7 +52,7 @@
 
         <fieldset class="field">
           <legend class="field__label">Scopes</legend>
-          <p class="field__hint">Choose only what this token needs. You can revoke it at any time.</p>
+          <p class="field__hint">Select the scopes this token needs.</p>
           <div class="checks">
             {{$form := .Form}}
             {{range .Scopes}}
@@ -77,7 +75,6 @@
   <section class="module span-8">
     <div class="module__head">
       <h2 class="module__label"><span class="module__index">03</span>Issued</h2>
-      <span class="meta">{{len .Tokens}} on record · revoked ones keep their attribution</span>
     </div>
     {{if .Tokens}}
     <div class="scroll">

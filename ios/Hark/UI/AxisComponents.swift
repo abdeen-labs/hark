@@ -478,7 +478,7 @@ nonisolated enum InteractionKindDisplay {
 /// the composition around it does the work.
 struct EmptyNote: View {
     let text: String
-    var detail: String?
+    var detail: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

@@ -2,12 +2,9 @@
 <header class="page-head">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">06</span> Transmit</span>
-    <span>Same transport as <code>POST /v1/notifications</code></span>
   </p>
   <h1 class="page-head__title display">Send a test</h1>
-  <p class="page-head__lede lede">One notification, through the push transport the API uses. It proves the
-    round trip; it is not written to the history, because a history entry belongs to the credential that
-    asked for it and this is you.</p>
+  <p class="page-head__lede lede">Send a notification through APNs without adding it to history.</p>
 </header>
 
 <div class="grid">
@@ -90,8 +87,7 @@
         <text class="s-text" x="173" y="54" text-anchor="middle">APNS</text>
         <text class="s-text" x="347" y="54" text-anchor="end">DEVICE</text>
       </svg>
-      <p class="module__note">Nothing sent yet. What APNs says about the next transmission lands here —
-        accepted counts, and the provider's own words for anything it refused.</p>
+      <p class="module__note">Results will appear here.</p>
     </div>
     {{end}}
   </aside>

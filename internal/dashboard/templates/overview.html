@@ -2,11 +2,9 @@
 <header class="page-head page-head--compact">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">01</span> Live view</span>
-    <span class="live"><span class="live__dot" aria-hidden="true"></span>Polling</span>
   </p>
   <h1 class="page-head__title h-ui">Overview</h1>
-  <p class="page-head__lede lede">What is on the Lock Screen now, and what has reached this account
-    lately. The page keeps itself current; a delivery shows up within a few seconds.</p>
+  <p class="page-head__lede lede">Active Live Activities and recent deliveries.</p>
 </header>
 
 {{/* Everything inside this div is what the poll replaces: the same
@@ -65,20 +63,19 @@
         </table>
       </div>
       {{else}}
-      <p class="empty">Nothing is running. An agent starts one with <code>POST /v1/activities</code>.</p>
+      <p class="empty">No active Live Activities.</p>
       {{end}}
     </section>
 
     <section class="module">
       <div class="module__head">
         <h2 class="module__label"><span class="module__index">03</span>Recent deliveries</h2>
-        <a class="module__more meta" href="{{.Paths.History}}">Everything <span class="arrow">→</span></a>
+        <a class="module__more meta" href="{{.Paths.History}}">View history <span class="arrow">→</span></a>
       </div>
       {{if .History}}
       {{template "feed-list" .History}}
       {{else}}
-      <p class="empty">Nothing has been delivered yet. Point a webhook at a service, or send yourself a
-        <a href="{{.Paths.Test}}">test notification</a>.</p>
+      <p class="empty">No recent deliveries. <a href="{{.Paths.Test}}">Send a test notification</a>.</p>
       {{end}}
     </section>
   </div>

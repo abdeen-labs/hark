@@ -39,9 +39,7 @@ struct SettingsView: View {
 
     private var head: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Eyebrow(index: "04", label: "Spec") {
-                Meta("This installation")
-            }
+            Eyebrow(index: "04", label: "Spec")
             .padding(.top, 20)
             DisplayTitle(text: "Settings", size: 56)
                 .padding(.top, 28)
@@ -85,30 +83,21 @@ struct SettingsView: View {
 
     private var connection: some View {
         Module(index: "02", label: "Connection", flush: true) {
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(spacing: 0) {
-                    SpecRow(label: "Server", value: model.serverURL.absoluteString)
-                    if let expires = model.sessionInfo?.expiresAt {
-                        Hairline(color: Axis.lineFaint)
-                        SpecRow(label: "Session until", value: expires.formatted(date: .abbreviated, time: .shortened), mono: false)
-                    }
+            VStack(spacing: 0) {
+                SpecRow(label: "Server", value: model.serverURL.absoluteString)
+                if let expires = model.sessionInfo?.expiresAt {
                     Hairline(color: Axis.lineFaint)
-                    SpecRow(label: "APNs", value: AppModel.apnsEnvironment)
-                    if let deviceID = model.deviceID {
-                        Hairline(color: Axis.lineFaint)
-                        SpecRow(label: "Device", value: deviceID, expandable: true)
-                    }
+                    SpecRow(label: "Session until", value: expires.formatted(date: .abbreviated, time: .shortened), mono: false)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-                Hairline()
-                Text("Sessions slide forward with use and never need renewing while the app is opened at least monthly.")
-                    .font(AxisType.copy(12))
-                    .foregroundStyle(Axis.inkFaint)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                Hairline(color: Axis.lineFaint)
+                SpecRow(label: "APNs", value: AppModel.apnsEnvironment)
+                if let deviceID = model.deviceID {
+                    Hairline(color: Axis.lineFaint)
+                    SpecRow(label: "Device", value: deviceID, expandable: true)
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
         } trailing: {
             HStack(spacing: 8) {
                 StatusLight(color: model.deviceID != nil ? Axis.ok : Axis.warn, size: 5)
@@ -120,7 +109,7 @@ struct SettingsView: View {
     private var session: some View {
         Module(index: "03", label: "Session", variant: .hazard) {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Ends this session on the server and forgets it on this phone. The device stays registered until it is removed from Devices.")
+                Text("Signing out does not unregister this device.")
                     .font(AxisType.copy(13))
                     .foregroundStyle(Axis.inkSubtle)
                     .fixedSize(horizontal: false, vertical: true)

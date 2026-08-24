@@ -49,11 +49,10 @@
     <header class="docs-head">
       <p class="docs-head__eyebrow meta">
         <span><span class="idx">07</span> API contract</span>
-        <span>Public · no credential</span>
         {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
       </p>
       <aside class="docs-intro" aria-label="Documentation formats">
-        <p><strong>Build against Hark.</strong> Read the guide here, or give a tool the same contract in a format it understands.</p>
+        <p>Hark API reference and schema files.</p>
         <div class="docs-intro__links">
           <a href="{{.Paths.DocsMarkdown}}">Markdown</a>
           <a href="{{.Paths.OpenAPI}}">OpenAPI 3.1</a>
@@ -62,7 +61,7 @@
       </aside>
     </header>
     <article class="prose" data-docs-body>{{.Body}}</article>
-    <p class="docs-empty" hidden data-docs-empty>No sections match that search.</p>
+    <p class="docs-empty" hidden data-docs-empty>No matching sections.</p>
   </main>
 
   <aside class="docs-rail" aria-hidden="true">

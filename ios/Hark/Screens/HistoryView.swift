@@ -46,9 +46,7 @@ struct HistoryView: View {
 
     private var head: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Eyebrow(index: "02", label: "Archive") {
-                Meta("Newest first")
-            }
+            Eyebrow(index: "02", label: "Archive")
             .padding(.top, 20)
             DisplayTitle(text: "History", size: 60)
                 .padding(.top, 28)
@@ -107,10 +105,7 @@ struct HistoryView: View {
                         LoadingMark(text: "Reading the archive")
                             .padding(.vertical, 24)
                     } else if loadedOnce {
-                        EmptyNote(
-                            text: kind == "all" ? "Nothing has been delivered yet." : "Nothing of this kind has been delivered.",
-                            detail: "Deliveries, answers, and Live Activity runs collect here."
-                        )
+                        EmptyNote(text: kind == "all" ? "No deliveries yet." : "No matching deliveries.")
                     }
                 }
                 .padding(.horizontal, Axis.gutter)

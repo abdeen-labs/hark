@@ -2,7 +2,6 @@
 <header class="page-head page-head--art">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">03</span> Webhook sources</span>
-    <span>{{len .Services}} configured</span>
   </p>
   <h1 class="page-head__title display">Services</h1>
   <div class="page-head__art">
@@ -33,8 +32,7 @@
       <text class="s-text s-note" x="25" y="14">FIG. 03 — INGEST ROUTE</text>
     </svg>
   </div>
-  <p class="page-head__lede lede">A service is a webhook source. Its URL is its only credential, and its
-    title, avatar, tap destination and priority fill in whatever a request leaves out.</p>
+  <p class="page-head__lede lede">Create webhook endpoints for incoming notifications.</p>
 </header>
 
 <div class="grid">
@@ -78,8 +76,7 @@
 
   <section class="module span-8">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">02</span>Inventory</h2>
-      <span class="meta">Each row holds one credential</span>
+      <h2 class="module__label"><span class="module__index">02</span>Services</h2>
     </div>
     {{if .Services}}
     <div class="scroll">
@@ -113,7 +110,7 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">No services yet. Create one and point any webhook at its URL.</p>
+    <p class="empty">No services yet.</p>
     {{end}}
   </section>
 </div>

@@ -360,7 +360,7 @@ func (d *Dashboard) parseForm(w http.ResponseWriter, r *http.Request) bool {
 			return false
 		}
 		d.renderError(w, r, http.StatusForbidden,
-			"That form was rejected because its security token did not match. Reload the page and try again.")
+			"Security check failed. Reload the page and try again.")
 		return false
 	}
 	return true
@@ -440,14 +440,14 @@ func (d *Dashboard) redirect(w http.ResponseWriter, r *http.Request, path, outco
 // notices is the whole vocabulary of post-redirect banners.
 var notices = map[string]notice{
 	"device_deleted":  {Kind: noticeOK, Message: "Device unregistered."},
-	"token_revoked":   {Kind: noticeOK, Message: "API token revoked. It stops working on the next request that carries it."},
+	"token_revoked":   {Kind: noticeOK, Message: "API token revoked."},
 	"signed_out":      {Kind: noticeOK, Message: "Signed out."},
-	"client_approved": {Kind: noticeOK, Message: "Client authorized. It collects its token on its next poll — go back to the terminal it is waiting in."},
-	"client_denied":   {Kind: noticeOK, Message: "Request denied. The client is told to stop polling and start again."},
-	"service_created": {Kind: noticeOK, Message: "Service created. Copy the webhook URL below and point something at it."},
-	"service_updated": {Kind: noticeOK, Message: "Service updated. New deliveries pick up these defaults."},
-	"service_deleted": {Kind: noticeOK, Message: "Service deleted, along with everything it ever delivered."},
-	"webhook_rotated": {Kind: noticeOK, Message: "Webhook URL rotated. The previous one has already stopped working."},
+	"client_approved": {Kind: noticeOK, Message: "Client authorized. Return to the client to continue."},
+	"client_denied":   {Kind: noticeOK, Message: "Request denied."},
+	"service_created": {Kind: noticeOK, Message: "Service created."},
+	"service_updated": {Kind: noticeOK, Message: "Service updated."},
+	"service_deleted": {Kind: noticeOK, Message: "Service deleted."},
+	"webhook_rotated": {Kind: noticeOK, Message: "Webhook URL rotated."},
 }
 
 // notice is the one banner a page can carry.
@@ -528,13 +528,13 @@ func (d *Dashboard) renderError(w http.ResponseWriter, r *http.Request, status i
 }
 
 func (d *Dashboard) notFound(w http.ResponseWriter, r *http.Request) {
-	d.renderError(w, r, http.StatusNotFound, "There is no such page.")
+	d.renderError(w, r, http.StatusNotFound, "Page not found.")
 }
 
 // fail logs the cause and shows the owner a page that says nothing about it.
 func (d *Dashboard) fail(w http.ResponseWriter, r *http.Request, what string, err error) {
 	d.log(r).ErrorContext(r.Context(), what, "error", err)
-	d.renderError(w, r, http.StatusInternalServerError, "The server hit an unexpected error.")
+	d.renderError(w, r, http.StatusInternalServerError, "Something went wrong.")
 }
 
 // log returns the request-scoped logger internal/httpapi installed, or a

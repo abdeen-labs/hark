@@ -47,7 +47,7 @@ struct SignInView: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 8) {
                 IndexLabel("Hark")
-                Meta("Push relay · Self-hosted")
+                Meta("Push relay")
             }
             Text("Hark")
                 .axisDisplay(Self.titleSize)
@@ -58,12 +58,11 @@ struct SignInView: View {
                 .padding(.bottom, -Self.titleSize * 0.14)
                 .offset(x: -Self.titleSize * 0.05)
                 .accessibilityAddTraits(.isHeader)
-            Text("Webhooks and agent calls, delivered to this phone as push notifications, Live Activities and questions answered from the Lock Screen.")
+            Text("Receive push notifications and Live Activities from webhooks and API clients.")
                 .font(AxisType.copy(15))
                 .lineSpacing(3)
                 .foregroundStyle(Axis.inkSubtle)
                 .fixedSize(horizontal: false, vertical: true)
-            Meta("Single account · Direct APNs · One binary")
         }
     }
 
@@ -109,8 +108,6 @@ struct SignInView: View {
                 .opacity(busy ? 0.7 : 1)
                 .padding(.top, 4)
             }
-        } trailing: {
-            Meta("One account")
         }
     }
 

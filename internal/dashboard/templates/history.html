@@ -2,11 +2,8 @@
 <header class="page-head">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">02</span> Archive</span>
-    <span>Newest first · 50 to a page</span>
   </p>
   <h1 class="page-head__title display">History</h1>
-  <p class="page-head__lede lede">Everything that has reached this account. The overview shows the last
-    few of these; this is all of them.</p>
   <span class="page-head__index" aria-hidden="true">02</span>
 </header>
 
@@ -21,8 +18,7 @@
   {{if .Items}}
   {{template "feed-list" .Items}}
   {{else}}
-  <p class="empty empty--bare">{{if eq .Filter "all"}}Nothing has been delivered yet.{{else}}Nothing of this kind
-    has been delivered{{if .Newest}} this far back{{end}}.{{end}}</p>
+  <p class="empty empty--bare">{{if eq .Filter "all"}}No deliveries yet.{{else}}No matching deliveries.{{end}}</p>
   {{end}}
 </div>
 

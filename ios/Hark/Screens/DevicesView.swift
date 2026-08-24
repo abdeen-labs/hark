@@ -49,9 +49,7 @@ struct DevicesView: View {
 
     private var head: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Eyebrow(index: "03", label: "Registry") {
-                Meta("Keyed on the APNs token")
-            }
+            Eyebrow(index: "03", label: "Registry")
             .padding(.top, 20)
             HStack(alignment: .lastTextBaseline, spacing: 24) {
                 DisplayTitle(text: "Devices", size: 56)
@@ -83,7 +81,7 @@ struct DevicesView: View {
                     if loaded {
                         EmptyNote(
                             text: "No device is registered.",
-                            detail: "A phone registers itself once it has an APNs token; this one will appear here on its next launch."
+                            detail: "Launch Hark on a phone to register it."
                         )
                     } else {
                         LoadingMark(text: "Reading the registry")
@@ -111,16 +109,6 @@ struct DevicesView: View {
                             .tint(Axis.signal)
                         }
                 }
-
-                Text("iOS reissues the APNs token whenever it likes, so the same handset can appear twice. A retired row stays so history keeps resolving.")
-                    .font(AxisType.copy(13))
-                    .foregroundStyle(Axis.inkFaint)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, Axis.gutter)
-                    .padding(.vertical, 18)
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)

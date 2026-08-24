@@ -22,7 +22,7 @@
   <section class="module module--signal span-12">
     <div class="module__head">
       <h2 class="module__label"><span class="module__index">01</span>Webhook URL</h2>
-      <span class="meta">Credential · anything holding it can send to your devices</span>
+      <span class="meta">Keep this URL secret</span>
     </div>
     <div class="module__body">
       {{with .WebhookURL}}
@@ -39,8 +39,7 @@
         </div>
       </div>
       {{else}}
-      <p class="module__note">The stored URL could not be read back. The service still works for whatever
-        holds its token — rotate to mint a URL you can see.</p>
+      <p class="module__note">This webhook URL is unavailable. Rotate it to create a new one.</p>
       <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/rotate"
             data-confirm="Rotate this webhook URL? The current one stops working immediately."
             hx-disabled-elt="find button[type=submit]">
@@ -54,7 +53,6 @@
   <section class="module module--marked span-5">
     <div class="module__head">
       <h2 class="module__label"><span class="module__index">02</span>Defaults</h2>
-      <span class="meta">Fill in what a request leaves out</span>
     </div>
     <div class="module__body">
       <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}" class="stack" hx-disabled-elt="find button[type=submit]">
@@ -96,7 +94,6 @@
   <section class="module span-7">
     <div class="module__head">
       <h2 class="module__label"><span class="module__index">03</span>Recent deliveries</h2>
-      <span class="meta">Last {{len .Deliveries}}</span>
     </div>
     {{if .Deliveries}}
     <div class="scroll">
@@ -117,7 +114,7 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">Nothing has arrived here yet. Point something at the webhook URL above.</p>
+    <p class="empty">No deliveries yet.</p>
     {{end}}
   </section>
 
@@ -127,10 +124,9 @@
       <span class="meta meta--signal">Irreversible</span>
     </div>
     <div class="module__body hazard">
-      <p class="module__note">Deleting a service takes its history with it: every delivery, every question it
-        asked, and every Live Activity it ran.</p>
+      <p class="module__note">Deleting this service also deletes its delivery history.</p>
       <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/delete"
-            data-confirm="Delete {{.Service.Title}}? Its whole delivery history goes with it."
+            data-confirm="Delete {{.Service.Title}} and its delivery history?"
             hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <button class="btn btn--danger" type="submit">Delete service</button>

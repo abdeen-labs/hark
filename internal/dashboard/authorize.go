@@ -90,9 +90,8 @@ func (d *Dashboard) renderAuthorize(
 		status = http.StatusNotFound
 		if page.Notice == nil {
 			page.Notice = &notice{
-				Kind: noticeError,
-				Message: "No pairing request matches that code. A request stays open for ten " +
-					"minutes; after that the client has to ask for a new one.",
+				Kind:    noticeError,
+				Message: "No request matches that code. Codes expire after 10 minutes.",
 			}
 		}
 	default:
@@ -138,9 +137,8 @@ func (d *Dashboard) submitAuthorize(w http.ResponseWriter, r *http.Request, p *a
 		// rather than redirected to, because the banner is about this
 		// submission and not about the request's current state.
 		d.renderAuthorize(w, r, p, code, http.StatusConflict, &notice{
-			Kind: noticeError,
-			Message: "That request is no longer awaiting a decision. It may have been answered " +
-				"in another tab, or it may have expired — start a new one from the client.",
+			Kind:    noticeError,
+			Message: "That request is no longer pending. Start a new request from the client.",
 		})
 	default:
 		d.fail(w, r, "resolving a device authorization failed", err)
