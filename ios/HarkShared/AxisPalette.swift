@@ -83,23 +83,23 @@ nonisolated enum Axis {
     }
 }
 
-private let axisPaperRGB: UInt32 = 0x06080D
+nonisolated private let axisPaperRGB: UInt32 = 0x06080D
 
 /// The floor an accent has to clear against the paper it is drawn on: the
 /// 3:1 of WCAG's non-text contrast, since the accent carries glyphs, bars,
 /// and keylines rather than body copy.
-private let axisAccentFloor: Double = 3
+nonisolated private let axisAccentFloor: Double = 3
 
 /// A `#RRGGBB` string as channel values in 0…1, or nil when the string is
 /// not that form.
-private func axisChannels(_ harkHex: String) -> (red: Double, green: Double, blue: Double)? {
+nonisolated private func axisChannels(_ harkHex: String) -> (red: Double, green: Double, blue: Double)? {
     var hex = harkHex.trimmingCharacters(in: .whitespacesAndNewlines)
     if hex.hasPrefix("#") { hex.removeFirst() }
     guard hex.count == 6, let value = UInt32(hex, radix: 16) else { return nil }
     return axisChannels(value)
 }
 
-private func axisChannels(_ value: UInt32) -> (red: Double, green: Double, blue: Double) {
+nonisolated private func axisChannels(_ value: UInt32) -> (red: Double, green: Double, blue: Double) {
     (
         red: Double((value >> 16) & 0xFF) / 255,
         green: Double((value >> 8) & 0xFF) / 255,
@@ -108,18 +108,18 @@ private func axisChannels(_ value: UInt32) -> (red: Double, green: Double, blue:
 }
 
 /// WCAG 2.1 relative luminance.
-private func axisLuminance(_ channels: (red: Double, green: Double, blue: Double)) -> Double {
+nonisolated private func axisLuminance(_ channels: (red: Double, green: Double, blue: Double)) -> Double {
     func linear(_ c: Double) -> Double {
         c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
     }
     return 0.2126 * linear(channels.red) + 0.7152 * linear(channels.green) + 0.0722 * linear(channels.blue)
 }
 
-private func axisContrast(_ one: Double, _ other: Double) -> Double {
+nonisolated private func axisContrast(_ one: Double, _ other: Double) -> Double {
     (max(one, other) + 0.05) / (min(one, other) + 0.05)
 }
 
-private let axisPaperLuminance = axisLuminance(axisChannels(axisPaperRGB))
+nonisolated private let axisPaperLuminance = axisLuminance(axisChannels(axisPaperRGB))
 
 nonisolated extension Color {
     init(axisRGB value: UInt32) {
