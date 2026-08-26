@@ -1,10 +1,10 @@
 {{define "content"}}
 <header class="page-head">
   <p class="page-head__eyebrow meta">
-    <span><span class="idx">03·A</span> Safety sources</span>
+    <span><span class="idx">03·A</span> Priority alerts</span>
   </p>
-  <h1 class="page-head__title display">Safety</h1>
-  <p class="page-head__lede lede">Configure alarm sources that can send Critical Alerts.</p>
+  <h1 class="page-head__title display">Critical Alerts</h1>
+  <p class="page-head__lede lede">Choose which trusted sources may break through Focus and Silent mode.</p>
 </header>
 
 <div class="grid">
@@ -21,7 +21,7 @@
           <input type="checkbox" name="critical_alerts_enabled"{{if .CriticalAlertsEnabled}} checked{{end}}>
           <span class="check__copy">
             <span class="check__name">Critical Alerts</span>
-            <span class="check__description">Allow enabled sources to sound through Focus and Silent mode. When off, active alarms arrive as Time Sensitive notifications.</span>
+            <span class="check__description">Allow eligible sources to sound through Focus and Silent mode. Everything else stays Time Sensitive.</span>
           </span>
         </label>
         <button class="btn btn--primary" type="submit">Save</button>
@@ -38,23 +38,13 @@
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <label class="field">
-          <span class="field__label">Detects</span>
-          <select class="input" name="kind" required>
-            <option value=""{{if eq .Form.Kind ""}} selected{{end}} disabled hidden>Choose an alarm type</option>
-            {{$form := .Form}}
-            {{range .Kinds}}
-            <option value="{{.}}"{{if eq $form.Kind .}} selected{{end}}>{{title .}}</option>
-            {{end}}
-          </select>
-        </label>
-        <label class="field">
           <span class="field__label">Name</span>
           <input class="input" type="text" name="name" value="{{.Form.Name}}"
-                 placeholder="Kitchen smoke detector" maxlength="80" required>
+                 placeholder="Home Assistant" maxlength="80" required>
         </label>
 
         <button class="btn btn--primary" type="submit">Create source <span class="arrow">→</span></button>
-        <p class="module__note">Critical Alerts are off for new sources.</p>
+        <p class="module__note">New sources start as Time Sensitive. You can opt them into Critical Alerts below.</p>
       </form>
     </div>
   </section>
@@ -70,12 +60,13 @@
         <thead>
           <tr>
             <th class="cell--index"><span class="visually-hidden">Row</span></th>
-            <th>Name</th><th>Detects</th><th>Critical</th><th>Created</th>
+            <th>Name</th><th>Alert type</th><th>Critical</th><th>Created</th>
             <th class="cell--right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {{range .Sources}}
+          {{$source := .}}
           <tr data-safety-source="{{.ID}}">
             <td class="cell--index"></td>
             <td class="cell--strong">
@@ -83,12 +74,19 @@
                      maxlength="80" required form="safety-edit-{{.ID}}"
                      aria-label="Name">
             </td>
-            <td><span class="tag tag--kind">{{title .Kind}}</span></td>
+            <td>
+              <select class="input" name="kind" form="safety-edit-{{.ID}}" aria-label="Alert type">
+                <option value="general"{{if eq .Kind "general"}} selected{{end}}>General · Time Sensitive</option>
+                {{range $.Kinds}}
+                <option value="{{.}}"{{if eq $source.Kind .}} selected{{end}}>{{title .}}</option>
+                {{end}}
+              </select>
+            </td>
             <td>
               <label class="check">
                 <input type="checkbox" name="critical_enabled"{{if .CriticalEnabled}} checked{{end}}
                        form="safety-edit-{{.ID}}">
-                <span class="visually-hidden">Critical Alerts</span>
+                <span class="visually-hidden">Allow Critical Alerts</span>
               </label>
             </td>
             <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
@@ -116,7 +114,7 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">No safety sources yet.</p>
+    <p class="empty">No alert sources yet.</p>
     {{end}}
   </section>
 </div>

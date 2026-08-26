@@ -16,7 +16,7 @@
     { "name": "Services" },
     { "name": "Devices" },
     { "name": "Notifications" },
-    { "name": "Safety" },
+    { "name": "Critical Alerts" },
     { "name": "Interactions" },
     { "name": "Live Activities" },
     { "name": "Events" },
@@ -229,13 +229,13 @@
     },
     "/v1/safety-sources": {
       "get": {
-        "tags": ["Safety"], "summary": "List safety sources", "operationId": "listSafetySources",
+        "tags": ["Critical Alerts"], "summary": "List alert sources", "operationId": "listSafetySources",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "post": {
-        "tags": ["Safety"], "summary": "Create a safety source", "operationId": "createSafetySource",
-        "description": "New sources start with critical delivery off. Enable it with a separate PATCH.",
+        "tags": ["Critical Alerts"], "summary": "Create an alert source", "operationId": "createSafetySource",
+        "description": "New sources start as general Time Sensitive sources. Assign an eligible safety type and enable Critical Alerts with a separate PATCH.",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "requestBody": { "$ref": "#/components/requestBodies/CreateSafetySource" },
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
@@ -244,18 +244,18 @@
     "/v1/safety-sources/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
-        "tags": ["Safety"], "summary": "Get a safety source", "operationId": "getSafetySource",
+        "tags": ["Critical Alerts"], "summary": "Get an alert source", "operationId": "getSafetySource",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "patch": {
-        "tags": ["Safety"], "summary": "Update a safety source", "operationId": "updateSafetySource",
+        "tags": ["Critical Alerts"], "summary": "Update an alert source", "operationId": "updateSafetySource",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "requestBody": { "$ref": "#/components/requestBodies/UpdateSafetySource" },
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "delete": {
-        "tags": ["Safety"], "summary": "Delete a safety source", "operationId": "deleteSafetySource",
+        "tags": ["Critical Alerts"], "summary": "Delete an alert source", "operationId": "deleteSafetySource",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "204": { "description": "Source deleted, along with its safety events." }, "default": { "$ref": "#/components/responses/Error" } }
       }
@@ -263,7 +263,7 @@
     "/v1/safety-sources/{id}/test": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
-        "tags": ["Safety"], "summary": "Send the setup test for a safety source", "operationId": "testSafetySource",
+        "tags": ["Critical Alerts"], "summary": "Send an alert-source setup test", "operationId": "testSafetySource",
         "description": "Uses the same composition and delivery path as a reported event. Limited to one test per source every 10 minutes.",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
@@ -271,12 +271,12 @@
     },
     "/v1/safety-settings": {
       "get": {
-        "tags": ["Safety"], "summary": "Get the account-wide safety setting", "operationId": "getSafetySettings",
+        "tags": ["Critical Alerts"], "summary": "Get the account-wide Critical Alert setting", "operationId": "getSafetySettings",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "patch": {
-        "tags": ["Safety"], "summary": "Update the account-wide safety setting", "operationId": "updateSafetySettings",
+        "tags": ["Critical Alerts"], "summary": "Update the account-wide Critical Alert setting", "operationId": "updateSafetySettings",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "requestBody": { "$ref": "#/components/requestBodies/UpdateSafetySettings" },
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
@@ -284,7 +284,7 @@
     },
     "/v1/safety-events": {
       "post": {
-        "tags": ["Safety"], "summary": "Report a safety event", "operationId": "reportSafetyEvent",
+        "tags": ["Critical Alerts"], "summary": "Report an alert-source event", "operationId": "reportSafetyEvent",
         "description": "The request contains a source and state; the server supplies the alert text and priority. Suppressed reports are recorded and return 201 without sending a push.",
         "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["safety:report"],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -523,7 +523,7 @@
       "Timestamp": { "type": "string", "format": "date-time", "examples": ["2026-08-09T12:34:56.789Z"] },
       "Priority": { "type": "string", "description": "Recorded delivery priority. Only safety events can be `critical`.", "enum": ["normal", "time_sensitive", "critical"] },
       "RequestPriority": { "type": "string", "description": "Caller-selectable delivery priority.", "enum": ["normal", "time_sensitive"] },
-      "SafetyKind": { "type": "string", "description": "The type of alarm connected to a safety source.", "enum": ["smoke", "carbon_monoxide", "panic", "intrusion", "water_leak"] },
+      "SafetyKind": { "type": "string", "description": "The source's alert type. General sources cannot use Critical Alerts.", "enum": ["general", "smoke", "carbon_monoxide", "panic", "intrusion", "water_leak"] },
       "Scope": { "type": "string", "description": "API token permission. Meanings:\n- `activities:read`: view Live Activities and delivery state\n- `activities:write`: start, update, and end Live Activities\n- `devices:read`: view registered devices and their supported features\n- `events:read`: view webhook notification delivery history and errors\n- `interactions:create`: ask questions and cancel pending questions; asking also needs `notifications:send`\n- `interactions:read`: view questions, status, and answers\n- `notifications:send`: send one-shot push notifications\n- `safety:report`: report active or resolved safety events for configured sources\n- `services:read`: view configured webhook services and defaults; webhook credentials stay hidden\n- `services:write`: change and delete webhook services and their related history", "enum": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "safety:report", "services:read", "services:write"] },
       "InteractionKind": { "type": "string", "enum": ["approval", "yes_no", "reply"] },
       "JSONDocument": { "type": "object", "description": "A JSON response documented field by field in /docs.md.", "additionalProperties": true },
@@ -646,15 +646,15 @@
         }
       },
       "CreateSafetySourceRequest": {
-        "type": "object", "additionalProperties": false, "required": ["kind", "name"],
+        "type": "object", "additionalProperties": false, "required": ["name"],
         "properties": {
-          "kind": { "$ref": "#/components/schemas/SafetyKind" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 }
         }
       },
       "UpdateSafetySourceRequest": {
         "type": "object", "additionalProperties": false, "minProperties": 1,
         "properties": {
+          "kind": { "$ref": "#/components/schemas/SafetyKind" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "critical_enabled": { "type": "boolean" }
         }

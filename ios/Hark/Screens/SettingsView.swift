@@ -121,11 +121,11 @@ struct SettingsView: View {
     }
 
     private var safety: some View {
-        Module(index: "03", label: "Safety", flush: true) {
+        Module(index: "03", label: "Critical Alerts", flush: true) {
             VStack(spacing: 0) {
                 AxisToggle(
                     "Critical Alerts",
-                    sub: "Allow enabled alarms to sound through Focus and Silent mode.",
+                    sub: "Allow eligible sources to sound through Focus and Silent mode.",
                     busy: model.safetySettings == nil,
                     isOn: model.safetySettings?.criticalAlertsEnabled ?? false
                 ) { enabled in
@@ -139,7 +139,7 @@ struct SettingsView: View {
                     HStack(spacing: 16) {
                         Meta("Sources")
                             .frame(width: 100, alignment: .leading)
-                        Text("Manage safety sources")
+                        Text("Manage alert sources")
                             .font(AxisType.copy(14))
                             .foregroundStyle(Axis.inkMuted)
                         Spacer(minLength: 8)

@@ -2215,10 +2215,18 @@ func TestRemainingMutations(t *testing.T) {
 func mustSafetySource(ctx context.Context, t *testing.T, s *Store, userID, kind, name string) *SafetySource {
 	t.Helper()
 	src, err := s.SafetySources.Create(ctx, CreateSafetySourceParams{
-		ID: id.New(), UserID: userID, Kind: kind, Name: name, Now: time.Now(),
+		ID: id.New(), UserID: userID, Name: name, Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("create safety source: %v", err)
+	}
+	if kind != "" && kind != SafetyKindGeneral {
+		src, err = s.SafetySources.Update(ctx, UpdateSafetySourceParams{
+			ID: src.ID, UserID: userID, Kind: Value(kind), Now: time.Now(),
+		})
+		if err != nil {
+			t.Fatalf("classify safety source: %v", err)
+		}
 	}
 	return src
 }
@@ -2241,16 +2249,26 @@ func TestSafetySourceLifecycle(t *testing.T) {
 		t.Errorf("toggling an unknown user = %v, want ErrNotFound", err)
 	}
 
+	general := mustSafetySource(ctx, t, s, user.ID, "", "Home Assistant")
+	if general.Kind != SafetyKindGeneral || general.CriticalEnabled {
+		t.Errorf("fresh source = %+v, want a general source with critical delivery off", general)
+	}
+	if _, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
+		ID: general.ID, UserID: user.ID, CriticalEnabled: Value(true), Now: time.Now(),
+	}); !IsCheckViolation(err) {
+		t.Errorf("enabling a general source error = %v, want a CHECK violation", err)
+	}
+
 	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindSmoke, "Kitchen")
 	if src.CriticalEnabled {
 		t.Error("a fresh source was born with critical delivery enabled")
 	}
 
 	// The database also enforces the kind allowlist.
-	if _, err := s.SafetySources.Create(ctx, CreateSafetySourceParams{
-		ID: id.New(), UserID: user.ID, Kind: "fire", Name: "Garage", Now: time.Now(),
+	if _, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
+		ID: general.ID, UserID: user.ID, Kind: Value("fire"), Now: time.Now(),
 	}); !IsCheckViolation(err) {
-		t.Errorf("creating a source with an invented kind error = %v, want a CHECK violation", err)
+		t.Errorf("classifying a source with an invented kind error = %v, want a CHECK violation", err)
 	}
 
 	if got, err := s.SafetySources.ByID(ctx, src.ID, user.ID); err != nil || got.ID != src.ID {
@@ -2265,8 +2283,8 @@ func TestSafetySourceLifecycle(t *testing.T) {
 
 	second := mustSafetySource(ctx, t, s, user.ID, SafetyKindWaterLeak, "Basement")
 	listed, err := s.SafetySources.ListForUser(ctx, user.ID)
-	if err != nil || len(listed) != 2 {
-		t.Fatalf("ListForUser = (%d, %v), want 2", len(listed), err)
+	if err != nil || len(listed) != 3 {
+		t.Fatalf("ListForUser = (%d, %v), want 3", len(listed), err)
 	}
 
 	// Partial updates leave unset fields unchanged.

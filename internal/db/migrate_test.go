@@ -102,6 +102,9 @@ func TestEmbeddedMigrationsLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("embedded migrations are invalid: %v", err)
 	}
+	if len(migrations) != 1 || migrations[0].Version != 1 {
+		t.Fatalf("embedded schema = %v, want one initial migration", migrations)
+	}
 	for i, m := range migrations {
 		if i > 0 && m.Version <= migrations[i-1].Version {
 			t.Fatalf("migration %s is not ordered after %s", m, migrations[i-1])
@@ -116,7 +119,7 @@ func TestInitialMigrationIsImmutable(t *testing.T) {
 		t.Fatalf("load embedded migrations: %v", err)
 	}
 
-	const checksum = "46725824d77a862d63adde7245ee8dd6567ffd11a228c393572314e38d3f5e6f"
+	const checksum = "f2f7870353bba9c258fa512465a1515a6d62e501ebb240052b653a082530934b"
 	for _, migration := range migrations {
 		if migration.Version == 1 {
 			if migration.Checksum != checksum {

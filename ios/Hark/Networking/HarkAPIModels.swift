@@ -381,19 +381,19 @@ nonisolated struct SafetySourceListResponse: Decodable, Sendable {
 
 nonisolated struct CreateSafetySourceRequest: Encodable, Sendable {
     var name: String
-    var kind: String
 
     enum CodingKeys: String, CodingKey {
         case name
-        case kind
     }
 }
 
 nonisolated struct UpdateSafetySourceRequest: Encodable, Sendable {
+    var kind: String?
     var name: String?
     var criticalEnabled: Bool?
 
     enum CodingKeys: String, CodingKey {
+        case kind
         case name
         case criticalEnabled = "critical_enabled"
     }

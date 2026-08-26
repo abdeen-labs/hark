@@ -2,7 +2,7 @@
 //  SafetySourcesView.swift
 //  Hark
 //
-//  Safety sources and Critical Alert permission.
+//  Alert sources and Critical Alert permission.
 //
 
 import SwiftUI
@@ -19,7 +19,6 @@ struct SafetySourcesView: View {
     @State private var errorMessage: String?
     @State private var testNotice: (kind: Notice.Kind, message: String)?
     @State private var name = ""
-    @State private var kind: String?
     @State private var creating = false
     @State private var requesting = false
     @State private var busySourceIDs: Set<String> = []
@@ -61,6 +60,7 @@ struct SafetySourcesView: View {
                         source: source,
                         busy: busySourceIDs.contains(source.id),
                         sentAt: testedAt[source.id],
+                        onKind: { kind in Task { await setKind(source, kind: kind) } },
                         onToggle: { enabled in Task { await setCritical(source, enabled: enabled) } },
                         onTest: { Task { await sendTest(source) } }
                     )
@@ -105,10 +105,10 @@ struct SafetySourcesView: View {
 
     private var head: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Eyebrow(index: "04·A", label: "Safety")
+            Eyebrow(index: "04·A", label: "Priority")
                 .padding(.top, 16)
             HStack(alignment: .lastTextBaseline, spacing: 24) {
-                DisplayTitle(text: "Safety sources", size: 44)
+                DisplayTitle(text: "Alert sources", size: 44)
                 Spacer(minLength: 0)
                 Metric(
                     value: String(format: "%02d", sources.count),
@@ -140,7 +140,7 @@ struct SafetySourcesView: View {
                 if model.safetySettings?.criticalAlertsEnabled == false {
                     Notice(
                         kind: .warn,
-                        message: "Critical Alerts are off for this account. Active alarms arrive as Time Sensitive notifications."
+                        message: "Critical Alerts are off for this account. Active alerts arrive as Time Sensitive notifications."
                     )
                 }
             }
@@ -148,7 +148,7 @@ struct SafetySourcesView: View {
     }
 
     private var explanation: some View {
-        Text("Critical Alerts can sound through Focus and Silent mode. Hark uses them only for active alarms from sources you configure here. After you grant permission, the account and source settings must also be on.")
+        Text("Sources start as Time Sensitive. Assign a safety alert type only when a source reports an immediate risk, then turn on Critical Alerts.")
             .font(AxisType.copy(14))
             .lineSpacing(2)
             .foregroundStyle(Axis.inkMuted)
@@ -168,9 +168,9 @@ struct SafetySourcesView: View {
                     }
                 }
                 .buttonStyle(.instrument(.primary))
-                .disabled(sources.isEmpty || requesting)
-                if sources.isEmpty {
-                    Text("Create a source first.")
+                .disabled(!hasCriticalCandidate || requesting)
+                if !hasCriticalCandidate {
+                    Text(sources.isEmpty ? "Create a source first." : "Assign a safety alert type first.")
                         .font(AxisType.copy(12))
                         .foregroundStyle(Axis.inkFaint)
                 }
@@ -178,15 +178,15 @@ struct SafetySourcesView: View {
         case .unavailable:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 StatusLight(color: Axis.warn, size: 5)
-                Text("Critical Alerts aren't available. Active alarms arrive as Time Sensitive notifications.")
+                Text("Critical Alerts aren't available. Active alerts arrive as Time Sensitive notifications.")
                     .font(AxisType.copy(13))
                     .foregroundStyle(Axis.inkSubtle)
                     .fixedSize(horizontal: false, vertical: true)
             }
         case .notificationsDenied:
-            deniedState("Notifications are off for Hark. Turn them on to receive alarms.")
+            deniedState("Notifications are off for Hark. Turn them on to receive alerts.")
         case .criticalDenied:
-            deniedState("Critical Alerts are off for Hark. Active alarms arrive as Time Sensitive notifications.")
+            deniedState("Critical Alerts are off for Hark. Active alerts arrive as Time Sensitive notifications.")
         case .granted, .unknown:
             EmptyView()
         }
@@ -214,8 +214,8 @@ struct SafetySourcesView: View {
         if sources.isEmpty {
             if loaded {
                 EmptyNote(
-                    text: "No safety sources yet.",
-                    detail: "Create one, then turn on Critical Alerts."
+                    text: "No alert sources yet.",
+                    detail: "Add a trusted app, service, or automation."
                 )
                 .padding(.horizontal, Axis.gutter)
             } else {
@@ -230,16 +230,9 @@ struct SafetySourcesView: View {
         Module(index: "01", label: "New source") {
             VStack(alignment: .leading, spacing: 18) {
                 FieldFrame(label: "Name", focused: nameFocused) {
-                    TextField("Kitchen smoke detector", text: $name)
+                    TextField("Home Assistant", text: $name)
                         .focused($nameFocused)
                         .submitLabel(.done)
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    Meta("Kind", size: 11, color: Axis.inkSubtle)
-                    AxisChoiceChips(
-                        options: SafetyKindDisplay.all.map { (value: $0, label: SafetyKindDisplay.label($0)) },
-                        selection: $kind
-                    )
                 }
                 Button(creating ? "Creating…" : "Create source") {
                     Task { await create(proxy: proxy) }
@@ -251,7 +244,11 @@ struct SafetySourcesView: View {
     }
 
     private var createValid: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && kind != nil
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var hasCriticalCandidate: Bool {
+        sources.contains { SafetyKindDisplay.allowsCritical($0.kind) }
     }
 
     // MARK: Network
@@ -272,18 +269,16 @@ struct SafetySourcesView: View {
     }
 
     private func create(proxy: ScrollViewProxy) async {
-        guard !creating, createValid, let kind else { return }
+        guard !creating, createValid else { return }
         creating = true
         defer { creating = false }
         do {
             let source = try await model.client.createSafetySource(
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                kind: kind
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines)
             )
             let wasEmpty = sources.isEmpty
             withAnimation(Axis.Motion.ease) { sources.append(source) }
             name = ""
-            self.kind = nil
             nameFocused = false
             errorMessage = nil
             if wasEmpty, model.criticalAlertState == .notRequested {
@@ -299,8 +294,43 @@ struct SafetySourcesView: View {
         }
     }
 
+    private func setKind(_ source: APISafetySource, kind: String) async {
+        guard !busySourceIDs.contains(source.id), source.kind != kind else { return }
+        busySourceIDs.insert(source.id)
+        defer { busySourceIDs.remove(source.id) }
+        guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
+        let previous = sources[index]
+        sources[index].kind = kind
+        if !SafetyKindDisplay.allowsCritical(kind) {
+            sources[index].criticalEnabled = false
+        }
+        do {
+            let updated = try await model.client.updateSafetySource(
+                id: source.id,
+                kind: kind,
+                criticalEnabled: SafetyKindDisplay.allowsCritical(kind) ? nil : false
+            )
+            if let index = sources.firstIndex(where: { $0.id == updated.id }) {
+                sources[index] = updated
+            }
+            errorMessage = nil
+        } catch let error as HarkClientError where error.isUnauthorized {
+            model.handleUnauthorized()
+        } catch {
+            if let index = sources.firstIndex(where: { $0.id == source.id }) {
+                sources[index] = previous
+            }
+            errorMessage = (error as? HarkClientError)?.errorDescription
+                ?? (error as NSError).localizedDescription
+        }
+    }
+
     private func setCritical(_ source: APISafetySource, enabled: Bool) async {
         guard !busySourceIDs.contains(source.id) else { return }
+        guard !enabled || SafetyKindDisplay.allowsCritical(source.kind) else {
+            errorMessage = "Assign a safety alert type before enabling Critical Alerts."
+            return
+        }
         busySourceIDs.insert(source.id)
         defer { busySourceIDs.remove(source.id) }
         guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
@@ -364,6 +394,7 @@ struct SafetySourceRow: View {
     let source: APISafetySource
     let busy: Bool
     let sentAt: Date?
+    let onKind: (String) -> Void
     let onToggle: (Bool) -> Void
     let onTest: () -> Void
 
@@ -380,11 +411,30 @@ struct SafetySourceRow: View {
                             .lineLimit(1)
                         Spacer(minLength: 8)
                     }
-                    FlowRow {
-                        Tag(SafetyKindDisplay.label(source.kind))
-                        StateTag(state: source.criticalEnabled ? "critical" : "time_sensitive")
+                    Picker(
+                        "Alert type",
+                        selection: Binding(
+                            get: { source.kind },
+                            set: { onKind($0) }
+                        )
+                    ) {
+                        Text("General · Time Sensitive").tag("general")
+                        ForEach(SafetyKindDisplay.all, id: \.self) { kind in
+                            Text(SafetyKindDisplay.label(kind)).tag(kind)
+                        }
                     }
-                    AxisToggle("Critical", compact: true, busy: busy, isOn: source.criticalEnabled) {
+                    .pickerStyle(.menu)
+                    .tint(Axis.inkMuted)
+                    .disabled(busy)
+
+                    AxisToggle(
+                        "Critical",
+                        sub: source.kind == "general" ? "Choose a safety alert type first." : nil,
+                        compact: true,
+                        busy: busy,
+                        disabled: !SafetyKindDisplay.allowsCritical(source.kind),
+                        isOn: source.criticalEnabled
+                    ) {
                         onToggle($0)
                     }
                     HStack(spacing: 14) {

@@ -13,6 +13,7 @@ struct AxisToggle: View {
     var sub: String?
     var compact = false
     var busy = false
+    var disabled = false
     let isOn: Bool
     let action: (Bool) -> Void
 
@@ -21,6 +22,7 @@ struct AxisToggle: View {
         sub: String? = nil,
         compact: Bool = false,
         busy: Bool = false,
+        disabled: Bool = false,
         isOn: Bool,
         action: @escaping (Bool) -> Void
     ) {
@@ -28,6 +30,7 @@ struct AxisToggle: View {
         self.sub = sub
         self.compact = compact
         self.busy = busy
+        self.disabled = disabled
         self.isOn = isOn
         self.action = action
     }
@@ -56,7 +59,8 @@ struct AxisToggle: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(busy)
+        .disabled(busy || disabled)
+        .opacity(disabled ? 0.55 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue(isOn ? "On" : "Off")

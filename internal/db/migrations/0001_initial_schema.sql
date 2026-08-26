@@ -17,7 +17,7 @@
 --     envelope that the application can decrypt to show the operator a token
 --     again.
 --   * There are no analytics tables, counters, or rollups in this schema, and
---     none may be added. The events, agent_notifications,
+--     none may be added. The events, agent_notifications, safety_events,
 --     live_activity_operations and live_activity_delivery_attempts tables are
 --     delivery records tied to a specific push, not telemetry.
 
@@ -37,6 +37,7 @@ CREATE TABLE users (
     -- Claimed exactly once, by the first device registration, to authorise the
     -- one-shot welcome push.
     welcome_sent_at     timestamptz,
+    critical_alerts_enabled boolean NOT NULL DEFAULT true,
     created_at          timestamptz NOT NULL,
     updated_at          timestamptz NOT NULL
 );
@@ -67,7 +68,7 @@ CREATE TABLE services (
     image_url        text,
     url              text,
     priority         text        NOT NULL DEFAULT 'normal'
-                       CHECK (priority IN ('normal', 'time_sensitive', 'critical')),
+                       CHECK (priority IN ('normal', 'time_sensitive')),
     -- SHA-256 of the plaintext webhook token; the hot path for POST /hooks.
     token_hash       text        NOT NULL,
     -- Encrypted copy so the owner can re-read the webhook URL after creation.
@@ -122,7 +123,7 @@ CREATE TABLE api_tokens (
                    CHECK (array_length(scopes, 1) >= 1 AND scopes <@ ARRAY[
                      'activities:read', 'activities:write', 'devices:read', 'events:read',
                      'interactions:create', 'interactions:read', 'notifications:send',
-                     'services:read', 'services:write'
+                     'safety:report', 'services:read', 'services:write'
                    ]::text[]),
     expires_at   timestamptz,
     -- Written at most once a minute per token; every agent request would
@@ -162,6 +163,48 @@ CREATE UNIQUE INDEX device_authorization_requests_device_code_key ON device_auth
 CREATE UNIQUE INDEX device_authorization_requests_user_code_key   ON device_authorization_requests (user_code);
 CREATE INDEX        device_authorization_requests_purge_idx       ON device_authorization_requests (status, expires_at);
 
+-- ── Critical Alert sources ────────────────────────────────────────────────
+
+CREATE TABLE safety_sources (
+    id               text        PRIMARY KEY,
+    user_id          text        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    kind             text        NOT NULL DEFAULT 'general',
+    name             text        NOT NULL,
+    critical_enabled boolean     NOT NULL DEFAULT false,
+    created_at       timestamptz NOT NULL,
+    updated_at       timestamptz NOT NULL,
+    CONSTRAINT safety_sources_kind_check
+      CHECK (kind IN ('general', 'smoke', 'carbon_monoxide', 'panic', 'intrusion', 'water_leak')),
+    CONSTRAINT safety_sources_critical_kind_check
+      CHECK (NOT critical_enabled OR kind <> 'general')
+);
+CREATE INDEX safety_sources_user_created_idx ON safety_sources (user_id, created_at DESC, id DESC);
+
+CREATE TABLE safety_events (
+    id                 text        PRIMARY KEY,
+    source_id          text        NOT NULL REFERENCES safety_sources (id) ON DELETE CASCADE,
+    -- Session-initiated setup tests have no requester token.
+    requester_token_id text        REFERENCES api_tokens (id) ON DELETE CASCADE,
+    state              text        NOT NULL CHECK (state IN ('active', 'resolved', 'test')),
+    -- Composed by the server, not supplied by the reporter.
+    title              text        NOT NULL,
+    body               text        NOT NULL,
+    priority           text        NOT NULL CHECK (priority IN ('normal', 'time_sensitive', 'critical')),
+    -- coalesced and rate_limited are recorded without a push.
+    status             text        NOT NULL CHECK (status IN
+                         ('processing', 'no_devices', 'accepted', 'partial', 'failed',
+                          'coalesced', 'rate_limited')),
+    delivered_count    integer     NOT NULL DEFAULT 0 CHECK (delivered_count >= 0),
+    -- APNs failure details shown only to the owner.
+    error              text,
+    idempotency_key    text,
+    request_hash       text,
+    created_at         timestamptz NOT NULL
+);
+CREATE UNIQUE INDEX safety_events_token_idempotency_key ON safety_events (requester_token_id, idempotency_key);
+CREATE INDEX safety_events_source_created_idx ON safety_events (source_id, created_at DESC, id DESC);
+CREATE INDEX safety_events_created_idx        ON safety_events (created_at DESC, id DESC);
+
 -- ── Delivery log ───────────────────────────────────────────────────────────
 
 -- One row per webhook request that reached validation. This is the owner's
@@ -175,7 +218,7 @@ CREATE TABLE events (
     image_url       text,
     url             text,
     priority        text        NOT NULL DEFAULT 'normal'
-                      CHECK (priority IN ('normal', 'time_sensitive', 'critical')),
+                      CHECK (priority IN ('normal', 'time_sensitive')),
     -- processing is written before any push is attempted; everything else is
     -- terminal.
     status          text        NOT NULL
@@ -209,7 +252,7 @@ CREATE TABLE agent_notifications (
     image_url          text,
     url                text,
     priority           text        NOT NULL DEFAULT 'normal'
-                         CHECK (priority IN ('normal', 'time_sensitive', 'critical')),
+                         CHECK (priority IN ('normal', 'time_sensitive')),
     -- The same vocabulary as events.status, settled the same way. The history
     -- feed shows webhook deliveries and agent pushes side by side, so "nothing
     -- to send to" and "nothing got through" have to read alike in both.

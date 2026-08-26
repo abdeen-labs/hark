@@ -28,22 +28,17 @@ type safetyPage struct {
 
 // safetyForm preserves a rejected create form.
 type safetyForm struct {
-	Kind string
 	Name string
 }
 
 func safetyFormFrom(r *http.Request) safetyForm {
 	return safetyForm{
-		Kind: r.PostFormValue("kind"),
 		Name: strings.TrimSpace(r.PostFormValue("name")),
 	}
 }
 
 func (f safetyForm) validate() *notice {
 	var problems []string
-	if !db.ValidSafetyKind(f.Kind) {
-		problems = append(problems, "Choose what the alarm detects.")
-	}
 	if n := utf8.RuneCountInString(f.Name); n < 1 || n > 80 {
 		problems = append(problems, "The name must be 1-80 characters.")
 	}
@@ -73,10 +68,10 @@ func (d *Dashboard) renderSafety(
 	}
 
 	page := safetyPage{
-		view:                  d.newView(r, p, "Safety", "safety"),
+		view:                  d.newView(r, p, "Critical Alerts", "safety"),
 		CriticalAlertsEnabled: user.CriticalAlertsEnabled,
 		Sources:               sources,
-		Kinds:                 db.SafetyKinds,
+		Kinds:                 db.CriticalSafetyKinds,
 		Form:                  form,
 	}
 	if n != nil {
@@ -93,11 +88,7 @@ func (d *Dashboard) createSafetySource(w http.ResponseWriter, r *http.Request, p
 	}
 
 	_, err := d.opts.Store.SafetySources.Create(r.Context(), db.CreateSafetySourceParams{
-		ID:     id.New(),
-		UserID: p.UserID(),
-		Kind:   form.Kind,
-		Name:   form.Name,
-		Now:    d.opts.Auth.Now(),
+		ID: id.New(), UserID: p.UserID(), Name: form.Name, Now: d.opts.Auth.Now(),
 	})
 	if err != nil {
 		d.fail(w, r, "creating a safety source failed", err)
@@ -108,23 +99,49 @@ func (d *Dashboard) createSafetySource(w http.ResponseWriter, r *http.Request, p
 
 // updateSafetySource saves the editable fields shown in a source row.
 func (d *Dashboard) updateSafetySource(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	src, err := d.opts.Store.SafetySources.ByID(r.Context(), r.PathValue("id"), p.UserID())
+	if errors.Is(err, db.ErrNotFound) {
+		d.renderError(w, r, http.StatusNotFound, "No alert source matches that identifier.")
+		return
+	}
+	if err != nil {
+		d.fail(w, r, "loading the alert source failed", err)
+		return
+	}
+
 	name := strings.TrimSpace(r.PostFormValue("name"))
 	if n := utf8.RuneCountInString(name); n < 1 || n > 80 {
 		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{},
 			&notice{Kind: noticeError, Message: "The name must be 1-80 characters."})
 		return
 	}
+	kind := r.PostFormValue("kind")
+	if kind == "" {
+		kind = src.Kind
+	}
+	if !db.ValidSafetyKind(kind) {
+		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{},
+			&notice{Kind: noticeError, Message: "Choose a valid alert type."})
+		return
+	}
+	critical := r.PostFormValue("critical_enabled") != ""
+	if critical && !db.SafetyKindAllowsCritical(kind) {
+		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{},
+			&notice{Kind: noticeError, Message: "Choose a safety alert type before enabling Critical Alerts."})
+		return
+	}
 
-	_, err := d.opts.Store.SafetySources.Update(r.Context(), db.UpdateSafetySourceParams{
+	_, err = d.opts.Store.SafetySources.Update(r.Context(), db.UpdateSafetySourceParams{
 		ID:              r.PathValue("id"),
 		UserID:          p.UserID(),
+		Kind:            db.Value(kind),
 		Name:            db.Value(name),
-		CriticalEnabled: db.Value(r.PostFormValue("critical_enabled") != ""),
+		CriticalEnabled: db.Value(critical),
 		Now:             d.opts.Auth.Now(),
 	})
 	switch {
 	case errors.Is(err, db.ErrNotFound):
-		d.renderError(w, r, http.StatusNotFound, "No safety source matches that identifier.")
+		d.renderError(w, r, http.StatusNotFound, "No alert source matches that identifier.")
 	case err != nil:
 		d.fail(w, r, "updating a safety source failed", err)
 	default:
@@ -138,7 +155,7 @@ func (d *Dashboard) deleteSafetySource(w http.ResponseWriter, r *http.Request, p
 	case err != nil:
 		d.fail(w, r, "deleting a safety source failed", err)
 	case !deleted:
-		d.renderError(w, r, http.StatusNotFound, "No safety source matches that identifier.")
+		d.renderError(w, r, http.StatusNotFound, "No alert source matches that identifier.")
 	default:
 		d.redirect(w, r, pathSafety, "safety_deleted")
 	}
@@ -191,7 +208,7 @@ func (d *Dashboard) sendSafetyTest(w http.ResponseWriter, r *http.Request, p *au
 			State:    db.SafetyStateTest,
 			Title:    title,
 			Body:     body,
-			Priority: db.SafetyAlertPriority(db.SafetyStateTest, user.CriticalAlertsEnabled, src.CriticalEnabled),
+			Priority: db.SafetyAlertPriority(db.SafetyStateTest, src.Kind, user.CriticalAlertsEnabled, src.CriticalEnabled),
 			Status:   db.EventProcessing,
 			Now:      now,
 		})
@@ -199,7 +216,7 @@ func (d *Dashboard) sendSafetyTest(w http.ResponseWriter, r *http.Request, p *au
 	})
 	switch {
 	case errors.Is(err, db.ErrNotFound):
-		d.renderError(w, r, http.StatusNotFound, "No safety source matches that identifier.")
+		d.renderError(w, r, http.StatusNotFound, "No alert source matches that identifier.")
 		return
 	case err != nil:
 		d.fail(w, r, "recording a safety test failed", err)

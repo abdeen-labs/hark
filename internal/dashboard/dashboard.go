@@ -438,10 +438,10 @@ var notices = map[string]notice{
 	"service_deleted": {Kind: noticeOK, Message: "Service deleted."},
 	"webhook_rotated": {Kind: noticeOK, Message: "Webhook URL rotated."},
 
-	"safety_created":        {Kind: noticeOK, Message: "Safety source created."},
-	"safety_updated":        {Kind: noticeOK, Message: "Safety source updated."},
-	"safety_deleted":        {Kind: noticeOK, Message: "Safety source deleted."},
-	"safety_settings_saved": {Kind: noticeOK, Message: "Safety settings saved."},
+	"safety_created":        {Kind: noticeOK, Message: "Alert source created."},
+	"safety_updated":        {Kind: noticeOK, Message: "Alert source updated."},
+	"safety_deleted":        {Kind: noticeOK, Message: "Alert source deleted."},
+	"safety_settings_saved": {Kind: noticeOK, Message: "Critical Alert settings saved."},
 	"safety_test_limited":   {Kind: noticeWarn, Message: "A test was sent for this source in the last 10 minutes."},
 }
 

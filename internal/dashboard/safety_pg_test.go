@@ -15,10 +15,16 @@ import (
 func mustSafetySource(t *testing.T, store *db.Store, userID string, critical bool) db.SafetySource {
 	t.Helper()
 	src, err := store.SafetySources.Create(t.Context(), db.CreateSafetySourceParams{
-		ID: id.New(), UserID: userID, Kind: db.SafetyKindSmoke, Name: "Kitchen", Now: time.Now(),
+		ID: id.New(), UserID: userID, Name: "Kitchen", Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("create a safety source: %v", err)
+	}
+	src, err = store.SafetySources.Update(t.Context(), db.UpdateSafetySourceParams{
+		ID: src.ID, UserID: userID, Kind: db.Value(db.SafetyKindSmoke), Now: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("classify the safety source: %v", err)
 	}
 	if !critical {
 		return *src
@@ -52,7 +58,7 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 	d, store, userID := newPGDashboard(t)
 	ctx := t.Context()
 
-	form := "kind=" + db.SafetyKindWaterLeak + "&name=Basement&critical_enabled=on"
+	form := "name=Home+Assistant"
 	rec := send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety, ""), userID), form))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("create: status = %d, want %d: %s", rec.Code, http.StatusSeeOther, rec.Body)
@@ -65,8 +71,8 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 		t.Fatalf("sources = %v, %v; want the one just created", sources, err)
 	}
 	src := sources[0]
-	if src.Kind != db.SafetyKindWaterLeak || src.Name != "Basement" || src.CriticalEnabled {
-		t.Errorf("created source = %+v, want water_leak/Basement with critical off", src)
+	if src.Kind != db.SafetyKindGeneral || src.Name != "Home Assistant" || src.CriticalEnabled {
+		t.Errorf("created source = %+v, want a general Home Assistant source with critical off", src)
 	}
 
 	rec = send(d, asOwner(signedIn(http.MethodGet, pathSafety, ""), userID))
@@ -74,7 +80,13 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 		t.Fatalf("list: status = %d, or the source is missing:\n%s", rec.Code, rec.Body)
 	}
 
-	form = "name=Cellar&critical_enabled=on"
+	form = "name=Home+Assistant&kind=" + db.SafetyKindGeneral + "&critical_enabled=on"
+	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), form))
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("enable general source: status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body)
+	}
+
+	form = "name=Home+Assistant&kind=" + db.SafetyKindWaterLeak + "&critical_enabled=on"
 	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), form))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update: status = %d: %s", rec.Code, rec.Body)
@@ -83,11 +95,11 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload the source: %v", err)
 	}
-	if reloaded.Name != "Cellar" || !reloaded.CriticalEnabled || reloaded.Kind != db.SafetyKindWaterLeak {
-		t.Errorf("updated source = %+v, want Cellar with critical on and the kind kept", reloaded)
+	if reloaded.Name != "Home Assistant" || !reloaded.CriticalEnabled || reloaded.Kind != db.SafetyKindWaterLeak {
+		t.Errorf("updated source = %+v, want Home Assistant classified for critical water-leak alerts", reloaded)
 	}
 
-	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), "name=Cellar"))
+	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), "name=Home+Assistant&kind="+db.SafetyKindWaterLeak))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update off: status = %d: %s", rec.Code, rec.Body)
 	}
@@ -143,17 +155,13 @@ func TestSafetySettingsToggleThroughTheDashboard(t *testing.T) {
 func TestSafetyCreateRejectsABadForm(t *testing.T) {
 	d, store, userID := newPGDashboard(t)
 
-	rec := send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety, ""), userID), "kind=volcano&name=Kitchen"))
+	rec := send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety, ""), userID), "name="))
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body)
 	}
 	body := rec.Body.String()
 	if !strings.Contains(body, `data-notice="error"`) {
 		t.Errorf("the page does not carry an error banner:\n%s", body)
-	}
-	// Preserve the submitted name after validation fails.
-	if !strings.Contains(body, `value="Kitchen"`) {
-		t.Errorf("the form lost the submitted name:\n%s", body)
 	}
 	if sources, err := store.SafetySources.ListForUser(t.Context(), userID); err != nil || len(sources) != 0 {
 		t.Errorf("sources = %v, %v; want none created", sources, err)

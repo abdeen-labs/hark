@@ -57,8 +57,13 @@ nonisolated enum CriticalAlertState {
 nonisolated enum SafetyKindDisplay {
     static let all = ["smoke", "carbon_monoxide", "panic", "intrusion", "water_leak"]
 
+    static func allowsCritical(_ kind: String) -> Bool {
+        all.contains(kind)
+    }
+
     static func label(_ kind: String) -> String {
         switch kind {
+        case "general": "General"
         case "smoke": "Smoke"
         case "carbon_monoxide": "Carbon monoxide"
         case "panic": "Panic"

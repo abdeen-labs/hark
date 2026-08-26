@@ -26,7 +26,7 @@ const (
 	messageSafetyRateLimited = "This source reached its hourly alert limit. The event was recorded without a push."
 )
 
-// safetySourceDTO is a configured alarm source.
+// safetySourceDTO is a configured alert source.
 type safetySourceDTO struct {
 	ID              string    `json:"id"`
 	Kind            string    `json:"kind"`
@@ -102,7 +102,7 @@ type safetySettingsResponse struct {
 	CriticalAlertsEnabled bool `json:"critical_alerts_enabled"`
 }
 
-// handleListSafetySources returns configured alarms, newest first.
+// handleListSafetySources returns configured alert sources, newest first.
 func (s *server) handleListSafetySources(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 
@@ -125,14 +125,13 @@ func (s *server) handleGetSafetySource(w http.ResponseWriter, r *http.Request) {
 
 	src, err := s.store().SafetySources.ByID(r.Context(), r.PathValue("id"), principal.UserID())
 	if err != nil {
-		s.writeStoreError(w, r, "safety source", err)
+		s.writeStoreError(w, r, "alert source", err)
 		return
 	}
 	WriteJSON(w, r, http.StatusOK, safetySourceResponse{Source: newSafetySourceDTO(*src)})
 }
 
 type createSafetySourceRequest struct {
-	Kind string `json:"kind"`
 	Name string `json:"name"`
 }
 
@@ -144,7 +143,6 @@ func (s *server) handleCreateSafetySource(w http.ResponseWriter, r *http.Request
 	}
 
 	var v validator
-	kind := v.enum("kind", &body.Kind, db.SafetyKinds, "")
 	name := v.text("name", body.Name, 1, maxNameLen)
 	if !v.done(w, r) {
 		return
@@ -154,7 +152,6 @@ func (s *server) handleCreateSafetySource(w http.ResponseWriter, r *http.Request
 	src, err := s.store().SafetySources.Create(r.Context(), db.CreateSafetySourceParams{
 		ID:     newID(),
 		UserID: principal.UserID(),
-		Kind:   kind,
 		Name:   name,
 		Now:    s.now(),
 	})
@@ -166,11 +163,12 @@ func (s *server) handleCreateSafetySource(w http.ResponseWriter, r *http.Request
 }
 
 type updateSafetySourceRequest struct {
+	Kind            optional[string] `json:"kind"`
 	Name            optional[string] `json:"name"`
 	CriticalEnabled optional[bool]   `json:"critical_enabled"`
 }
 
-// handleUpdateSafetySource changes a source's name or critical setting.
+// handleUpdateSafetySource changes a source's editable fields.
 func (s *server) handleUpdateSafetySource(w http.ResponseWriter, r *http.Request) {
 	var body updateSafetySourceRequest
 	if !decodeJSON(w, r, &body) {
@@ -183,22 +181,45 @@ func (s *server) handleUpdateSafetySource(w http.ResponseWriter, r *http.Request
 		UserID: auth.PrincipalFrom(r.Context()).UserID(),
 		Now:    s.now(),
 	}
+	if kind, ok := body.Kind.Get(); ok {
+		params.Kind = db.Value(v.enum("kind", &kind, db.SafetyKinds, ""))
+	}
 	if name, ok := body.Name.Get(); ok {
 		params.Name = db.Value(v.text("name", name, 1, maxNameLen))
 	}
 	if critical, ok := body.CriticalEnabled.Get(); ok {
 		params.CriticalEnabled = db.Value(critical)
 	}
-	if !params.Name.IsSet() && !params.CriticalEnabled.IsSet() {
-		v.add("name", "at least one of name or critical_enabled is required")
+	if !params.Kind.IsSet() && !params.Name.IsSet() && !params.CriticalEnabled.IsSet() {
+		v.add("name", "at least one of kind, name or critical_enabled is required")
 	}
 	if !v.done(w, r) {
 		return
 	}
 
+	existing, err := s.store().SafetySources.ByID(r.Context(), params.ID, params.UserID)
+	if err != nil {
+		s.writeStoreError(w, r, "alert source", err)
+		return
+	}
+	finalKind := existing.Kind
+	if kind, ok := params.Kind.Get(); ok {
+		finalKind = kind
+	}
+	finalCritical := existing.CriticalEnabled
+	if critical, ok := params.CriticalEnabled.Get(); ok {
+		finalCritical = critical
+	}
+	if finalCritical && !db.SafetyKindAllowsCritical(finalKind) {
+		WriteFieldErrors(w, r, "The request body is invalid.", []FieldError{{
+			Field: "kind", Message: "choose a safety alert type before enabling Critical Alerts",
+		}})
+		return
+	}
+
 	src, err := s.store().SafetySources.Update(r.Context(), params)
 	if err != nil {
-		s.writeStoreError(w, r, "safety source", err)
+		s.writeStoreError(w, r, "alert source", err)
 		return
 	}
 	WriteJSON(w, r, http.StatusOK, safetySourceResponse{Source: newSafetySourceDTO(*src)})
@@ -213,7 +234,7 @@ func (s *server) handleDeleteSafetySource(w http.ResponseWriter, r *http.Request
 	case err != nil:
 		s.writeInternal(w, r, "deleting a safety source failed", err)
 	case !deleted:
-		s.writeNotFound(w, r, "safety source")
+		s.writeNotFound(w, r, "alert source")
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -354,7 +375,7 @@ func (s *server) handleReportSafetyEvent(w http.ResponseWriter, r *http.Request)
 			State:            payload.State,
 			Title:            title,
 			Body:             alertBody,
-			Priority:         db.SafetyAlertPriority(payload.State, user.CriticalAlertsEnabled, src.CriticalEnabled),
+			Priority:         db.SafetyAlertPriority(payload.State, src.Kind, user.CriticalAlertsEnabled, src.CriticalEnabled),
 			Status:           status,
 			IdempotencyKey:   key,
 			RequestHash:      storedHash(key, hash),
@@ -366,7 +387,7 @@ func (s *server) handleReportSafetyEvent(w http.ResponseWriter, r *http.Request)
 	case errors.Is(err, db.ErrNotFound):
 		WriteFieldErrors(w, r, "The request body is invalid.", []FieldError{{
 			Field:   "source_id",
-			Message: "names a safety source that is not configured on this account",
+			Message: "names an alert source that is not configured on this account",
 		}})
 		return
 	case err != nil:
@@ -467,14 +488,14 @@ func (s *server) handleSafetySourceTest(w http.ResponseWriter, r *http.Request) 
 			State:    db.SafetyStateTest,
 			Title:    title,
 			Body:     body,
-			Priority: db.SafetyAlertPriority(db.SafetyStateTest, user.CriticalAlertsEnabled, src.CriticalEnabled),
+			Priority: db.SafetyAlertPriority(db.SafetyStateTest, src.Kind, user.CriticalAlertsEnabled, src.CriticalEnabled),
 			Status:   db.EventProcessing,
 			Now:      now,
 		})
 		return err
 	})
 	if err != nil {
-		s.writeStoreError(w, r, "safety source", err)
+		s.writeStoreError(w, r, "alert source", err)
 		return
 	}
 	if throttled {

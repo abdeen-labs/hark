@@ -726,8 +726,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 }
 .table td.cell--index::before { content: counter(row, decimal-leading-zero); }
 .table th.cell--index { width: 2.5rem; padding-right: 0; }
-.table td.cell--clamp { max-width: 32ch; }
-.table td.cell--clamp,
+.table td.cell--clamp { max-width: 32ch; overflow: hidden; }
 .table td.cell--clamp > .block,
 .table td.cell--clamp > .mono { display: block; overflow: hidden; text-overflow: ellipsis; }
 .table td.cell--wrap { white-space: normal; max-width: 22rem; }

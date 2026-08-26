@@ -269,6 +269,17 @@ func TestValidSafetyKind(t *testing.T) {
 	}
 }
 
+func TestCriticalSafetyKindsExcludeGeneral(t *testing.T) {
+	if SafetyKindAllowsCritical(SafetyKindGeneral) {
+		t.Error("a general source must stay below critical priority")
+	}
+	for _, kind := range CriticalSafetyKinds {
+		if !SafetyKindAllowsCritical(kind) {
+			t.Errorf("SafetyKindAllowsCritical(%q) = false", kind)
+		}
+	}
+}
+
 func TestValidSafetyState(t *testing.T) {
 	for _, s := range SafetyStates {
 		if !ValidSafetyState(s) {
@@ -328,27 +339,29 @@ func TestSafetyAlertContent(t *testing.T) {
 
 func TestSafetyAlertPriority(t *testing.T) {
 	cases := []struct {
-		state                   string
+		state, kind             string
 		userEnabled, srcEnabled bool
 		want                    string
 	}{
-		{SafetyStateActive, true, true, PriorityCritical},
-		{SafetyStateActive, true, false, PriorityTimeSensitive},
-		{SafetyStateActive, false, true, PriorityTimeSensitive},
-		{SafetyStateActive, false, false, PriorityTimeSensitive},
-		{SafetyStateTest, true, true, PriorityCritical},
-		{SafetyStateTest, true, false, PriorityTimeSensitive},
-		{SafetyStateTest, false, true, PriorityTimeSensitive},
-		{SafetyStateTest, false, false, PriorityTimeSensitive},
-		{SafetyStateResolved, true, true, PriorityNormal},
-		{SafetyStateResolved, true, false, PriorityNormal},
-		{SafetyStateResolved, false, true, PriorityNormal},
-		{SafetyStateResolved, false, false, PriorityNormal},
+		{SafetyStateActive, SafetyKindSmoke, true, true, PriorityCritical},
+		{SafetyStateActive, SafetyKindSmoke, true, false, PriorityTimeSensitive},
+		{SafetyStateActive, SafetyKindSmoke, false, true, PriorityTimeSensitive},
+		{SafetyStateActive, SafetyKindSmoke, false, false, PriorityTimeSensitive},
+		{SafetyStateActive, SafetyKindGeneral, true, true, PriorityTimeSensitive},
+		{SafetyStateTest, SafetyKindSmoke, true, true, PriorityCritical},
+		{SafetyStateTest, SafetyKindSmoke, true, false, PriorityTimeSensitive},
+		{SafetyStateTest, SafetyKindSmoke, false, true, PriorityTimeSensitive},
+		{SafetyStateTest, SafetyKindSmoke, false, false, PriorityTimeSensitive},
+		{SafetyStateTest, SafetyKindGeneral, true, true, PriorityTimeSensitive},
+		{SafetyStateResolved, SafetyKindSmoke, true, true, PriorityNormal},
+		{SafetyStateResolved, SafetyKindSmoke, true, false, PriorityNormal},
+		{SafetyStateResolved, SafetyKindGeneral, true, true, PriorityNormal},
+		{SafetyStateResolved, SafetyKindSmoke, false, false, PriorityNormal},
 	}
 	for _, tc := range cases {
-		if got := SafetyAlertPriority(tc.state, tc.userEnabled, tc.srcEnabled); got != tc.want {
-			t.Errorf("SafetyAlertPriority(%q, %v, %v) = %q, want %q",
-				tc.state, tc.userEnabled, tc.srcEnabled, got, tc.want)
+		if got := SafetyAlertPriority(tc.state, tc.kind, tc.userEnabled, tc.srcEnabled); got != tc.want {
+			t.Errorf("SafetyAlertPriority(%q, %q, %v, %v) = %q, want %q",
+				tc.state, tc.kind, tc.userEnabled, tc.srcEnabled, got, tc.want)
 		}
 	}
 }

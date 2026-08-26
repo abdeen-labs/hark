@@ -38,6 +38,7 @@ const (
 
 // safetyAlertText defines alert copy for each source kind.
 var safetyAlertText = map[string]struct{ title, active string }{
+	SafetyKindGeneral:        {"Important alert", "Attention needed."},
 	SafetyKindSmoke:          {"Smoke alarm", "Smoke detected."},
 	SafetyKindCarbonMonoxide: {"Carbon monoxide alarm", "Carbon monoxide detected."},
 	SafetyKindPanic:          {"Panic alarm", "Panic button pressed."},
@@ -49,24 +50,27 @@ var safetyAlertText = map[string]struct{ title, active string }{
 func SafetyAlertContent(kind, name, state string) (title, body string) {
 	text, ok := safetyAlertText[kind]
 	if !ok {
-		text = struct{ title, active string }{"Safety alarm", "Alarm triggered."}
+		text = safetyAlertText[SafetyKindGeneral]
 	}
 	switch state {
 	case SafetyStateResolved:
+		if kind == SafetyKindGeneral {
+			return text.title + " cleared", name + ": All clear."
+		}
 		return text.title + " cleared", name + ": Alarm cleared."
 	case SafetyStateTest:
-		return "Safety alert test", name + ": This is a safety alert test."
+		return "Alert test", name + ": This is a test notification."
 	default:
 		return text.title, name + ": " + text.active
 	}
 }
 
 // SafetyAlertPriority applies the account and source settings to an event.
-func SafetyAlertPriority(state string, userEnabled, sourceEnabled bool) string {
+func SafetyAlertPriority(state, kind string, userEnabled, sourceEnabled bool) string {
 	if state == SafetyStateResolved {
 		return PriorityNormal
 	}
-	if userEnabled && sourceEnabled {
+	if SafetyKindAllowsCritical(kind) && userEnabled && sourceEnabled {
 		return PriorityCritical
 	}
 	return PriorityTimeSensitive

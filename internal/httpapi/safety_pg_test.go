@@ -14,7 +14,13 @@ func (f *fixture) createSafetySource(kind, name string) safetySourceDTO {
 
 	var created safetySourceResponse
 	f.expect(http.MethodPost, "/v1/safety-sources", f.session,
-		`{"kind":"`+kind+`","name":"`+name+`"}`, http.StatusCreated, &created)
+		`{"name":"`+name+`"}`, http.StatusCreated, &created)
+	if kind != db.SafetyKindGeneral {
+		var updated safetySourceResponse
+		f.expect(http.MethodPatch, "/v1/safety-sources/"+created.Source.ID, f.session,
+			`{"kind":"`+kind+`"}`, http.StatusOK, &updated)
+		return updated.Source
+	}
 	return created.Source
 }
 
@@ -38,21 +44,30 @@ func (f *fixture) reportSafety(sourceID, state string, want int) safetyEventResp
 func TestSafetySourceLifecycle(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
-	if src.Kind != db.SafetyKindSmoke || src.CriticalEnabled {
-		t.Fatalf("created = %+v, want the kind echoed and critical delivery off", src)
+	src := f.createSafetySource(db.SafetyKindGeneral, "Home Assistant")
+	if src.Kind != db.SafetyKindGeneral || src.CriticalEnabled {
+		t.Fatalf("created = %+v, want a general source with critical delivery off", src)
 	}
 
-	// Critical Alerts cannot be enabled during creation.
+	// Creation has one shape: a name-only general source. Classification and
+	// Critical Alerts are separate updates.
 	rec := f.request(http.MethodPost, "/v1/safety-sources", f.session,
 		`{"kind":"smoke","name":"Garage","critical_enabled":true}`)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("create with critical_enabled: status = %d, want 400: %s", rec.Code, rec.Body)
+		t.Fatalf("create with classification fields: status = %d, want 400: %s", rec.Code, rec.Body)
 	}
 
-	rec = f.request(http.MethodPost, "/v1/safety-sources", f.session, `{"kind":"fire","name":"Garage"}`)
+	rec = f.request(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session, `{"kind":"fire"}`)
 	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("create with an unknown kind: status = %d, want 422: %s", rec.Code, rec.Body)
+		t.Fatalf("classify with an unknown kind: status = %d, want 422: %s", rec.Code, rec.Body)
+	}
+
+	// A general source cannot be made critical until the owner assigns an
+	// eligible safety alert type.
+	rec = f.request(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session,
+		`{"critical_enabled":true}`)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("enable a general source: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
 
 	second := f.createSafetySource(db.SafetyKindWaterLeak, "Basement")
@@ -74,9 +89,9 @@ func TestSafetySourceLifecycle(t *testing.T) {
 		t.Fatalf("renamed = %+v, want the toggle untouched", got.Source)
 	}
 	f.expect(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session,
-		`{"critical_enabled":true}`, http.StatusOK, &got)
-	if !got.Source.CriticalEnabled || got.Source.Name != "Hallway" {
-		t.Fatalf("toggled = %+v, want the name untouched", got.Source)
+		`{"kind":"smoke","critical_enabled":true}`, http.StatusOK, &got)
+	if !got.Source.CriticalEnabled || got.Source.Name != "Hallway" || got.Source.Kind != db.SafetyKindSmoke {
+		t.Fatalf("classified = %+v, want a critical smoke source with the name untouched", got.Source)
 	}
 
 	// An empty PATCH changes nothing.
@@ -148,7 +163,7 @@ func TestSafetyAuthBoundaries(t *testing.T) {
 	// Source configuration and setup tests require a session.
 	sessionOnly := []struct{ method, path, body string }{
 		{http.MethodGet, "/v1/safety-sources", ""},
-		{http.MethodPost, "/v1/safety-sources", `{"kind":"smoke","name":"Garage"}`},
+		{http.MethodPost, "/v1/safety-sources", `{"name":"Garage"}`},
 		{http.MethodGet, "/v1/safety-sources/" + src.ID, ""},
 		{http.MethodPatch, "/v1/safety-sources/" + src.ID, `{"critical_enabled":true}`},
 		{http.MethodDelete, "/v1/safety-sources/" + src.ID, ""},

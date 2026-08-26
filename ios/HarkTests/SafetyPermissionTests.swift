@@ -66,8 +66,10 @@ final class SafetyPermissionTests: XCTestCase {
 
     // MARK: - SafetyKindDisplay
 
-    func testKindsMatchTheWireContract() {
+    func testCriticalKindsMatchTheWireContract() {
         XCTAssertEqual(SafetyKindDisplay.all, ["smoke", "carbon_monoxide", "panic", "intrusion", "water_leak"])
+        XCTAssertFalse(SafetyKindDisplay.allowsCritical("general"))
+        XCTAssertEqual(SafetyKindDisplay.label("general"), "General")
     }
 
     func testEveryKindHasAReadableLabel() {
@@ -117,17 +119,31 @@ final class SafetyPermissionTests: XCTestCase {
         }
     }
 
-    // MARK: - UpdateSafetySourceRequest encoding
+    // MARK: - Safety source request encoding
+
+    func testCreateSourceNeedsOnlyAName() throws {
+        let data = try JSONEncoder().encode(CreateSafetySourceRequest(name: "Home Assistant"))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object.keys.sorted(), ["name"])
+        XCTAssertEqual(object["name"] as? String, "Home Assistant")
+    }
+
+    func testKindCanBeAssignedLater() throws {
+        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(kind: "intrusion", name: nil, criticalEnabled: nil))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object.keys.sorted(), ["kind"])
+        XCTAssertEqual(object["kind"] as? String, "intrusion")
+    }
 
     func testNilNameIsOmittedFromTheWire() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(name: nil, criticalEnabled: true))
+        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(kind: nil, name: nil, criticalEnabled: true))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(object.keys.sorted(), ["critical_enabled"])
         XCTAssertEqual(object["critical_enabled"] as? Bool, true)
     }
 
     func testNilCriticalEnabledIsOmittedFromTheWire() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(name: "Hall detector", criticalEnabled: nil))
+        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(kind: nil, name: "Hall detector", criticalEnabled: nil))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(object.keys.sorted(), ["name"])
         XCTAssertEqual(object["name"] as? String, "Hall detector")

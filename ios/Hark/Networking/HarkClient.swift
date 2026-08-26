@@ -232,18 +232,22 @@ nonisolated struct HarkClient: Sendable {
         return response.sources
     }
 
-    func createSafetySource(name: String, kind: String) async throws -> APISafetySource {
+    func createSafetySource(name: String) async throws -> APISafetySource {
         let response: SafetySourceResponse = try await send(
             "POST", "/v1/safety-sources",
-            body: CreateSafetySourceRequest(name: name, kind: kind)
+            body: CreateSafetySourceRequest(name: name)
         )
         return response.source
     }
 
-    func updateSafetySource(id: String, criticalEnabled: Bool) async throws -> APISafetySource {
+    func updateSafetySource(
+        id: String,
+        kind: String? = nil,
+        criticalEnabled: Bool? = nil
+    ) async throws -> APISafetySource {
         let response: SafetySourceResponse = try await send(
             "PATCH", "/v1/safety-sources/\(id)",
-            body: UpdateSafetySourceRequest(name: nil, criticalEnabled: criticalEnabled)
+            body: UpdateSafetySourceRequest(kind: kind, name: nil, criticalEnabled: criticalEnabled)
         )
         return response.source
     }
