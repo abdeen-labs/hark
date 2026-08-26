@@ -190,9 +190,9 @@ nonisolated enum AxisState {
         switch state {
         case "approved", "yes", "replied", "accepted", "active", "consumed", "ok", "delivered", "live", "ready":
             .ok
-        case "denied", "no", "failed", "error", "retired":
+        case "denied", "no", "failed", "error", "retired", "critical":
             .danger
-        case "pending", "partial", "starting", "warn":
+        case "pending", "partial", "starting", "warn", "time_sensitive":
             .warn
         case "expired", "canceled", "ended", "no_devices", "inactive":
             .muted

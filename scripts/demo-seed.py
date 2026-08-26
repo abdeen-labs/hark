@@ -45,7 +45,7 @@ UPDATE devices SET last_seen_at = now() - interval '3 days', created_at = now() 
 SERVICES = [
     ("CI", "https://github.com/actions.png", "https://github.com/abdeen-labs/hark/actions", "normal"),
     ("Railway", "https://github.com/railwayapp.png", "https://railway.app", "time_sensitive"),
-    ("Uptime", "https://github.com/louislam.png", None, "critical"),
+    ("Uptime", "https://github.com/louislam.png", None, "time_sensitive"),
 ]
 
 HOOKS = [

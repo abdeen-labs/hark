@@ -91,6 +91,7 @@ const (
 	pathLogout   = httpapi.DashboardPrefix + "/logout"
 	pathHistory  = httpapi.DashboardPrefix + "/history"
 	pathServices = httpapi.DashboardPrefix + "/services"
+	pathSafety   = httpapi.DashboardPrefix + "/safety"
 	pathDevices  = httpapi.DashboardPrefix + "/devices"
 	pathTokens   = httpapi.DashboardPrefix + "/tokens"
 	pathTest     = httpapi.DashboardPrefix + "/test"
@@ -133,9 +134,9 @@ type Dashboard struct {
 
 // paths is the link table handed to every template.
 type paths struct {
-	Home, Login, Logout, History, Services, Devices, Tokens, Test string
-	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs                  string
-	LiveOverview                                                  string
+	Home, Login, Logout, History, Services, Safety, Devices, Tokens, Test string
+	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs                          string
+	LiveOverview                                                          string
 }
 
 // New builds the dashboard handler.
@@ -166,7 +167,8 @@ func New(opts Options) *Dashboard {
 		logins:  newLimiter(loginWindow),
 		paths: paths{
 			Home: pathHome, Login: pathLogin, Logout: pathLogout, History: pathHistory,
-			Services: pathServices, Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
+			Services: pathServices, Safety: pathSafety,
+			Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
 			Authorize: pathAuthorize, Docs: pathDocs, DocsMarkdown: pathDocsMD,
 			OpenAPI: pathOpenAPI, LLMs: pathLLMs,
 			LiveOverview: pathLiveOverview,
@@ -201,6 +203,13 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("POST "+pathServices+"/{id}", d.form(d.updateService))
 	d.mux.HandleFunc("POST "+pathServices+"/{id}/rotate", d.form(d.rotateWebhookToken))
 	d.mux.HandleFunc("POST "+pathServices+"/{id}/delete", d.form(d.deleteService))
+
+	d.mux.HandleFunc("GET "+pathSafety, d.page(d.showSafety))
+	d.mux.HandleFunc("POST "+pathSafety, d.form(d.createSafetySource))
+	d.mux.HandleFunc("POST "+pathSafety+"/settings", d.form(d.saveSafetySettings))
+	d.mux.HandleFunc("POST "+pathSafety+"/{id}", d.form(d.updateSafetySource))
+	d.mux.HandleFunc("POST "+pathSafety+"/{id}/test", d.form(d.sendSafetyTest))
+	d.mux.HandleFunc("POST "+pathSafety+"/{id}/delete", d.form(d.deleteSafetySource))
 
 	d.mux.HandleFunc("GET "+pathDevices, d.page(d.showDevices))
 	d.mux.HandleFunc("POST "+pathDevices+"/{id}/delete", d.form(d.deleteDevice))
@@ -428,6 +437,12 @@ var notices = map[string]notice{
 	"service_updated": {Kind: noticeOK, Message: "Service updated."},
 	"service_deleted": {Kind: noticeOK, Message: "Service deleted."},
 	"webhook_rotated": {Kind: noticeOK, Message: "Webhook URL rotated."},
+
+	"safety_created":        {Kind: noticeOK, Message: "Safety source created."},
+	"safety_updated":        {Kind: noticeOK, Message: "Safety source updated."},
+	"safety_deleted":        {Kind: noticeOK, Message: "Safety source deleted."},
+	"safety_settings_saved": {Kind: noticeOK, Message: "Safety settings saved."},
+	"safety_test_limited":   {Kind: noticeWarn, Message: "A test was sent for this source in the last 10 minutes."},
 }
 
 // notice is the one banner a page can carry.

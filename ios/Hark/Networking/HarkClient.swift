@@ -25,6 +25,11 @@ nonisolated enum HarkClientError: Error, LocalizedError {
         return false
     }
 
+    var isRateLimited: Bool {
+        if case .api(let status, _, _, _) = self { return status == 429 }
+        return false
+    }
+
     var errorDescription: String? {
         switch self {
         case .api(_, _, let message, let fields):
@@ -218,6 +223,49 @@ nonisolated struct HarkClient: Sendable {
         var query = [URLQueryItem(name: "status", value: status)]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
         return try await send("GET", "/v1/activities", query: query)
+    }
+
+    // MARK: - Safety
+
+    func safetySources() async throws -> [APISafetySource] {
+        let response: SafetySourceListResponse = try await send("GET", "/v1/safety-sources")
+        return response.sources
+    }
+
+    func createSafetySource(name: String, kind: String) async throws -> APISafetySource {
+        let response: SafetySourceResponse = try await send(
+            "POST", "/v1/safety-sources",
+            body: CreateSafetySourceRequest(name: name, kind: kind)
+        )
+        return response.source
+    }
+
+    func updateSafetySource(id: String, criticalEnabled: Bool) async throws -> APISafetySource {
+        let response: SafetySourceResponse = try await send(
+            "PATCH", "/v1/safety-sources/\(id)",
+            body: UpdateSafetySourceRequest(name: nil, criticalEnabled: criticalEnabled)
+        )
+        return response.source
+    }
+
+    func deleteSafetySource(id: String) async throws {
+        try await sendExpectingNoContent("DELETE", "/v1/safety-sources/\(id)")
+    }
+
+    func sendSafetyTest(sourceId: String) async throws -> APISafetyTestEvent {
+        let response: SafetyTestResponse = try await send("POST", "/v1/safety-sources/\(sourceId)/test")
+        return response.event
+    }
+
+    func safetySettings() async throws -> APISafetySettings {
+        try await send("GET", "/v1/safety-settings")
+    }
+
+    func setSafetySettings(criticalAlertsEnabled: Bool) async throws -> APISafetySettings {
+        try await send(
+            "PATCH", "/v1/safety-settings",
+            body: APISafetySettings(criticalAlertsEnabled: criticalAlertsEnabled)
+        )
     }
 
     // MARK: - Transport

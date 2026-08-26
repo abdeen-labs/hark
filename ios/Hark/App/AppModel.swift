@@ -52,6 +52,10 @@ final class AppModel {
     private(set) var inboxError: String?
     private(set) var inboxRefreshedAt: Date?
 
+    private(set) var criticalAlertState: CriticalAlertState = .unknown
+    private(set) var safetySettings: APISafetySettings?
+    private(set) var safetySettingsError: String?
+
     private var activityTokenTasks: [String: Task<Void, Never>] = [:]
     private var pushToStartTask: Task<Void, Never>?
     private var activityWatchTask: Task<Void, Never>?
@@ -84,6 +88,7 @@ final class AppModel {
 
     private static let serverURLKey = "server_url"
     private static let deviceIDKey = "device_id"
+    private static let criticalAlertRequestedKey = "critical_alert_requested"
 
     // MARK: - Lifecycle
 
@@ -117,8 +122,10 @@ final class AppModel {
     func didBecomeActive() async {
         guard phase == .signedIn else { return }
         UIApplication.shared.registerForRemoteNotifications()
+        await refreshNotificationPermission()
         await registerDeviceIfPossible()
         await refreshInbox()
+        await refreshSafetySettings()
         await reconcileLiveActivities()
         do {
             let session = try await client.session()
@@ -159,6 +166,8 @@ final class AppModel {
         clearCredentials()
         stopLiveActivityObservers()
         inbox = []
+        safetySettings = nil
+        safetySettingsError = nil
         phase = .signedOut
         try? await UNUserNotificationCenter.current().setBadgeCount(0)
     }
@@ -169,6 +178,8 @@ final class AppModel {
         clearCredentials()
         stopLiveActivityObservers()
         inbox = []
+        safetySettings = nil
+        safetySettingsError = nil
         phase = .signedOut
     }
 
@@ -183,9 +194,11 @@ final class AppModel {
 
     private func afterSignIn() async {
         await requestNotificationAuthorization()
+        await refreshNotificationPermission()
         startLiveActivityObservers()
         await registerDeviceIfPossible()
         await refreshInbox()
+        await refreshSafetySettings()
         await reconcileLiveActivities()
     }
 
@@ -211,6 +224,55 @@ final class AppModel {
         let center = UNUserNotificationCenter.current()
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         UIApplication.shared.registerForRemoteNotifications()
+    }
+
+    func refreshNotificationPermission() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        criticalAlertState = CriticalAlertState.classify(
+            authorizationStatus: settings.authorizationStatus,
+            criticalSetting: settings.criticalAlertSetting,
+            requestedBefore: UserDefaults.standard.bool(forKey: Self.criticalAlertRequestedKey),
+            entitlementGranted: SafetyCriticalSupport.entitlementGranted
+        )
+    }
+
+    func requestCriticalAlertAuthorization() async {
+        let center = UNUserNotificationCenter.current()
+        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge, .criticalAlert])
+        UserDefaults.standard.set(true, forKey: Self.criticalAlertRequestedKey)
+        UIApplication.shared.registerForRemoteNotifications()
+        await refreshNotificationPermission()
+    }
+
+    // MARK: - Safety settings
+
+    func refreshSafetySettings() async {
+        guard phase == .signedIn else { return }
+        do {
+            safetySettings = try await client.safetySettings()
+            safetySettingsError = nil
+        } catch let error as HarkClientError where error.isUnauthorized {
+            handleUnauthorized()
+        } catch {
+            safetySettingsError = (error as? HarkClientError)?.errorDescription
+                ?? (error as NSError).localizedDescription
+        }
+    }
+
+    func setCriticalAlertsEnabled(_ enabled: Bool) async {
+        guard phase == .signedIn else { return }
+        let previous = safetySettings
+        safetySettings = APISafetySettings(criticalAlertsEnabled: enabled)
+        do {
+            safetySettings = try await client.setSafetySettings(criticalAlertsEnabled: enabled)
+            safetySettingsError = nil
+        } catch let error as HarkClientError where error.isUnauthorized {
+            handleUnauthorized()
+        } catch {
+            safetySettings = previous
+            safetySettingsError = (error as? HarkClientError)?.errorDescription
+                ?? (error as NSError).localizedDescription
+        }
     }
 
     /// Called by the app delegate whenever iOS hands over an APNs token.

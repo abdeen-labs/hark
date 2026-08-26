@@ -353,6 +353,76 @@ nonisolated struct ActivitiesPage: Decodable, Sendable {
     }
 }
 
+// MARK: - Safety
+
+nonisolated struct APISafetySource: Decodable, Hashable, Identifiable, Sendable {
+    var id: String
+    var name: String
+    var kind: String
+    var criticalEnabled: Bool
+    var createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case kind
+        case criticalEnabled = "critical_enabled"
+        case createdAt = "created_at"
+    }
+}
+
+nonisolated struct SafetySourceResponse: Decodable, Sendable {
+    var source: APISafetySource
+}
+
+nonisolated struct SafetySourceListResponse: Decodable, Sendable {
+    var sources: [APISafetySource]
+}
+
+nonisolated struct CreateSafetySourceRequest: Encodable, Sendable {
+    var name: String
+    var kind: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case kind
+    }
+}
+
+nonisolated struct UpdateSafetySourceRequest: Encodable, Sendable {
+    var name: String?
+    var criticalEnabled: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case criticalEnabled = "critical_enabled"
+    }
+}
+
+nonisolated struct APISafetySettings: Codable, Hashable, Sendable {
+    var criticalAlertsEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case criticalAlertsEnabled = "critical_alerts_enabled"
+    }
+}
+
+nonisolated struct APISafetyTestEvent: Decodable, Hashable, Sendable {
+    var id: String
+    var priority: String
+    var status: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case priority
+        case status
+    }
+}
+
+nonisolated struct SafetyTestResponse: Decodable, Sendable {
+    var event: APISafetyTestEvent
+}
+
 // MARK: - Errors
 
 nonisolated struct APIErrorField: Decodable, Hashable, Sendable {

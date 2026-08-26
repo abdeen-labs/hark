@@ -50,7 +50,7 @@ var (
 const apiTables = `users, sessions, services, devices, api_tokens,
 	device_authorization_requests, events, agent_notifications, interactions,
 	live_activities, live_activity_deliveries, live_activity_operations,
-	live_activity_delivery_attempts`
+	live_activity_delivery_attempts, safety_sources, safety_events`
 
 // fixture is one server, one account, and the two credentials a test drives it
 // with.

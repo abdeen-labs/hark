@@ -175,16 +175,19 @@ shown below; unknown values are rejected.
 
 | Set | Members |
 | --- | --- |
-| Priority | `normal`, `time_sensitive`, `critical` |
+| Priority | `normal`, `time_sensitive`, `critical`. Only [safety alerts](#safety) can be `critical`; request fields accept the first two values. |
 | Interaction kind | `approval`, `yes_no`, `reply` |
 | Interaction status | `pending`, `approved`, `denied`, `yes`, `no`, `replied`, `canceled`, `expired` |
 | Interaction presentation | `notification`, `live_activity` |
 | Notification delivery status | `processing`, `no_devices`, `accepted`, `partial`, `failed` |
+| Safety source kind | `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak` |
+| Safety event state | `active`, `resolved` (reported by tokens) · `test` (session-only [setup test](#post-v1safety-sourcesidtest)) |
+| Safety event status | the notification delivery statuses plus `coalesced`, `rate_limited` |
 | Live Activity status | `starting`, `active`, `partial` (live) · `failed`, `ended`, `expired` (terminal) |
 | Live Activity operation | `start`, `update`, `end` |
 | APNs environment | `sandbox`, `production` |
 | History feed kind | `notification`, `response`, `live_activity` |
-| API token scope | `activities:read`, `activities:write`, `devices:read`, `events:read`, `interactions:create`, `interactions:read`, `notifications:send`, `services:read`, `services:write` |
+| API token scope | `activities:read`, `activities:write`, `devices:read`, `events:read`, `interactions:create`, `interactions:read`, `notifications:send`, `safety:report`, `services:read`, `services:write` |
 
 An interaction's `choices` follow from its kind: `approval` →
 `["approve","deny"]`, `yes_no` → `["yes","no"]`, `reply` → `["reply"]`.
@@ -314,7 +317,7 @@ authorization approval require a session. An API token can revoke itself through
 
 #### Scopes
 
-A token carries a subset of these nine scopes. Anything else is rejected.
+A token carries a subset of these ten scopes. Anything else is rejected.
 
 | Scope | Allows the token to |
 | --- | --- |
@@ -325,6 +328,7 @@ A token carries a subset of these nine scopes. Anything else is rejected.
 | `interactions:create` | Ask questions and cancel pending questions. Asking also requires `notifications:send`, because the question is pushed to a device. |
 | `interactions:read` | View questions, their status, and their answers. |
 | `notifications:send` | Send one-shot push notifications. |
+| `safety:report` | Report active or resolved [safety events](#safety) for configured sources. Reports contain no notification text or priority. |
 | `services:read` | View configured webhook services and their defaults. Webhook credentials are redacted for API tokens. |
 | `services:write` | Change and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. Creating a service also creates its webhook credential, so that operation is [session-only](#post-v1services). |
 
@@ -381,7 +385,8 @@ should set it.
 
 ## Delivery
 
-The following rules apply to notifications, questions, and Live Activities.
+The following rules apply to notifications, questions, Live Activities, and
+[safety alerts](#safety).
 
 ### Who may send
 
@@ -390,10 +395,11 @@ credentials and devices, and answer questions.
 
 An **API token** represents software. It can perform operations allowed by its
 scopes, and it is the only bearer credential that may send. Notifications,
-questions, and Live Activities are attributed to the token that created them. As
-a result,
+questions, safety events, and Live Activities are attributed to the token that
+created them. As a result,
 [`POST /v1/notifications`](#post-v1notifications),
-[`POST /v1/interactions`](#post-v1interactions) and the Live Activity writes
+[`POST /v1/interactions`](#post-v1interactions),
+[`POST /v1/safety-events`](#post-v1safety-events) and the Live Activity writes
 return `403 api_token_required` when called with a session.
 
 A **webhook token** represents a service that sends through
@@ -436,6 +442,7 @@ it.
 These endpoints honour an `Idempotency-Key` request header:
 
 * [`POST /v1/notifications`](#post-v1notifications)
+* [`POST /v1/safety-events`](#post-v1safety-events)
 * [`POST /v1/interactions`](#post-v1interactions)
 * [`POST /v1/activities`](#post-v1activities), [`PATCH`](#patch-v1activitiesidentifier) and [`POST …/end`](#post-v1activitiesidentifierend)
 * [`POST /v1/hooks/{token}`](#post-v1hookstoken) and the webhook Live Activity routes
@@ -496,6 +503,15 @@ with `Retry-After`.
 | `PUT` | [`/v1/devices/{id}/activity-update-token`](#put-v1devicesidactivity-update-token) | session |
 | `PUT` | [`/v1/activity-deliveries/{id}/update-token`](#put-v1activity-deliveriesidupdate-token) | single-use credential in body |
 | `POST` | [`/v1/notifications`](#post-v1notifications) | token `notifications:send` |
+| `GET` | [`/v1/safety-sources`](#get-v1safety-sources) | session |
+| `POST` | [`/v1/safety-sources`](#post-v1safety-sources) | session |
+| `GET` | [`/v1/safety-sources/{id}`](#get-v1safety-sourcesid) | session |
+| `PATCH` | [`/v1/safety-sources/{id}`](#patch-v1safety-sourcesid) | session |
+| `DELETE` | [`/v1/safety-sources/{id}`](#delete-v1safety-sourcesid) | session |
+| `POST` | [`/v1/safety-sources/{id}/test`](#post-v1safety-sourcesidtest) | session |
+| `GET` | [`/v1/safety-settings`](#get-v1safety-settings) | session |
+| `PATCH` | [`/v1/safety-settings`](#patch-v1safety-settings) | session |
+| `POST` | [`/v1/safety-events`](#post-v1safety-events) | token `safety:report` |
 | `POST` | [`/v1/interactions`](#post-v1interactions) | token `interactions:create` + `notifications:send` |
 | `GET` | [`/v1/interactions`](#get-v1interactions) | session · token `interactions:read` |
 | `GET` | [`/v1/interactions/{id}`](#get-v1interactionsid) | session · token `interactions:read` |
@@ -761,7 +777,7 @@ Content-Type: application/json
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `client_name` | string | yes | 1–80 characters, trimmed. Shown to the owner on the approval screen and used as the issued token's `name`. |
-| `scopes` | array of scope | yes | 1–9 known scopes. Shown to the owner, deduplicated, and sorted. |
+| `scopes` | array of scope | yes | 1–10 known scopes. Shown to the owner, deduplicated, and sorted. |
 | `token_expires_in_seconds` | integer \| null | no | Lifetime of the **token this pairing would issue**, not of the request. 3600 – 31 536 000. Default 7 776 000 (90 days). |
 
 **201 Created**
@@ -982,7 +998,7 @@ Content-Type: application/json
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `name` | string | yes | 1–80 characters, trimmed. |
-| `scopes` | array of scope | yes | 1–9 known scopes; stored deduplicated and sorted. |
+| `scopes` | array of scope | yes | 1–10 known scopes; stored deduplicated and sorted. |
 | `expires_in_seconds` | integer \| null | no | 3600 – 31 536 000. Absent or `null` creates a token that never expires. |
 
 **201 Created**
@@ -1084,7 +1100,7 @@ create webhook credentials.
 | `title` | string | yes | 1–80 characters. The default sender name. |
 | `image_url` | string \| null | no | Public HTTPS URL, ≤2048 characters. |
 | `url` | string \| null | no | Tap destination: any scheme except `about:`, `blob:`, `data:`, `file:` and `javascript:`. |
-| `priority` | enum | no | `normal` (default), `time_sensitive`, `critical`. |
+| `priority` | enum | no | `normal` (default) or `time_sensitive`. Only [safety alerts](#safety) can be `critical`. |
 
 **201 Created**
 
@@ -1302,7 +1318,7 @@ Sends a one-shot push. **API token with `notifications:send`.** Supports
 | `title` | string | no | 1–80 characters. Defaults to `"Hark"`; it is shown as the sender. |
 | `image_url` | string | no | Public HTTPS URL. |
 | `url` | string | no | Tap destination. |
-| `priority` | enum | no | `normal` (default), `time_sensitive`, `critical`. |
+| `priority` | enum | no | `normal` (default) or `time_sensitive`. Only [safety alerts](#safety) can be `critical`. |
 | `device_ids` | array of id | no | 1–50 entries. Absent means every reachable device. |
 
 **201 Created**
@@ -1329,6 +1345,241 @@ See [what `accepted` means](#what-accepted-means).
 
 **Errors** — `403 api_token_required` for a session, `409 conflict` for a reused
 idempotency key, `422 validation_failed`, `429 rate_limited`.
+
+---
+
+## Safety
+
+Safety events are reserved for configured smoke, carbon-monoxide, panic,
+intrusion, and water-leak alarms. They are the only notifications Hark can send
+at `critical` priority.
+
+* Reports contain a source id and an `active` or `resolved` state. The server
+  supplies the title, body, and priority.
+* A session is required to create sources, change safety settings, and send a
+  setup test. API tokens can only report events, using the `safety:report`
+  scope.
+* New sources start with critical delivery off. A critical alert requires both
+  the source setting and the account-wide setting to be on.
+* If either setting is off, active alarms and setup tests are sent as
+  `time_sensitive`. Resolved alarms are always `normal`.
+
+### How an alert is composed
+
+Each safety event creates one notification. Its priority is:
+
+| State | Both toggles on | Either toggle off |
+| --- | --- | --- |
+| `active`, `test` | `critical` | `time_sensitive` |
+| `resolved` | `normal` | `normal` |
+
+Safety alerts target every reachable device and cannot be narrowed with
+`device_ids`. Alerts from one source use the `safety-<source id>` push thread.
+Events appear in [history](#get-v1history) with the `safety_event:` id prefix
+and count toward the [delivery limits](#delivery-limits).
+
+Delivery is bounded per source:
+
+* Repeated `active` reports within 5 minutes are recorded as `coalesced` and
+  are not pushed.
+* After 10 pushes from one source in a rolling hour, further reports are
+  recorded as `rate_limited` and are not pushed. Suppressed reports do not
+  count toward the cap.
+* Setup tests are limited to one per source every 10 minutes.
+
+A suppressed report still returns `201` with the recorded event and a `message`
+explaining why no push was sent. Retrying it with the same idempotency key
+returns the stored result.
+
+### `GET /v1/safety-sources`
+
+The account's configured alarms, newest first. **Session only.** Not paged.
+
+**200 OK**
+
+```json
+{
+  "sources": [
+    {
+      "id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+      "kind": "smoke",
+      "name": "Workshop smoke detector",
+      "critical_enabled": true,
+      "created_at": "2026-08-20T08:00:00.000Z",
+      "updated_at": "2026-08-21T09:30:00.000Z"
+    }
+  ]
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `kind` | What the alarm detects: `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak`. |
+| `critical_enabled` | Whether this source may use Critical Alerts. `false` on a new source. |
+
+### `POST /v1/safety-sources`
+
+Configures an alarm. **Session only.**
+
+**Request**
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `kind` | enum | yes | `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak`. |
+| `name` | string | yes | 1–80 characters. Appears in every alert the source produces. |
+
+There is no `critical_enabled` field. New sources start with critical delivery
+off; enable it with a separate [`PATCH`](#patch-v1safety-sourcesid).
+
+**201 Created** — `{ "source": { … } }`.
+
+**422 `validation_failed`** names the offending field.
+
+### `GET /v1/safety-sources/{id}`
+
+One source. **Session only.** **200 OK** — `{ "source": { … } }`;
+`404 not_found` when it does not exist.
+
+### `PATCH /v1/safety-sources/{id}`
+
+Changes a source's name or critical setting. **Session only.** At least one
+field is required. `kind` cannot be changed.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `name` | string | no | 1–80 characters. |
+| `critical_enabled` | boolean | no | Whether this source may use Critical Alerts. |
+
+**200 OK** — `{ "source": { … } }`.
+
+### `DELETE /v1/safety-sources/{id}`
+
+**Session only.** **204 No Content**, `404 not_found` for an unknown id.
+
+Deleting a source also deletes its safety events, including their history
+entries.
+
+### `POST /v1/safety-sources/{id}/test`
+
+Sends one setup test for a source. **Session only.** No request body. The test
+is composed, delivered, and recorded like a reported event. Its returned
+`priority` is `critical` when both settings are on and `time_sensitive`
+otherwise.
+
+**201 Created**
+
+```json
+{
+  "event": {
+    "id": "0198f3f5-1e33-7174-c2d9-7f0a1b2c3d4e",
+    "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+    "source_name": "Workshop smoke detector",
+    "state": "test",
+    "title": "Safety alert test",
+    "body": "Workshop smoke detector: This is a safety alert test.",
+    "priority": "critical",
+    "status": "accepted",
+    "delivered_count": 1,
+    "created_at": "2026-08-21T09:30:00.000Z"
+  }
+}
+```
+
+**Errors**
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 404 | `not_found` | The source does not exist. |
+| 429 | `rate_limited` | A test was sent for this source in the last 10 minutes. `Retry-After` gives the wait in seconds. |
+
+`test` is not accepted by
+[`POST /v1/safety-events`](#post-v1safety-events).
+
+### `GET /v1/safety-settings`
+
+The account-wide critical delivery toggle. **Session only.**
+
+**200 OK**
+
+```json
+{ "critical_alerts_enabled": true }
+```
+
+The setting starts as `true`. Each source must still have `critical_enabled`
+set to `true` before it can send a Critical Alert.
+
+### `PATCH /v1/safety-settings`
+
+Writes the toggle. **Session only.**
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `critical_alerts_enabled` | boolean | yes | When `false`, active alarms and setup tests are `time_sensitive`. Per-source settings are unchanged. |
+
+**200 OK** — the same object as the `GET`, with the new value.
+
+### `POST /v1/safety-events`
+
+Reports a change in an alarm's state and delivers the alert. **API token with
+`safety:report`.** Supports [`Idempotency-Key`](#idempotency).
+
+**Request**
+
+```http
+POST /v1/safety-events
+Content-Type: application/json
+Idempotency-Key: smoke-incident-4821
+
+{ "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd", "state": "active" }
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `source_id` | id | yes | A safety source configured on this account. |
+| `state` | enum | yes | `active` or `resolved`. The [setup test](#post-v1safety-sourcesidtest) is session-only. |
+
+The server [composes the title, body, and priority](#how-an-alert-is-composed).
+
+**201 Created**
+
+```json
+{
+  "event": {
+    "id": "0198f3f5-1e33-7174-c2d9-7f0a1b2c3d4e",
+    "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+    "source_name": "Workshop smoke detector",
+    "state": "active",
+    "title": "Smoke alarm",
+    "body": "Workshop smoke detector: Smoke detected.",
+    "priority": "critical",
+    "status": "accepted",
+    "delivered_count": 2,
+    "created_at": "2026-08-21T09:30:00.000Z"
+  },
+  "replayed": false,
+  "message": null
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `state` | What was reported. `resolved` composes a "cleared" alert at `normal` priority. |
+| `priority` | `critical` when both settings are on; otherwise `time_sensitive`. Resolved events are `normal`. |
+| `status` | The [delivery statuses](#get-v1events), plus `coalesced` and `rate_limited` for reports recorded without a push. |
+| `delivered_count` | APNs acceptances. See [what `accepted` means](#what-accepted-means). |
+| `message` | Non-null when no push was sent or accepted. |
+
+There is no `error` field: detailed APNs failure text is owner-only, in
+[history](#get-v1history).
+
+A replayed idempotency key returns `200` with the stored outcome — including a
+stored `coalesced` or `rate_limited` status.
+
+**Errors** — `403 api_token_required` for a session, `403 insufficient_scope`
+without `safety:report`, `409 conflict` for a reused idempotency key with a
+different body, `422 validation_failed` when `state` is unusable or
+`source_id` does not name a source on this account, `429 rate_limited` at the
+[delivery limits](#delivery-limits).
 
 ---
 
@@ -1363,7 +1614,7 @@ the sender can read. Supports [`Idempotency-Key`](#idempotency).
 | `secondary_label` | string | no | Same. |
 | `image_url` | string | no | Public HTTPS URL. Not available on a Lock Screen card. |
 | `url` | string | no | Tap destination. Not available on a Lock Screen card. |
-| `priority` | enum | no | `normal` (default), `time_sensitive`, `critical`. |
+| `priority` | enum | no | `normal` (default) or `time_sensitive`. Only [safety alerts](#safety) can be `critical`. |
 | `device_ids` | array of id | no | 1–50 entries. |
 | `expires_in_seconds` | integer | no | 30 – 86400, default 900. A Lock Screen card is additionally capped at 28800, the eight hours iOS allows. |
 
@@ -1711,8 +1962,8 @@ clients must ignore unknown response fields.
 
 ### Notification payload
 
-Used for webhook events, API notifications, and welcome notifications. Hark
-sends one payload per device.
+Used for webhook events, API notifications, safety alerts, and welcome
+notifications. Hark sends one payload per device.
 
 ```json
 {
@@ -1757,9 +2008,9 @@ Priority maps as follows. The `apns-priority` header is always `10`:
 | `time_sensitive` | `"default"` | `"time-sensitive"` |
 | `critical` | `{"critical": 1, "name": "default", "volume": 1}` | `"critical"` |
 
-A critical notification can bypass Focus only when the app has the
-critical-alert entitlement and the owner has granted permission. Otherwise,
-iOS downgrades it. Hark sends the requested level in both cases.
+Only the [safety endpoints](#safety) produce `critical`; no request field
+accepts it. iOS requires the critical-alert entitlement and the user's
+permission to deliver at that level.
 
 **`hark`**
 
@@ -1770,7 +2021,7 @@ iOS downgrades it. Hark sends the requested level in both cases.
 | `record_id` | always | The related event, notification, or interaction id used to open the history entry. Welcome notifications use a synthetic id. |
 | `thread_key` | always | The conversation. Group the inbox by it the way `aps.thread-id` groups the Lock Screen. |
 | `url` | omitted when absent | The tap destination. See below. |
-| `source.id` / `source.name` | always | The sender: a service, or the API token that sent it. |
+| `source.id` / `source.name` | always | The sender: a service, the API token that sent it, or the [safety source](#safety) whose alarm this is. |
 | `source.image_url` | omitted when absent | A public HTTPS avatar. |
 | `question` | only on a question | Below. |
 
@@ -2013,8 +2264,8 @@ Deleting a delivery also deletes its associated interaction.
 ### `GET /v1/history`
 
 Returns account history in one newest-first list: webhook deliveries, API
-notifications, answered interactions, and Live Activity changes.
-**Session only.** [Paged](#pagination).
+notifications, safety events, answered interactions, and Live Activity
+changes. **Session only.** [Paged](#pagination).
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
@@ -2048,7 +2299,9 @@ notifications, answered interactions, and Live Activity changes.
 Fields that do not apply to an item's `kind` are `null`.
 
 * `id` is `"<source>:<row id>"`. The sources are `event`,
-  `notification`, `response` and `live_activity`.
+  `notification`, `safety_event`, `response` and `live_activity`.
+* [Safety events](#safety) use kind `notification`. `coalesced` and
+  `rate_limited` mean the event was recorded without sending a push.
 * Answered interactions are ordered by `responded_at`, not by the time they
   were created. Their `result` is `approved`, `denied`, `yes`, `no` or
   `replied`. For Live Activity entries, `result` is `start`, `update` or `end`.
@@ -2085,7 +2338,7 @@ Sends a notification, optionally as a question. Supports
 | `title` | string | no | 1–80 characters. Defaults to the service's title. |
 | `image_url` | string | no | Public HTTPS URL. Defaults to the service's. |
 | `url` | string | no | Tap destination. Defaults to the service's. |
-| `priority` | enum | no | Defaults to the service's. |
+| `priority` | enum | no | `normal` or `time_sensitive`; defaults to the service's. Only [safety alerts](#safety) can be `critical`. |
 | `device_ids` | array of id | no | 1–50 entries. |
 | `response` | object | no | Turns the notification into a question. |
 
@@ -2259,6 +2512,12 @@ outside the versioned `/v1` API:
 | `POST` | `/dashboard/services/{id}` | Saves the defaults. |
 | `POST` | `/dashboard/services/{id}/rotate` | Replaces the webhook credential immediately. |
 | `POST` | `/dashboard/services/{id}/delete` | Deletes the service and its associated deliveries. |
+| `GET` | `/dashboard/safety` | Safety sources, the account-wide critical toggle, and the form that creates a source. |
+| `POST` | `/dashboard/safety` | Creates a safety source. |
+| `POST` | `/dashboard/safety/settings` | Saves the account-wide critical toggle. |
+| `POST` | `/dashboard/safety/{id}` | Saves a source's name and per-source critical toggle. |
+| `POST` | `/dashboard/safety/{id}/test` | Sends the [setup test](#post-v1safety-sourcesidtest) for one source. |
+| `POST` | `/dashboard/safety/{id}/delete` | Deletes the source and its safety events. |
 | `GET` | `/dashboard/devices` | Registered phones. |
 | `POST` | `/dashboard/devices/{id}/delete` | Unregisters one. |
 | `GET` | `/dashboard/tokens` | API tokens and the token creation form. |

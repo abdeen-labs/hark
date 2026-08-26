@@ -10,13 +10,14 @@ import (
 const (
 	PriorityNormal        = "normal"
 	PriorityTimeSensitive = "time_sensitive"
-	PriorityCritical      = "critical"
+	// PriorityCritical is produced only by safety events.
+	PriorityCritical = "critical"
 )
 
-// Priorities lists every accepted priority, in ascending urgency.
-var Priorities = []string{PriorityNormal, PriorityTimeSensitive, PriorityCritical}
+// Priorities lists every priority a caller may request, in ascending urgency.
+var Priorities = []string{PriorityNormal, PriorityTimeSensitive}
 
-// ValidPriority reports whether p is an accepted priority.
+// ValidPriority reports whether p is a priority a caller may request.
 func ValidPriority(p string) bool {
 	for _, v := range Priorities {
 		if v == p {

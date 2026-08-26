@@ -22,6 +22,7 @@ var (
 	tmplHistory   = mustParse("history.html")
 	tmplServices  = mustParse("services.html")
 	tmplService   = mustParse("service.html")
+	tmplSafety    = mustParse("safety.html")
 	tmplDevices   = mustParse("devices.html")
 	tmplTokens    = mustParse("tokens.html")
 	tmplTest      = mustParse("test.html")

@@ -22,15 +22,17 @@ type User struct {
 	// is never cleared, not even when the push failed: the welcome is one-shot
 	// per account for all time.
 	WelcomeSentAt *time.Time `db:"welcome_sent_at"`
-	CreatedAt     time.Time  `db:"created_at"`
-	UpdatedAt     time.Time  `db:"updated_at"`
+	// CriticalAlertsEnabled controls Critical Alerts across the account.
+	CriticalAlertsEnabled bool      `db:"critical_alerts_enabled"`
+	CreatedAt             time.Time `db:"created_at"`
+	UpdatedAt             time.Time `db:"updated_at"`
 }
 
 // Users stores accounts.
 type Users struct{ q Querier }
 
 const userColumns = `id, username, email, display_name, password_hash,
-	password_updated_at, welcome_sent_at, created_at, updated_at`
+	password_updated_at, welcome_sent_at, critical_alerts_enabled, created_at, updated_at`
 
 // CreateUserParams seeds the account.
 type CreateUserParams struct {
@@ -98,6 +100,14 @@ func (s *Users) SetPassword(ctx context.Context, id, hash string, now time.Time)
 		UPDATE users SET password_hash = $2, password_updated_at = $3, updated_at = $3
 		WHERE id = $1`
 	return execOne(ctx, s.q, "set password", q, id, hash, Millis(now))
+}
+
+// SetCriticalAlertsEnabled writes the account-wide critical delivery toggle.
+func (s *Users) SetCriticalAlertsEnabled(ctx context.Context, id string, enabled bool, now time.Time) error {
+	const q = `
+		UPDATE users SET critical_alerts_enabled = $2, updated_at = $3
+		WHERE id = $1`
+	return execOne(ctx, s.q, "set critical alerts toggle", q, id, enabled, Millis(now))
 }
 
 // ClaimWelcome atomically claims the account's one-time welcome notification.

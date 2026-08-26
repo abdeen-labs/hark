@@ -2,12 +2,14 @@
 //  SettingsView.swift
 //  Hark
 //
-//  The spec sheet for this installation: the route a push takes, the
-//  account, the connection, and the one hazardous control. No password
-//  change UI — that is the dashboard's job.
+//  Account, connection, safety, and session settings.
 //
 
 import SwiftUI
+
+nonisolated enum SettingsRoute: Hashable {
+    case safetySources
+}
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
@@ -25,6 +27,7 @@ struct SettingsView: View {
                             .padding(.top, 24)
                         account
                         connection
+                        safety
                         session
                         foot
                     }
@@ -34,6 +37,17 @@ struct SettingsView: View {
             }
             .shellInsets()
             .toolbarVisibility(.hidden, for: .navigationBar)
+            .navigationDestination(for: SettingsRoute.self) { route in
+                switch route {
+                case .safetySources:
+                    SafetySourcesView()
+                        .shellInsets()
+                }
+            }
+            .task {
+                await model.refreshSafetySettings()
+                await model.refreshNotificationPermission()
+            }
         }
     }
 
@@ -106,8 +120,85 @@ struct SettingsView: View {
         }
     }
 
+    private var safety: some View {
+        Module(index: "03", label: "Safety", flush: true) {
+            VStack(spacing: 0) {
+                AxisToggle(
+                    "Critical Alerts",
+                    sub: "Allow enabled alarms to sound through Focus and Silent mode.",
+                    busy: model.safetySettings == nil,
+                    isOn: model.safetySettings?.criticalAlertsEnabled ?? false
+                ) { enabled in
+                    Task { await model.setCriticalAlertsEnabled(enabled) }
+                }
+                .padding(.vertical, 12)
+                Hairline(color: Axis.lineFaint)
+                SpecRow(label: "This phone", value: permissionWord, mono: false)
+                Hairline(color: Axis.lineFaint)
+                NavigationLink(value: SettingsRoute.safetySources) {
+                    HStack(spacing: 16) {
+                        Meta("Sources")
+                            .frame(width: 100, alignment: .leading)
+                        Text("Manage safety sources")
+                            .font(AxisType.copy(14))
+                            .foregroundStyle(Axis.inkMuted)
+                        Spacer(minLength: 8)
+                        Text("→")
+                            .axisControl(12)
+                            .foregroundStyle(Axis.inkSubtle)
+                    }
+                    .padding(.vertical, 9)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        } trailing: {
+            HStack(spacing: 8) {
+                StatusLight(color: safetyLight, size: 5)
+                Meta(safetyWord, color: Axis.inkSubtle)
+            }
+        }
+    }
+
+    private var permissionWord: String {
+        switch model.criticalAlertState {
+        case .unknown: "Checking"
+        case .notificationsDenied: "Notifications off"
+        case .notRequested: "Not set up"
+        case .unavailable: "Unavailable"
+        case .granted: "Granted"
+        case .criticalDenied: "Denied"
+        }
+    }
+
+    private var safetyLight: Color {
+        switch model.criticalAlertState {
+        case .granted:
+            model.safetySettings?.criticalAlertsEnabled == true ? Axis.ok : Axis.warn
+        case .criticalDenied, .notificationsDenied:
+            Axis.danger
+        default:
+            Axis.warn
+        }
+    }
+
+    private var safetyWord: String {
+        switch model.criticalAlertState {
+        case .granted:
+            model.safetySettings?.criticalAlertsEnabled == true ? "Ready" : "Off"
+        case .criticalDenied, .notificationsDenied:
+            "Denied"
+        case .unavailable:
+            "Unavailable"
+        default:
+            "Setup"
+        }
+    }
+
     private var session: some View {
-        Module(index: "03", label: "Session", variant: .hazard) {
+        Module(index: "04", label: "Session", variant: .hazard) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Signing out does not unregister this device.")
                     .font(AxisType.copy(13))

@@ -170,7 +170,7 @@ func TestSignedOutPagesRedirectToSignIn(t *testing.T) {
 	for _, path := range []string{
 		pathHome, pathHistory, pathLiveOverview,
 		pathServices, pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-		pathDevices, pathTokens, pathTest, pathAuthorize,
+		pathSafety, pathDevices, pathTokens, pathTest, pathAuthorize,
 	} {
 		rec := send(d, request(http.MethodGet, path, ""))
 		if rec.Code != http.StatusSeeOther {
@@ -262,6 +262,11 @@ func TestFormsRequireACSRFToken(t *testing.T) {
 		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
 		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/rotate",
 		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
+		pathSafety,
+		pathSafety + "/settings",
+		pathSafety + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+		pathSafety + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/test",
+		pathSafety + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathDevices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathTokens,
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/revoke",
@@ -636,11 +641,11 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			Service: db.Service{
 				ID: "svc-1", Title: "<script>alert(1)</script>",
 				ImageURL: ptr("https://example.com/logo.png"), URL: ptr("https://example.com/run"),
-				Priority: db.PriorityCritical, CreatedAt: now, UpdatedAt: now,
+				Priority: db.PriorityTimeSensitive, CreatedAt: now, UpdatedAt: now,
 			},
 			WebhookURL: ptr("https://hark.example.com/v1/hooks/harkhook_notarealtoken"),
 			Priorities: db.Priorities,
-			Form:       serviceForm{Title: "CI", ImageURL: "https://example.com/logo.png", Priority: db.PriorityCritical},
+			Form:       serviceForm{Title: "CI", ImageURL: "https://example.com/logo.png", Priority: db.PriorityTimeSensitive},
 			Deliveries: []db.EventListItem{
 				{Event: db.Event{
 					ID: "evt-1", Title: "<script>alert(1)</script>", Body: "Build 4821 failed",
@@ -658,6 +663,26 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			Service:    db.Service{ID: "svc-2", Title: "ci", Priority: db.PriorityNormal, CreatedAt: now, UpdatedAt: now},
 			Priorities: db.Priorities,
 			Form:       serviceForm{Title: "ci", Priority: db.PriorityNormal},
+		}},
+		"safety": {tmplSafety, safetyPage{
+			view:                  frame,
+			CriticalAlertsEnabled: true,
+			Kinds:                 db.SafetyKinds,
+			Form:                  safetyForm{Kind: db.SafetyKindSmoke, Name: "<script>alert(1)</script>"},
+			Sources: []db.SafetySource{
+				{
+					ID: "safe-1", Kind: db.SafetyKindSmoke, Name: "<script>alert(1)</script>",
+					CriticalEnabled: true, CreatedAt: now, UpdatedAt: now,
+				},
+				{
+					ID: "safe-2", Kind: db.SafetyKindWaterLeak, Name: "Basement",
+					CriticalEnabled: false, CreatedAt: now, UpdatedAt: now,
+				},
+			},
+		}},
+		"safety/empty": {tmplSafety, safetyPage{
+			view:  frame,
+			Kinds: db.SafetyKinds,
 		}},
 		"test": {tmplTest, testPage{
 			view:       frame,
@@ -704,6 +729,10 @@ func TestTemplatesRender(t *testing.T) {
 			}
 			if !strings.Contains(body, assets.HTMX) || !strings.Contains(body, `hx-boost="true"`) {
 				t.Errorf("boosted navigation is not wired:\n%s", body)
+			}
+			// Generic test notifications cannot request critical priority.
+			if name == "test" && strings.Contains(body, `value="`+db.PriorityCritical+`"`) {
+				t.Errorf("the test page offers a critical option:\n%s", body)
 			}
 		})
 	}

@@ -1,0 +1,123 @@
+{{define "content"}}
+<header class="page-head">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">03·A</span> Safety sources</span>
+  </p>
+  <h1 class="page-head__title display">Safety</h1>
+  <p class="page-head__lede lede">Configure alarm sources that can send Critical Alerts.</p>
+</header>
+
+<div class="grid">
+  <section class="module module--signal span-12">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">01</span>Critical Alerts</h2>
+      {{if .CriticalAlertsEnabled}}<span class="tag tag--state tag--ok">On</span>
+      {{else}}<span class="tag tag--state tag--expired">Off</span>{{end}}
+    </div>
+    <div class="module__body">
+      <form method="post" action="{{.Paths.Safety}}/settings" class="stack" hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <label class="check">
+          <input type="checkbox" name="critical_alerts_enabled"{{if .CriticalAlertsEnabled}} checked{{end}}>
+          <span class="check__copy">
+            <span class="check__name">Critical Alerts</span>
+            <span class="check__description">Allow enabled sources to sound through Focus and Silent mode. When off, active alarms arrive as Time Sensitive notifications.</span>
+          </span>
+        </label>
+        <button class="btn btn--primary" type="submit">Save</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="module module--marked span-4">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">02</span>New source</h2>
+    </div>
+    <div class="module__body">
+      <form method="post" action="{{.Paths.Safety}}" class="stack" hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+        <label class="field">
+          <span class="field__label">Detects</span>
+          <select class="input" name="kind" required>
+            <option value=""{{if eq .Form.Kind ""}} selected{{end}} disabled hidden>Choose an alarm type</option>
+            {{$form := .Form}}
+            {{range .Kinds}}
+            <option value="{{.}}"{{if eq $form.Kind .}} selected{{end}}>{{title .}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Name</span>
+          <input class="input" type="text" name="name" value="{{.Form.Name}}"
+                 placeholder="Kitchen smoke detector" maxlength="80" required>
+        </label>
+
+        <button class="btn btn--primary" type="submit">Create source <span class="arrow">→</span></button>
+        <p class="module__note">Critical Alerts are off for new sources.</p>
+      </form>
+    </div>
+  </section>
+
+  <section class="module span-8">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">03</span>Sources</h2>
+      {{if not .CriticalAlertsEnabled}}<span class="meta meta--signal">Critical Alerts are off for this account</span>{{end}}
+    </div>
+    {{if .Sources}}
+    <div class="scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="cell--index"><span class="visually-hidden">Row</span></th>
+            <th>Name</th><th>Detects</th><th>Critical</th><th>Created</th>
+            <th class="cell--right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Sources}}
+          <tr data-safety-source="{{.ID}}">
+            <td class="cell--index"></td>
+            <td class="cell--strong">
+              <input class="input" type="text" name="name" value="{{.Name}}"
+                     maxlength="80" required form="safety-edit-{{.ID}}"
+                     aria-label="Name">
+            </td>
+            <td><span class="tag tag--kind">{{title .Kind}}</span></td>
+            <td>
+              <label class="check">
+                <input type="checkbox" name="critical_enabled"{{if .CriticalEnabled}} checked{{end}}
+                       form="safety-edit-{{.ID}}">
+                <span class="visually-hidden">Critical Alerts</span>
+              </label>
+            </td>
+            <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
+            <td class="cell--right cell--actions">
+              <form id="safety-edit-{{.ID}}" method="post" action="{{$.Paths.Safety}}/{{.ID}}"
+                    hx-disabled-elt="find button[type=submit]">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <button class="btn btn--sm" type="submit">Save</button>
+              </form>
+              <form method="post" action="{{$.Paths.Safety}}/{{.ID}}/test"
+                    hx-disabled-elt="find button[type=submit]">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <button class="btn btn--ghost btn--sm" type="submit">Send test</button>
+              </form>
+              <form method="post" action="{{$.Paths.Safety}}/{{.ID}}/delete"
+                    data-confirm="Delete {{.Name}} and its alert history?"
+                    hx-disabled-elt="find button[type=submit]">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <button class="btn btn--danger btn--sm" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <p class="empty">No safety sources yet.</p>
+    {{end}}
+  </section>
+</div>
+{{end}}

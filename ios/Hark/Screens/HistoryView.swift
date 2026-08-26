@@ -229,7 +229,7 @@ struct HistoryRow: View {
                             StateTag(state: status)
                         }
                         if let priority = item.priority, !priority.isEmpty, priority != "normal" {
-                            Tag(priority, tone: .warn)
+                            StateTag(state: priority)
                         }
                     }
                     if let title = item.title, !title.isEmpty {

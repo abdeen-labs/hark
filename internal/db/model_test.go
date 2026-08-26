@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -247,9 +248,107 @@ func TestValidPriority(t *testing.T) {
 			t.Errorf("ValidPriority(%q) = false", p)
 		}
 	}
-	for _, p := range []string{"", "urgent", "time-sensitive", "NORMAL"} {
+	// Callers cannot request critical priority.
+	for _, p := range []string{"", "urgent", "time-sensitive", "NORMAL", PriorityCritical} {
 		if ValidPriority(p) {
 			t.Errorf("ValidPriority(%q) = true", p)
+		}
+	}
+}
+
+func TestValidSafetyKind(t *testing.T) {
+	for _, k := range SafetyKinds {
+		if !ValidSafetyKind(k) {
+			t.Errorf("ValidSafetyKind(%q) = false", k)
+		}
+	}
+	for _, k := range []string{"", "fire", "SMOKE", "smoke "} {
+		if ValidSafetyKind(k) {
+			t.Errorf("ValidSafetyKind(%q) = true", k)
+		}
+	}
+}
+
+func TestValidSafetyState(t *testing.T) {
+	for _, s := range SafetyStates {
+		if !ValidSafetyState(s) {
+			t.Errorf("ValidSafetyState(%q) = false", s)
+		}
+	}
+	for _, s := range []string{"", "cleared", "ACTIVE"} {
+		if ValidSafetyState(s) {
+			t.Errorf("ValidSafetyState(%q) = true", s)
+		}
+	}
+	// Setup tests use a session-only endpoint.
+	if slices.Contains(SafetyReportStates, SafetyStateTest) {
+		t.Error("SafetyReportStates offers the test state")
+	}
+	for _, s := range SafetyReportStates {
+		if !ValidSafetyState(s) {
+			t.Errorf("SafetyReportStates carries the unknown state %q", s)
+		}
+	}
+}
+
+func TestSafetyAlertContent(t *testing.T) {
+	const name = "Kitchen"
+
+	activeTitles := map[string]string{}
+	for _, kind := range SafetyKinds {
+		titles := map[string]string{}
+		for _, state := range SafetyStates {
+			title, body := SafetyAlertContent(kind, name, state)
+			if title == "" || body == "" {
+				t.Fatalf("SafetyAlertContent(%q, %q, %q) composed an empty alert", kind, name, state)
+			}
+			if !strings.HasPrefix(body, name+": ") {
+				t.Errorf("SafetyAlertContent(%q, %q, %q) body %q does not lead with the source name", kind, name, state, body)
+			}
+			if prev, ok := titles[title]; ok {
+				t.Errorf("kind %q states %q and %q share the title %q", kind, prev, state, title)
+			}
+			titles[title] = state
+		}
+
+		activeTitle, _ := SafetyAlertContent(kind, name, SafetyStateActive)
+		if other, ok := activeTitles[activeTitle]; ok {
+			t.Errorf("kinds %q and %q share the active title %q", other, kind, activeTitle)
+		}
+		activeTitles[activeTitle] = kind
+	}
+
+	// Setup tests share a title across source kinds.
+	smokeTest, _ := SafetyAlertContent(SafetyKindSmoke, name, SafetyStateTest)
+	panicTest, _ := SafetyAlertContent(SafetyKindPanic, name, SafetyStateTest)
+	if smokeTest != panicTest {
+		t.Errorf("test titles differ by kind: %q vs %q", smokeTest, panicTest)
+	}
+}
+
+func TestSafetyAlertPriority(t *testing.T) {
+	cases := []struct {
+		state                   string
+		userEnabled, srcEnabled bool
+		want                    string
+	}{
+		{SafetyStateActive, true, true, PriorityCritical},
+		{SafetyStateActive, true, false, PriorityTimeSensitive},
+		{SafetyStateActive, false, true, PriorityTimeSensitive},
+		{SafetyStateActive, false, false, PriorityTimeSensitive},
+		{SafetyStateTest, true, true, PriorityCritical},
+		{SafetyStateTest, true, false, PriorityTimeSensitive},
+		{SafetyStateTest, false, true, PriorityTimeSensitive},
+		{SafetyStateTest, false, false, PriorityTimeSensitive},
+		{SafetyStateResolved, true, true, PriorityNormal},
+		{SafetyStateResolved, true, false, PriorityNormal},
+		{SafetyStateResolved, false, true, PriorityNormal},
+		{SafetyStateResolved, false, false, PriorityNormal},
+	}
+	for _, tc := range cases {
+		if got := SafetyAlertPriority(tc.state, tc.userEnabled, tc.srcEnabled); got != tc.want {
+			t.Errorf("SafetyAlertPriority(%q, %v, %v) = %q, want %q",
+				tc.state, tc.userEnabled, tc.srcEnabled, got, tc.want)
 		}
 	}
 }
@@ -296,7 +395,10 @@ func TestDeliveryPredicates(t *testing.T) {
 
 func TestParseFeedID(t *testing.T) {
 	id := "0198f3a1-2b4c-7d8e-9f01-23456789abcd"
-	for _, source := range []string{FeedSourceEvent, FeedSourceNotification, FeedSourceResponse, FeedSourceLiveActivity} {
+	for _, source := range []string{
+		FeedSourceEvent, FeedSourceNotification, FeedSourceResponse,
+		FeedSourceLiveActivity, FeedSourceSafetyEvent,
+	} {
 		gotSource, gotID, ok := ParseFeedID(source + ":" + id)
 		if !ok || gotSource != source || gotID != id {
 			t.Errorf("ParseFeedID(%q:%q) = (%q, %q, %v)", source, id, gotSource, gotID, ok)

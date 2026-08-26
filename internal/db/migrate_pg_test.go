@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"log/slog"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -132,6 +134,94 @@ func TestMigrateRollsBackAFailedMigration(t *testing.T) {
 	if columns != 0 {
 		t.Error("the failed migration's DDL was not rolled back")
 	}
+}
+
+// TestMigrateBackfillsCriticalPriorities starts with a pre-safety schema and
+// verifies the priority and scope constraints after migration.
+func TestMigrateBackfillsCriticalPriorities(t *testing.T) {
+	dsn := testDatabaseURL(t)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	t.Cleanup(cancel)
+
+	// Use a separate schema because this test applies only part of the ledger.
+	const schema = "hark_backfill_test"
+	pool, err := Open(ctx, Config{
+		URL: searchPathDSN(dsn, schema), MaxConns: 2, ConnectTimeout: 10 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	if _, err := pool.Exec(ctx, "DROP SCHEMA IF EXISTS "+schema+" CASCADE; CREATE SCHEMA "+schema); err != nil {
+		t.Fatalf("reset schema: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.WithoutCancel(ctx), "DROP SCHEMA IF EXISTS "+schema+" CASCADE")
+	})
+
+	initial, err := fs.ReadFile(Migrations(), "0001_initial_schema.sql")
+	if err != nil {
+		t.Fatalf("read 0001: %v", err)
+	}
+	if err := Migrate(ctx, pool, fstest.MapFS{
+		"0001_initial_schema.sql": {Data: initial},
+	}, testLogger()); err != nil {
+		t.Fatalf("apply 0001: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, username, email, display_name, created_at, updated_at)
+		VALUES ('u1', 'ali', 'ali@hark.local', 'ali', now(), now())`); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO services (id, user_id, title, priority, token_hash, token_ciphertext, created_at, updated_at)
+		VALUES ('svc1', 'u1', 'Uptime', 'critical', 'hash', 'v1.a.b.c', now(), now())`); err != nil {
+		t.Fatalf("seed critical service: %v", err)
+	}
+
+	if err := Migrate(ctx, pool, Migrations(), testLogger()); err != nil {
+		t.Fatalf("apply the full set: %v", err)
+	}
+
+	var priority string
+	if err := pool.QueryRow(ctx, "SELECT priority FROM services WHERE id = 'svc1'").Scan(&priority); err != nil {
+		t.Fatalf("read the backfilled service: %v", err)
+	}
+	if priority != PriorityTimeSensitive {
+		t.Errorf("backfilled priority = %q, want %q", priority, PriorityTimeSensitive)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO services (id, user_id, title, priority, token_hash, token_ciphertext, created_at, updated_at)
+		VALUES ('svc2', 'u1', 'New', 'critical', 'hash2', 'v1.a.b.c', now(), now())`); !IsCheckViolation(err) {
+		t.Errorf("inserting a fresh critical service error = %v, want a CHECK violation", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO api_tokens (id, user_id, name, token_hash, prefix, scopes, created_at)
+		VALUES ('tok1', 'u1', 'reporter', 'thash', 'hark_abcd', ARRAY['safety:report'], now())`); err != nil {
+		t.Errorf("a safety:report token was refused by the widened CHECK: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO api_tokens (id, user_id, name, token_hash, prefix, scopes, created_at)
+		VALUES ('tok2', 'u1', 'bad', 'thash2', 'hark_abcd', ARRAY['safety:destroy'], now())`); !IsCheckViolation(err) {
+		t.Errorf("an invented scope error = %v, want a CHECK violation", err)
+	}
+}
+
+// searchPathDSN selects the schema used by a migration test.
+func searchPathDSN(raw, schema string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	q := u.Query()
+	q.Set("search_path", schema)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func TestOpenFailsFastWhenUnreachable(t *testing.T) {

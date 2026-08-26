@@ -37,19 +37,18 @@ func ValidFeedFilter(f string) bool {
 	}
 }
 
-// Feed sources, which are the prefixes of a feed item's composite id. There are
-// four because two distinct tables both surface as notifications, and a delete
-// has to know which one a row came from.
+// Feed sources prefix a feed item's composite id.
 const (
 	FeedSourceEvent        = "event"
 	FeedSourceNotification = "notification"
 	FeedSourceResponse     = "response"
 	FeedSourceLiveActivity = "live_activity"
+	FeedSourceSafetyEvent  = "safety_event"
 )
 
 // FeedItem is one entry in the account's unified history.
 //
-// The four sources have little in common, so most fields are nullable and a
+// The sources have little in common, so most fields are nullable and a
 // client reads whichever ones its kind populates.
 type FeedItem struct {
 	// ID is "<source>:<row id>". It is the handle a delete takes, which is why
@@ -83,7 +82,7 @@ type Feed struct {
 	store *Store
 }
 
-// feedQuery is a union of the four sources with a shared column shape.
+// feedQuery is a union of all feed sources with a shared column shape.
 //
 // Every NULL is cast, because a UNION resolves each column's type from the
 // branches and an uncast NULL would leave it unknown. The filter is applied per
@@ -144,6 +143,15 @@ const feedQuery = `
 		LEFT JOIN api_tokens t ON t.id  = o.requester_token_id
 		WHERE a.user_id = $1 AND $2::text IN ('all', 'live_activity')
 		  AND a.interaction_id IS NULL
+
+		UNION ALL
+
+		SELECT 'safety_event:' || se.id, 'notification'::text, ss.name, NULL::text,
+		       se.title, se.body, NULL::text, NULL::text,
+		       se.status, se.delivered_count, se.error, se.priority, se.created_at
+		FROM safety_events se
+		JOIN safety_sources ss ON ss.id = se.source_id
+		WHERE ss.user_id = $1 AND $2::text IN ('all', 'notification')
 	)
 	SELECT id, kind, source_name, source_image_url, title, detail, url, result,
 	       status, delivered_count, error, priority, created_at
@@ -155,7 +163,7 @@ const feedQuery = `
 // List pages the account's history, newest first.
 //
 // Ordering is by (created_at, id) descending, and the cursor is a position in
-// exactly that order — which is why the composite id has to participate: four
+// exactly that order — which is why the composite id has to participate: the
 // sources routinely produce rows in the same millisecond, and without the
 // tie-break a page boundary would drop or repeat them.
 func (s *Feed) List(ctx context.Context, userID, filter string, cursor Cursor, limit int) (Page[FeedItem], error) {
@@ -185,7 +193,8 @@ func ParseFeedID(feedID string) (source, rowID string, ok bool) {
 		return "", "", false
 	}
 	switch source {
-	case FeedSourceEvent, FeedSourceNotification, FeedSourceResponse, FeedSourceLiveActivity:
+	case FeedSourceEvent, FeedSourceNotification, FeedSourceResponse,
+		FeedSourceLiveActivity, FeedSourceSafetyEvent:
 		return source, rowID, true
 	default:
 		return "", "", false
@@ -212,6 +221,8 @@ func (s *Feed) Delete(ctx context.Context, userID, feedID string) (bool, error) 
 		return s.store.Interactions.Delete(ctx, rowID, userID)
 	case FeedSourceLiveActivity:
 		return s.store.Operations.Delete(ctx, rowID, userID)
+	case FeedSourceSafetyEvent:
+		return s.store.SafetyEvents.Delete(ctx, rowID, userID)
 	default:
 		return false, nil
 	}

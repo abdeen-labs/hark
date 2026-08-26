@@ -302,6 +302,26 @@ func (s *server) routes(rt *router) {
 	rt.handle(http.MethodPost, APIPrefix+"/notifications",
 		RequireAPIToken(RequireScopes(db.ScopeNotificationsNew)(http.HandlerFunc(s.handleSendNotification))))
 
+	// Safety configuration requires a session; reporting requires a scoped token.
+	rt.handle(http.MethodGet, APIPrefix+"/safety-sources",
+		RequireSession(http.HandlerFunc(s.handleListSafetySources)))
+	rt.handle(http.MethodPost, APIPrefix+"/safety-sources",
+		RequireSession(http.HandlerFunc(s.handleCreateSafetySource)))
+	rt.handle(http.MethodGet, APIPrefix+"/safety-sources/{id}",
+		RequireSession(http.HandlerFunc(s.handleGetSafetySource)))
+	rt.handle(http.MethodPatch, APIPrefix+"/safety-sources/{id}",
+		RequireSession(http.HandlerFunc(s.handleUpdateSafetySource)))
+	rt.handle(http.MethodDelete, APIPrefix+"/safety-sources/{id}",
+		RequireSession(http.HandlerFunc(s.handleDeleteSafetySource)))
+	rt.handle(http.MethodPost, APIPrefix+"/safety-sources/{id}/test",
+		RequireSession(http.HandlerFunc(s.handleSafetySourceTest)))
+	rt.handle(http.MethodGet, APIPrefix+"/safety-settings",
+		RequireSession(http.HandlerFunc(s.handleGetSafetySettings)))
+	rt.handle(http.MethodPatch, APIPrefix+"/safety-settings",
+		RequireSession(http.HandlerFunc(s.handleUpdateSafetySettings)))
+	rt.handle(http.MethodPost, APIPrefix+"/safety-events",
+		RequireAPIToken(RequireScopes(db.ScopeSafetyReport)(http.HandlerFunc(s.handleReportSafetyEvent))))
+
 	rt.handle(http.MethodPost, APIPrefix+"/interactions",
 		RequireAPIToken(RequireScopes(db.ScopeInteractionsNew, db.ScopeNotificationsNew)(
 			http.HandlerFunc(s.handleCreateInteraction))))

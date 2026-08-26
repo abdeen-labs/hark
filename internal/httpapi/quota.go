@@ -80,7 +80,11 @@ func (s *server) countRequesterWork(ctx context.Context, req requester, since ti
 		if err != nil {
 			return 0, err
 		}
-		return operations + interactions + notifications, nil
+		safety, err := store.SafetyEvents.CountForTokenSince(ctx, *req.TokenID, since)
+		if err != nil {
+			return 0, err
+		}
+		return operations + interactions + notifications + safety, nil
 	}
 
 	events, err := store.Events.CountForServiceSince(ctx, deref(req.ServiceID), since)
@@ -115,7 +119,11 @@ func (s *server) countAccountWork(ctx context.Context, userID string, since time
 	if err != nil {
 		return 0, err
 	}
-	return events + interactions + notifications + operations, nil
+	safety, err := store.SafetyEvents.CountForUserSince(ctx, userID, since)
+	if err != nil {
+		return 0, err
+	}
+	return events + interactions + notifications + operations + safety, nil
 }
 
 // selectTargets resolves the devices one send should reach.
