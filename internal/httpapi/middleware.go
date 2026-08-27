@@ -104,7 +104,7 @@ func WithLogger(base *slog.Logger) Middleware {
 }
 
 // hooksPrefix is the one part of the API whose path contains a credential.
-const hooksPrefix = APIPrefix + "/hooks/"
+const hooksPrefix = "/hooks/"
 
 // redactPath replaces a webhook token with a placeholder.
 //

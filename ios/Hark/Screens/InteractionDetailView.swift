@@ -2,7 +2,7 @@
 //  InteractionDetailView.swift
 //  Hark
 //
-//  One question, watched live. Long-polls GET /v1/interactions/{id} with
+//  One question, watched live. Long-polls GET /interactions/{id} with
 //  wait_seconds=25 while the question is pending, so an answer given
 //  anywhere — this phone, another device, the Lock Screen — appears the
 //  moment it lands. The prompt is the page; the deadline is its clock.

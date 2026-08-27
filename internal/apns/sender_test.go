@@ -203,7 +203,7 @@ func startEvent() push.ActivityEvent {
 	event := sampleActivity(push.EventStart)
 	event.Start = &push.ActivityStart{
 		Banner:               push.ActivityBanner{Title: "Deploy", Body: "Building"},
-		TokenRegistrationURL: "https://hark.example/v1/activity-deliveries/lad/update-token",
+		TokenRegistrationURL: "https://hark.example/activity-deliveries/lad/update-token",
 		RegistrationToken:    "registration-token",
 	}
 	return event

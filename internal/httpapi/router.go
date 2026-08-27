@@ -23,7 +23,7 @@ func newRouter() *router {
 }
 
 // handle registers a handler for one method and pattern, e.g.
-// ("GET", "/v1/services/{id}").
+// ("GET", "/services/{id}").
 func (rt *router) handle(method, pattern string, h http.Handler) {
 	rt.mux.Handle(method+" "+pattern, h)
 	if !slices.Contains(rt.methods[pattern], method) {
@@ -40,7 +40,7 @@ func (rt *router) handleFunc(method, pattern string, h http.HandlerFunc) {
 //
 // It exists for the one sub-handler that does not answer in the JSON envelope —
 // the dashboard, which renders HTML and therefore has to produce its own "not
-// found" and "method not allowed". Nothing under /v1 uses it.
+// found" and "method not allowed" responses.
 func (rt *router) mount(pattern string, h http.Handler) {
 	rt.mux.Handle(pattern, h)
 }

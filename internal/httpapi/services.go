@@ -59,7 +59,7 @@ func (s *server) webhookURL(r *http.Request, svc db.Service) *string {
 
 // hookURL renders the public ingest URL for a plaintext webhook token.
 func (s *server) hookURL(token string) string {
-	return s.publicPath(APIPrefix + "/hooks/" + token)
+	return s.publicPath("/hooks/" + token)
 }
 
 type serviceListResponse struct {

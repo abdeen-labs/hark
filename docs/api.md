@@ -23,7 +23,7 @@ session:
 ```sh
 export HARK_URL='http://localhost:8080'
 
-curl --fail-with-body "$HARK_URL/v1/auth/login" \
+curl --fail-with-body "$HARK_URL/auth/login" \
   --header 'Content-Type: application/json' \
   --data '{"username":"admin","password":"correct horse battery staple"}'
 ```
@@ -34,7 +34,7 @@ API token:
 ```sh
 export HARK_SESSION='harksess_…'
 
-curl --fail-with-body "$HARK_URL/v1/tokens" \
+curl --fail-with-body "$HARK_URL/tokens" \
   --header "Authorization: Bearer $HARK_SESSION" \
   --header 'Content-Type: application/json' \
   --data '{"name":"quickstart","scopes":["notifications:send"]}'
@@ -45,7 +45,7 @@ The `secret` in this response is shown only once. Save it and send:
 ```sh
 export HARK_TOKEN='hark_…'
 
-curl --fail-with-body "$HARK_URL/v1/notifications" \
+curl --fail-with-body "$HARK_URL/notifications" \
   --header "Authorization: Bearer $HARK_TOKEN" \
   --header 'Content-Type: application/json' \
   --header 'Idempotency-Key: first-notification' \
@@ -60,10 +60,10 @@ see whether APNs accepted it.
 
 | You are building | Start with | Credential |
 | --- | --- | --- |
-| An API client, CLI, or CI job | [`POST /v1/notifications`](#post-v1notifications), then [interactions](#interactions) or [Live Activities](#live-activities) | Scoped API token |
-| A service that can only call a URL | [Create a service](#post-v1services), then call its [`/v1/hooks/{token}`](#post-v1hookstoken) URL | Webhook token in the URL |
-| An iOS client | [Session authentication](#session), then [register the device](#post-v1devices) | Session |
-| A headless client that needs owner approval | [Device authorization](#post-v1authdevicecode) | Device grant, then API token |
+| An API client, CLI, or CI job | [`POST /notifications`](#post-notifications), then [interactions](#interactions) or [Live Activities](#live-activities) | Scoped API token |
+| A service that can only call a URL | [Create a service](#post-services), then call its [`/hooks/{token}`](#post-hookstoken) URL | Webhook token in the URL |
+| An iOS client | [Session authentication](#session), then [register the device](#post-devices) | Session |
+| A headless client that needs owner approval | [Device authorization](#post-authdevicecode) | Device grant, then API token |
 
 Use the [OpenAPI 3.1 document](/openapi.json) for generated clients and
 validation. Text-oriented tools can use the [raw Markdown](/docs.md) or the
@@ -74,21 +74,20 @@ all formats.
 
 ## Conventions
 
-### Base URL and versioning
+### Base URL
 
-All API endpoints live under the `/v1` prefix:
+API endpoints are rooted directly at the deployment origin; there is no
+version prefix:
 
 ```
-https://hark.example.com/v1/…
+https://hark.example.com/notifications
 ```
 
 The readiness probe ([`/healthz`](#get-healthz)), documentation
-([`/docs`](#get-docs)), and [dashboard](#dashboard) are outside `/v1`. Dashboard
-and documentation routes return HTML rather than the API's JSON responses.
-
-The version changes only for a breaking API change. Endpoints may gain new JSON
-fields without a version change, so clients must ignore fields they do not
-recognize.
+([`/docs`](#get-docs)), and [dashboard](#dashboard) reserve their own top-level
+paths. Dashboard and documentation routes return HTML rather than the API's
+JSON responses. Endpoints may gain new JSON fields, so clients must ignore
+fields they do not recognize.
 
 ### Requests
 
@@ -98,8 +97,8 @@ recognize.
   `413 payload_too_large` before it is read.
 * **Unknown request fields are rejected** with `400 bad_request`. Send only the
   fields documented for that endpoint.
-* Paths are case-sensitive and have no trailing slash. `/v1/services/` does not
-  match `/v1/services`.
+* Paths are case-sensitive and have no trailing slash. `/services/` does not
+  match `/services`.
 * Reaching an existing path with an unsupported method returns
   `405 method_not_allowed` along with an `Allow` header.
 
@@ -181,7 +180,7 @@ shown below; unknown values are rejected.
 | Interaction presentation | `notification`, `live_activity` |
 | Notification delivery status | `processing`, `no_devices`, `accepted`, `partial`, `failed` |
 | Alert source kind | `general`, `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak` |
-| Safety event state | `active`, `resolved` (reported by tokens) · `test` (session-only [setup test](#post-v1safety-sourcesidtest)) |
+| Safety event state | `active`, `resolved` (reported by tokens) · `test` (session-only [setup test](#post-safety-sourcesidtest)) |
 | Safety event status | the notification delivery statuses plus `coalesced`, `rate_limited` |
 | Live Activity status | `starting`, `active`, `partial` (live) · `failed`, `ended`, `expired` (terminal) |
 | Live Activity operation | `start`, `update`, `end` |
@@ -259,7 +258,7 @@ Validation failures add a `fields` array naming each offending input:
 
 The device grant adds five more codes — `authorization_pending`, `slow_down`,
 `access_denied`, `expired_token` and `invalid_grant` — described with
-[`POST /v1/auth/device/token`](#post-v1authdevicetoken).
+[`POST /auth/device/token`](#post-authdevicetoken).
 
 ---
 
@@ -271,7 +270,7 @@ it at startup through environment variables. There is no sign-up endpoint.
 ### Session
 
 A session is the account owner signed in with their password. It is issued by
-[`POST /v1/auth/login`](#post-v1authlogin) and travels either way:
+[`POST /auth/login`](#post-authlogin) and travels either way:
 
 **As a cookie**, for the dashboard. The server sets it on sign-in and the
 browser replays it:
@@ -306,14 +305,14 @@ scopes:
 Authorization: Bearer hark_c2xLm9JbR1tXyLp0aNfCd7eJhSu4WgO7xY2bWvK
 ```
 
-Tokens are created by the account owner ([`POST /v1/tokens`](#post-v1tokens))
-or issued by the [device grant](#post-v1authdevicecode). The plaintext is shown
+Tokens are created by the account owner ([`POST /tokens`](#post-tokens))
+or issued by the [device grant](#post-authdevicecode). The plaintext is shown
 exactly once, at creation, and is never recoverable — the server stores only a
 digest.
 
 **API tokens cannot create or modify credentials.** Token management and device
 authorization approval require a session. An API token can revoke itself through
-[`POST /v1/auth/logout`](#post-v1authlogout).
+[`POST /auth/logout`](#post-authlogout).
 
 #### Scopes
 
@@ -330,7 +329,7 @@ A token carries a subset of these ten scopes. Anything else is rejected.
 | `notifications:send` | Send one-shot push notifications. |
 | `safety:report` | Report active or resolved [safety events](#safety) for configured sources. Reports contain no notification text or priority. |
 | `services:read` | View configured webhook services and their defaults. Webhook credentials are redacted for API tokens. |
-| `services:write` | Change and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. Creating a service also creates its webhook credential, so that operation is [session-only](#post-v1services). |
+| `services:write` | Change and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. Creating a service also creates its webhook credential, so that operation is [session-only](#post-services). |
 
 Scope lists are stored deduplicated and sorted, so a request for
 `["services:read","interactions:read","services:read"]` reads back as
@@ -368,9 +367,9 @@ per-client ceiling and a process-wide one twenty times larger:
 
 | Endpoint | Per client | Process-wide |
 | --- | --- | --- |
-| `POST /v1/auth/login` | 10 | 200 |
-| `POST /v1/auth/device/code` | 20 | 400 |
-| `POST /v1/auth/device/token` | 120 | 2400 |
+| `POST /auth/login` | 10 | 200 |
+| `POST /auth/device/code` | 20 | 400 |
+| `POST /auth/device/token` | 120 | 2400 |
 
 Exceeding either gives `429 rate_limited` with `Retry-After` in seconds.
 
@@ -397,13 +396,13 @@ An **API token** represents software. It can perform operations allowed by its
 scopes, and it is the only bearer credential that may send. Notifications,
 questions, safety events, and Live Activities are attributed to the token that
 created them. As a result,
-[`POST /v1/notifications`](#post-v1notifications),
-[`POST /v1/interactions`](#post-v1interactions),
-[`POST /v1/safety-events`](#post-v1safety-events) and the Live Activity writes
+[`POST /notifications`](#post-notifications),
+[`POST /interactions`](#post-interactions),
+[`POST /safety-events`](#post-safety-events) and the Live Activity writes
 return `403 api_token_required` when called with a session.
 
 A **webhook token** represents a service that sends through
-[`/v1/hooks/{token}`](#post-v1hookstoken) and manages its own Live Activities
+[`/hooks/{token}`](#post-hookstoken) and manages its own Live Activities
 using the same request and response formats as API-token clients.
 
 ### Choosing devices
@@ -429,7 +428,7 @@ accepted from Hark**. They do not confirm that a device received or displayed th
 message.
 
 When a send fails, Hark stores the APNs error in the account's delivery log
-([`GET /v1/events`](#get-v1events)). It does not return the raw error to the
+([`GET /events`](#get-events)). It does not return the raw error to the
 sender because the text may contain a device token. The response includes a
 safer summary in `message`.
 
@@ -441,11 +440,11 @@ it.
 
 These endpoints honour an `Idempotency-Key` request header:
 
-* [`POST /v1/notifications`](#post-v1notifications)
-* [`POST /v1/safety-events`](#post-v1safety-events)
-* [`POST /v1/interactions`](#post-v1interactions)
-* [`POST /v1/activities`](#post-v1activities), [`PATCH`](#patch-v1activitiesidentifier) and [`POST …/end`](#post-v1activitiesidentifierend)
-* [`POST /v1/hooks/{token}`](#post-v1hookstoken) and the webhook Live Activity routes
+* [`POST /notifications`](#post-notifications)
+* [`POST /safety-events`](#post-safety-events)
+* [`POST /interactions`](#post-interactions)
+* [`POST /activities`](#post-activities), [`PATCH`](#patch-activitiesidentifier) and [`POST …/end`](#post-activitiesidentifierend)
+* [`POST /hooks/{token}`](#post-hookstoken) and the webhook Live Activity routes
 
 The key must be 1–200 characters and is scoped to the credential that used it.
 Hark stores it before sending, so concurrent retries do not create duplicate
@@ -477,62 +476,62 @@ with `Retry-After`.
 | --- | --- | --- |
 | `GET` | [`/healthz`](#get-healthz) | none |
 | `GET`·`POST` | [`/` and `/dashboard/…`](#dashboard) | session cookie (HTML, not JSON) |
-| `POST` | [`/v1/auth/login`](#post-v1authlogin) | none |
-| `POST` | [`/v1/auth/logout`](#post-v1authlogout) | session or API token |
-| `GET` | [`/v1/auth/session`](#get-v1authsession) | session or API token |
-| `POST` | [`/v1/auth/password`](#post-v1authpassword) | session |
-| `POST` | [`/v1/auth/device/code`](#post-v1authdevicecode) | none |
-| `POST` | [`/v1/auth/device/token`](#post-v1authdevicetoken) | device code in body |
-| `GET` | [`/v1/auth/device/requests/{user_code}`](#get-v1authdevicerequestsuser_code) | session |
-| `POST` | [`/v1/auth/device/requests/{user_code}/approve`](#post-v1authdevicerequestsuser_codeapprove) | session |
-| `POST` | [`/v1/auth/device/requests/{user_code}/deny`](#post-v1authdevicerequestsuser_codedeny) | session |
-| `GET` | [`/v1/tokens`](#get-v1tokens) | session |
-| `POST` | [`/v1/tokens`](#post-v1tokens) | session |
-| `DELETE` | [`/v1/tokens/{id}`](#delete-v1tokensid) | session |
-| `GET` | [`/v1/services`](#get-v1services) | session · token `services:read` |
-| `POST` | [`/v1/services`](#post-v1services) | session |
-| `GET` | [`/v1/services/{id}`](#get-v1servicesid) | session · token `services:read` |
-| `PATCH` | [`/v1/services/{id}`](#patch-v1servicesid) | session · token `services:write` |
-| `DELETE` | [`/v1/services/{id}`](#delete-v1servicesid) | session · token `services:write` |
-| `POST` | [`/v1/services/{id}/webhook-token`](#post-v1servicesidwebhook-token) | session |
-| `GET` | [`/v1/devices`](#get-v1devices) | session · token `devices:read` |
-| `POST` | [`/v1/devices`](#post-v1devices) | session |
-| `GET` | [`/v1/devices/{id}`](#get-v1devicesid) | session · token `devices:read` |
-| `DELETE` | [`/v1/devices/{id}`](#delete-v1devicesid) | session |
-| `PUT` | [`/v1/devices/{id}/push-to-start-token`](#put-v1devicesidpush-to-start-token) | session |
-| `PUT` | [`/v1/devices/{id}/activity-update-token`](#put-v1devicesidactivity-update-token) | session |
-| `PUT` | [`/v1/activity-deliveries/{id}/update-token`](#put-v1activity-deliveriesidupdate-token) | single-use credential in body |
-| `POST` | [`/v1/notifications`](#post-v1notifications) | token `notifications:send` |
-| `GET` | [`/v1/safety-sources`](#get-v1safety-sources) | session |
-| `POST` | [`/v1/safety-sources`](#post-v1safety-sources) | session |
-| `GET` | [`/v1/safety-sources/{id}`](#get-v1safety-sourcesid) | session |
-| `PATCH` | [`/v1/safety-sources/{id}`](#patch-v1safety-sourcesid) | session |
-| `DELETE` | [`/v1/safety-sources/{id}`](#delete-v1safety-sourcesid) | session |
-| `POST` | [`/v1/safety-sources/{id}/test`](#post-v1safety-sourcesidtest) | session |
-| `GET` | [`/v1/safety-settings`](#get-v1safety-settings) | session |
-| `PATCH` | [`/v1/safety-settings`](#patch-v1safety-settings) | session |
-| `POST` | [`/v1/safety-events`](#post-v1safety-events) | token `safety:report` |
-| `POST` | [`/v1/interactions`](#post-v1interactions) | token `interactions:create` + `notifications:send` |
-| `GET` | [`/v1/interactions`](#get-v1interactions) | session · token `interactions:read` |
-| `GET` | [`/v1/interactions/{id}`](#get-v1interactionsid) | session · token `interactions:read` |
-| `POST` | [`/v1/interactions/{id}/response`](#post-v1interactionsidresponse) | session · credential in body |
-| `POST` | [`/v1/interactions/{id}/cancel`](#post-v1interactionsidcancel) | session · token `interactions:create` |
-| `GET` | [`/v1/activities`](#get-v1activities) | session · token `activities:read` |
-| `POST` | [`/v1/activities`](#post-v1activities) | token `activities:write` |
-| `GET` | [`/v1/activities/{identifier}`](#get-v1activitiesidentifier) | session · token `activities:read` |
-| `PATCH` | [`/v1/activities/{identifier}`](#patch-v1activitiesidentifier) | token `activities:write` |
-| `POST` | [`/v1/activities/{identifier}/end`](#post-v1activitiesidentifierend) | token `activities:write` |
-| `GET` | [`/v1/events`](#get-v1events) | session · token `events:read` |
-| `DELETE` | [`/v1/events/{id}`](#delete-v1eventsid) | session |
-| `GET` | [`/v1/history`](#get-v1history) | session |
-| `DELETE` | [`/v1/history/{id}`](#delete-v1historyid) | session |
-| `POST` | [`/v1/hooks/{token}`](#post-v1hookstoken) | webhook token in path |
-| `GET` | [`/v1/hooks/{token}/events/{event_id}`](#get-v1hookstokeneventsevent_id) | webhook token in path |
-| `POST` | [`/v1/hooks/{token}/events/{event_id}/cancel`](#post-v1hookstokeneventsevent_idcancel) | webhook token in path |
-| `POST` | [`/v1/hooks/{token}/activities`](#the-webhook-live-activity-routes) | webhook token in path |
-| `GET` | [`/v1/hooks/{token}/activities/{identifier}`](#the-webhook-live-activity-routes) | webhook token in path |
-| `PATCH` | [`/v1/hooks/{token}/activities/{identifier}`](#the-webhook-live-activity-routes) | webhook token in path |
-| `POST` | [`/v1/hooks/{token}/activities/{identifier}/end`](#the-webhook-live-activity-routes) | webhook token in path |
+| `POST` | [`/auth/login`](#post-authlogin) | none |
+| `POST` | [`/auth/logout`](#post-authlogout) | session or API token |
+| `GET` | [`/auth/session`](#get-authsession) | session or API token |
+| `POST` | [`/auth/password`](#post-authpassword) | session |
+| `POST` | [`/auth/device/code`](#post-authdevicecode) | none |
+| `POST` | [`/auth/device/token`](#post-authdevicetoken) | device code in body |
+| `GET` | [`/auth/device/requests/{user_code}`](#get-authdevicerequestsuser_code) | session |
+| `POST` | [`/auth/device/requests/{user_code}/approve`](#post-authdevicerequestsuser_codeapprove) | session |
+| `POST` | [`/auth/device/requests/{user_code}/deny`](#post-authdevicerequestsuser_codedeny) | session |
+| `GET` | [`/tokens`](#get-tokens) | session |
+| `POST` | [`/tokens`](#post-tokens) | session |
+| `DELETE` | [`/tokens/{id}`](#delete-tokensid) | session |
+| `GET` | [`/services`](#get-services) | session · token `services:read` |
+| `POST` | [`/services`](#post-services) | session |
+| `GET` | [`/services/{id}`](#get-servicesid) | session · token `services:read` |
+| `PATCH` | [`/services/{id}`](#patch-servicesid) | session · token `services:write` |
+| `DELETE` | [`/services/{id}`](#delete-servicesid) | session · token `services:write` |
+| `POST` | [`/services/{id}/webhook-token`](#post-servicesidwebhook-token) | session |
+| `GET` | [`/devices`](#get-devices) | session · token `devices:read` |
+| `POST` | [`/devices`](#post-devices) | session |
+| `GET` | [`/devices/{id}`](#get-devicesid) | session · token `devices:read` |
+| `DELETE` | [`/devices/{id}`](#delete-devicesid) | session |
+| `PUT` | [`/devices/{id}/push-to-start-token`](#put-devicesidpush-to-start-token) | session |
+| `PUT` | [`/devices/{id}/activity-update-token`](#put-devicesidactivity-update-token) | session |
+| `PUT` | [`/activity-deliveries/{id}/update-token`](#put-activity-deliveriesidupdate-token) | single-use credential in body |
+| `POST` | [`/notifications`](#post-notifications) | token `notifications:send` |
+| `GET` | [`/safety-sources`](#get-safety-sources) | session |
+| `POST` | [`/safety-sources`](#post-safety-sources) | session |
+| `GET` | [`/safety-sources/{id}`](#get-safety-sourcesid) | session |
+| `PATCH` | [`/safety-sources/{id}`](#patch-safety-sourcesid) | session |
+| `DELETE` | [`/safety-sources/{id}`](#delete-safety-sourcesid) | session |
+| `POST` | [`/safety-sources/{id}/test`](#post-safety-sourcesidtest) | session |
+| `GET` | [`/safety-settings`](#get-safety-settings) | session |
+| `PATCH` | [`/safety-settings`](#patch-safety-settings) | session |
+| `POST` | [`/safety-events`](#post-safety-events) | token `safety:report` |
+| `POST` | [`/interactions`](#post-interactions) | token `interactions:create` + `notifications:send` |
+| `GET` | [`/interactions`](#get-interactions) | session · token `interactions:read` |
+| `GET` | [`/interactions/{id}`](#get-interactionsid) | session · token `interactions:read` |
+| `POST` | [`/interactions/{id}/response`](#post-interactionsidresponse) | session · credential in body |
+| `POST` | [`/interactions/{id}/cancel`](#post-interactionsidcancel) | session · token `interactions:create` |
+| `GET` | [`/activities`](#get-activities) | session · token `activities:read` |
+| `POST` | [`/activities`](#post-activities) | token `activities:write` |
+| `GET` | [`/activities/{identifier}`](#get-activitiesidentifier) | session · token `activities:read` |
+| `PATCH` | [`/activities/{identifier}`](#patch-activitiesidentifier) | token `activities:write` |
+| `POST` | [`/activities/{identifier}/end`](#post-activitiesidentifierend) | token `activities:write` |
+| `GET` | [`/events`](#get-events) | session · token `events:read` |
+| `DELETE` | [`/events/{id}`](#delete-eventsid) | session |
+| `GET` | [`/history`](#get-history) | session |
+| `DELETE` | [`/history/{id}`](#delete-historyid) | session |
+| `POST` | [`/hooks/{token}`](#post-hookstoken) | webhook token in path |
+| `GET` | [`/hooks/{token}/events/{event_id}`](#get-hookstokeneventsevent_id) | webhook token in path |
+| `POST` | [`/hooks/{token}/events/{event_id}/cancel`](#post-hookstokeneventsevent_idcancel) | webhook token in path |
+| `POST` | [`/hooks/{token}/activities`](#the-webhook-live-activity-routes) | webhook token in path |
+| `GET` | [`/hooks/{token}/activities/{identifier}`](#the-webhook-live-activity-routes) | webhook token in path |
+| `PATCH` | [`/hooks/{token}/activities/{identifier}`](#the-webhook-live-activity-routes) | webhook token in path |
+| `POST` | [`/hooks/{token}/activities/{identifier}/end`](#the-webhook-live-activity-routes) | webhook token in path |
 
 Hark makes outbound HTTP requests only for [answer callbacks](#the-answer-callback).
 
@@ -575,7 +574,7 @@ error but does not include it in the response.
 
 ---
 
-### `POST /v1/auth/login`
+### `POST /auth/login`
 
 Exchanges the account's username and password for a session. **No
 authentication.** Rate limited to 10 attempts per minute per client.
@@ -585,7 +584,7 @@ The username is matched case-insensitively; the password is not.
 **Request**
 
 ```http
-POST /v1/auth/login
+POST /auth/login
 Content-Type: application/json
 
 { "username": "admin", "password": "correct horse battery staple" }
@@ -636,7 +635,7 @@ ignores `token`; a native or command-line client stores `token` and sends it as
 
 ---
 
-### `POST /v1/auth/logout`
+### `POST /auth/logout`
 
 Invalidates the credential presented by the caller. **Session or API token.**
 
@@ -652,7 +651,7 @@ No request body.
 
 ---
 
-### `GET /v1/auth/session`
+### `GET /auth/session`
 
 Describes the current authenticated user and credential. **Session or API
 token.** Never cached
@@ -713,7 +712,7 @@ how a client learns it has been signed out.
 
 ---
 
-### `POST /v1/auth/password`
+### `POST /auth/password`
 
 Changes the account's password. **Session only.** API tokens cannot change the
 account password.
@@ -725,7 +724,7 @@ needed.
 **Request**
 
 ```http
-POST /v1/auth/password
+POST /auth/password
 Content-Type: application/json
 
 { "current_password": "correct horse battery staple", "new_password": "a different long passphrase" }
@@ -751,7 +750,7 @@ the password uses `harkd set-password` on the server; see the README.
 
 ---
 
-### `POST /v1/auth/device/code`
+### `POST /auth/device/code`
 
 Starts device authorization for a headless client that needs an API token without
 handling the owner's password. **No authentication.** Rate limited to 20 requests
@@ -764,7 +763,7 @@ errors use the RFC vocabulary in `error.code`.
 **Request**
 
 ```http
-POST /v1/auth/device/code
+POST /auth/device/code
 Content-Type: application/json
 
 {
@@ -817,7 +816,7 @@ ignored, and `I`/`L` read as `1` while `O` reads as `0`.
 
 ---
 
-### `POST /v1/auth/device/token`
+### `POST /auth/device/token`
 
 Polls a device-authorization request. **The device code in the body is the
 credential.** Rate limited to 120 per minute per client.
@@ -825,7 +824,7 @@ credential.** Rate limited to 120 per minute per client.
 **Request**
 
 ```http
-POST /v1/auth/device/token
+POST /auth/device/token
 Content-Type: application/json
 
 { "device_code": "harkdev_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv" }
@@ -868,7 +867,7 @@ authorization request can issue only one token.
 
 ---
 
-### `GET /v1/auth/device/requests/{user_code}`
+### `GET /auth/device/requests/{user_code}`
 
 Describes a pairing request so an approval screen can render it. **Session
 only.** Never cached.
@@ -913,7 +912,7 @@ equivalent approval screen.
 
 ---
 
-### `POST /v1/auth/device/requests/{user_code}/approve`
+### `POST /auth/device/requests/{user_code}/approve`
 
 Approves a pairing request. **Session only** — approval creates a token, so an
 API token cannot approve another token.
@@ -931,7 +930,7 @@ No request body. The next poll of the matching device code creates the token.
 
 ---
 
-### `POST /v1/auth/device/requests/{user_code}/deny`
+### `POST /auth/device/requests/{user_code}/deny`
 
 Refuses a pairing request. **Session only.** No request body.
 
@@ -942,7 +941,7 @@ Same errors as `approve`.
 
 ---
 
-### `GET /v1/tokens`
+### `GET /tokens`
 
 Lists the account's API tokens, newest first. **Session only.**
 
@@ -978,14 +977,14 @@ The secret does not appear in this or any later response.
 
 ---
 
-### `POST /v1/tokens`
+### `POST /tokens`
 
 Creates an API token. **Session only.**
 
 **Request**
 
 ```http
-POST /v1/tokens
+POST /tokens
 Content-Type: application/json
 
 {
@@ -1034,7 +1033,7 @@ lapse frees a slot.
 
 ---
 
-### `DELETE /v1/tokens/{id}`
+### `DELETE /tokens/{id}`
 
 Revokes one of the account's tokens. **Session only.**
 
@@ -1046,7 +1045,7 @@ row is kept, so resources created by the token retain their attribution.
 **404 `not_found`** — the id is unknown or the token is already revoked.
 
 To revoke the token you are *currently using*, call
-[`POST /v1/auth/logout`](#post-v1authlogout) with it instead — that needs no
+[`POST /auth/logout`](#post-authlogout) with it instead — that needs no
 session.
 
 ---
@@ -1057,7 +1056,7 @@ A **service** is a named webhook source with notification defaults and a secret
 token embedded in its webhook URL. Use services for systems that can send HTTP
 requests but cannot manage an Authorization header.
 
-### `GET /v1/services`
+### `GET /services`
 
 Lists the account's services, newest first. **Session, or a token with
 `services:read`.** Not paged: an account has a handful of these.
@@ -1073,7 +1072,7 @@ Lists the account's services, newest first. **Session, or a token with
       "image_url": "https://example.com/logo.png",
       "url": "https://example.com/deploys",
       "priority": "normal",
-      "webhook_url": "https://hark.example.com/v1/hooks/harkhook_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv",
+      "webhook_url": "https://hark.example.com/hooks/harkhook_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv",
       "created_at": "2026-08-01T09:00:00.000Z",
       "updated_at": "2026-08-01T09:00:00.000Z"
     }
@@ -1088,7 +1087,7 @@ Lists the account's services, newest first. **Session, or a token with
 | `priority` | Default priority for this service's notifications. |
 | `webhook_url` | The full webhook URL, including its credential. **Available only to sessions.** API tokens receive `null` so a read credential cannot be converted into a send credential. |
 
-### `POST /v1/services`
+### `POST /services`
 
 Creates a service and its webhook credential. **Session only.** API tokens cannot
 create webhook credentials.
@@ -1107,7 +1106,7 @@ create webhook credentials.
 ```json
 {
   "service": { "…as above…" },
-  "webhook_url": "https://hark.example.com/v1/hooks/harkhook_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv"
+  "webhook_url": "https://hark.example.com/hooks/harkhook_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv"
 }
 ```
 
@@ -1116,12 +1115,12 @@ decrypted URL only to owner sessions. API tokens receive `null` for this field.
 
 **422 `validation_failed`** names the offending field.
 
-### `GET /v1/services/{id}`
+### `GET /services/{id}`
 
 One service. **Session, or a token with `services:read`.** `404 not_found` when
 it does not exist.
 
-### `PATCH /v1/services/{id}`
+### `PATCH /services/{id}`
 
 Changes a service's defaults. **Session, or a token with `services:write`.**
 
@@ -1129,7 +1128,7 @@ Only the fields the request names are written. `null` clears `image_url` or
 `url`; `title` and `priority` cannot be cleared. At least one field is required.
 
 ```http
-PATCH /v1/services/0198f3a1-2b4c-7d8e-9f01-23456789abcd
+PATCH /services/0198f3a1-2b4c-7d8e-9f01-23456789abcd
 Content-Type: application/json
 
 { "title": "Deploys", "image_url": null }
@@ -1137,7 +1136,7 @@ Content-Type: application/json
 
 **200 OK** — `{ "service": { … } }`.
 
-### `POST /v1/services/{id}/webhook-token`
+### `POST /services/{id}/webhook-token`
 
 Rotates the credential. **Session only.**
 
@@ -1146,7 +1145,7 @@ creation: the new URL and the service.
 
 The previous URL stops working immediately. There is no grace period.
 
-### `DELETE /v1/services/{id}`
+### `DELETE /services/{id}`
 
 **Session, or a token with `services:write`.** **204 No Content.**
 
@@ -1160,7 +1159,7 @@ A **device** is one iOS installation identified by its APNs token. A reinstall o
 token change may create a new device row. The previous row remains until APNs
 reports its token as invalid.
 
-### `GET /v1/devices`
+### `GET /devices`
 
 Every device on the account, most recently seen first. **Session, or a token
 with `devices:read`.** Not paged.
@@ -1194,7 +1193,7 @@ with `devices:read`.** Not paged.
 | `live_activity_interaction_version` | `1` when it can answer from the Lock Screen. |
 | `live_activity_capable` | Derived: a push-to-start token, a known environment, and a schema version this server speaks. |
 
-### `POST /v1/devices`
+### `POST /devices`
 
 Registers or refreshes an iOS device. **Session only.**
 
@@ -1220,11 +1219,11 @@ Registration behavior:
 The first registered device receives a short welcome sequence. If APNs rejects
 that push as undeliverable, the response sets `active` to `false`.
 
-### `GET /v1/devices/{id}`
+### `GET /devices/{id}`
 
 One device. **Session, or a token with `devices:read`.**
 
-### `DELETE /v1/devices/{id}`
+### `DELETE /devices/{id}`
 
 Unregisters a phone. **Session only.** **204 No Content**, `404 not_found` for
 an unknown id.
@@ -1233,7 +1232,7 @@ Deleting a device also deletes its Live Activity delivery records without
 sending an end push. A Live Activity may therefore remain visible on the removed
 device until iOS dismisses it.
 
-### `PUT /v1/devices/{id}/push-to-start-token`
+### `PUT /devices/{id}/push-to-start-token`
 
 Records the ActivityKit push-to-start token required to start Live Activities
 on a device. **Session only.**
@@ -1248,7 +1247,7 @@ on a device. **Session only.**
 
 This operation replaces the stored token and is idempotent.
 
-### `PUT /v1/devices/{id}/activity-update-token`
+### `PUT /devices/{id}/activity-update-token`
 
 Reports the per-activity update token for a Live Activity that was started by
 push. **Session only.**
@@ -1280,7 +1279,7 @@ waiting for a token.
 | 404 | `not_found` | No delivery on this device is waiting for a token. |
 | 409 | `conflict` | More than one delivery could match. Retry after the other start has resolved. |
 
-### `PUT /v1/activity-deliveries/{id}/update-token`
+### `PUT /activity-deliveries/{id}/update-token`
 
 Registers an update token without a session. **The single-use registration
 token in the body authenticates the request.**
@@ -1305,7 +1304,7 @@ discovery.
 
 ## Notifications
 
-### `POST /v1/notifications`
+### `POST /notifications`
 
 Sends a one-shot push. **API token with `notifications:send`.** Supports
 [`Idempotency-Key`](#idempotency).
@@ -1378,7 +1377,7 @@ Each safety event creates one notification. Its priority is:
 
 Safety alerts target every reachable device and cannot be narrowed with
 `device_ids`. Alerts from one source use the `safety-<source id>` push thread.
-Events appear in [history](#get-v1history) with the `safety_event:` id prefix
+Events appear in [history](#get-history) with the `safety_event:` id prefix
 and count toward the [delivery limits](#delivery-limits).
 
 Delivery is bounded per source:
@@ -1394,7 +1393,7 @@ A suppressed report still returns `201` with the recorded event and a `message`
 explaining why no push was sent. Retrying it with the same idempotency key
 returns the stored result.
 
-### `GET /v1/safety-sources`
+### `GET /safety-sources`
 
 The account's configured alert sources, newest first. **Session only.** Not
 paged.
@@ -1421,7 +1420,7 @@ paged.
 | `kind` | `general`, or an eligible Critical Alert type: `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak`. |
 | `critical_enabled` | Whether an eligible source may use Critical Alerts. `false` on a new source. |
 
-### `POST /v1/safety-sources`
+### `POST /safety-sources`
 
 Creates an alert source. **Session only.**
 
@@ -1433,18 +1432,18 @@ Creates an alert source. **Session only.**
 
 New sources are always general Time Sensitive sources. Assign an eligible type
 and enable Critical Alerts with a separate
-[`PATCH`](#patch-v1safety-sourcesid).
+[`PATCH`](#patch-safety-sourcesid).
 
 **201 Created** — `{ "source": { … } }`.
 
 **422 `validation_failed`** names the offending field.
 
-### `GET /v1/safety-sources/{id}`
+### `GET /safety-sources/{id}`
 
 One source. **Session only.** **200 OK** — `{ "source": { … } }`;
 `404 not_found` when it does not exist.
 
-### `PATCH /v1/safety-sources/{id}`
+### `PATCH /safety-sources/{id}`
 
 Changes a source's name, alert type, or critical setting. **Session only.** At
 least one field is required.
@@ -1457,14 +1456,14 @@ least one field is required.
 
 **200 OK** — `{ "source": { … } }`.
 
-### `DELETE /v1/safety-sources/{id}`
+### `DELETE /safety-sources/{id}`
 
 **Session only.** **204 No Content**, `404 not_found` for an unknown id.
 
 Deleting a source also deletes its safety events, including their history
 entries.
 
-### `POST /v1/safety-sources/{id}/test`
+### `POST /safety-sources/{id}/test`
 
 Sends one setup test for a source. **Session only.** No request body. The test
 is composed, delivered, and recorded like a reported event. Its returned
@@ -1498,9 +1497,9 @@ is composed, delivered, and recorded like a reported event. Its returned
 | 429 | `rate_limited` | A test was sent for this source in the last 10 minutes. `Retry-After` gives the wait in seconds. |
 
 `test` is not accepted by
-[`POST /v1/safety-events`](#post-v1safety-events).
+[`POST /safety-events`](#post-safety-events).
 
-### `GET /v1/safety-settings`
+### `GET /safety-settings`
 
 The account-wide critical delivery toggle. **Session only.**
 
@@ -1513,7 +1512,7 @@ The account-wide critical delivery toggle. **Session only.**
 The setting starts as `true`. A source must also have an eligible safety type
 and `critical_enabled` set to `true` before it can send a Critical Alert.
 
-### `PATCH /v1/safety-settings`
+### `PATCH /safety-settings`
 
 Writes the toggle. **Session only.**
 
@@ -1523,7 +1522,7 @@ Writes the toggle. **Session only.**
 
 **200 OK** — the same object as the `GET`, with the new value.
 
-### `POST /v1/safety-events`
+### `POST /safety-events`
 
 Reports a change in a source's state and delivers the alert. **API token with
 `safety:report`.** Supports [`Idempotency-Key`](#idempotency).
@@ -1531,7 +1530,7 @@ Reports a change in a source's state and delivers the alert. **API token with
 **Request**
 
 ```http
-POST /v1/safety-events
+POST /safety-events
 Content-Type: application/json
 Idempotency-Key: home-alert-4821
 
@@ -1541,7 +1540,7 @@ Idempotency-Key: home-alert-4821
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `source_id` | id | yes | An alert source configured on this account. |
-| `state` | enum | yes | `active` or `resolved`. The [setup test](#post-v1safety-sourcesidtest) is session-only. |
+| `state` | enum | yes | `active` or `resolved`. The [setup test](#post-safety-sourcesidtest) is session-only. |
 
 The server [composes the title, body, and priority](#how-an-alert-is-composed).
 
@@ -1570,12 +1569,12 @@ The server [composes the title, body, and priority](#how-an-alert-is-composed).
 | --- | --- |
 | `state` | What was reported. `resolved` composes a "cleared" alert at `normal` priority. |
 | `priority` | `critical` for an eligible source when both settings are on. General and disabled sources are `time_sensitive`. Resolved events are `normal`. |
-| `status` | The [delivery statuses](#get-v1events), plus `coalesced` and `rate_limited` for reports recorded without a push. |
+| `status` | The [delivery statuses](#get-events), plus `coalesced` and `rate_limited` for reports recorded without a push. |
 | `delivered_count` | APNs acceptances. See [what `accepted` means](#what-accepted-means). |
 | `message` | Non-null when no push was sent or accepted. |
 
 There is no `error` field: detailed APNs failure text is owner-only, in
-[history](#get-v1history).
+[history](#get-history).
 
 A replayed idempotency key returns `200` with the stored outcome — including a
 stored `coalesced` or `rate_limited` status.
@@ -1600,7 +1599,7 @@ the Lock Screen that can be answered without unlocking.
 
 Every status other than `pending` is final.
 
-### `POST /v1/interactions`
+### `POST /interactions`
 
 Asks a question. **API token with both `interactions:create` and
 `notifications:send`** — it sends a push and records an interaction whose answer
@@ -1674,7 +1673,7 @@ and `message` explains the fallback. If no device can present either format,
 supports two buttons, no free-text reply or tap URL, and a maximum lifetime of
 eight hours.
 
-### `GET /v1/interactions`
+### `GET /interactions`
 
 The inbox. **Session, or a token with `interactions:read`.**
 [Paged](#pagination).
@@ -1697,7 +1696,7 @@ an interaction plus:
 The default `pending` filter excludes past-deadline interactions without changing
 their stored status.
 
-### `GET /v1/interactions/{id}`
+### `GET /interactions/{id}`
 
 One question. **Session, or a token with `interactions:read`.**
 
@@ -1715,7 +1714,7 @@ interaction, which may remain `pending`.
 
 **200 OK** — `{ "interaction": { … } }`.
 
-### `POST /v1/interactions/{id}/response`
+### `POST /interactions/{id}/response`
 
 Answers a question. **A session, or the `response_token` from the push
 payload.**
@@ -1749,7 +1748,7 @@ Repeating the same action from the same device is idempotent and returns `200`.
 | 409 | `conflict` | The question has already been settled differently. |
 | 422 | `validation_failed` | The action is not one this question offers, or a reply carried no text. |
 
-### `POST /v1/interactions/{id}/cancel`
+### `POST /interactions/{id}/cancel`
 
 Withdraws a question. **Session, or a token with `interactions:create`.** No
 request body.
@@ -1813,7 +1812,7 @@ soon as one ends.
 | `style` | `standard` (default), `ring`, `hero`, `terminal`, `steps`. The four interactive styles belong to questions and are refused here. |
 | `interaction` | Present only on a card that presents a question: its id, kind, prompt, the two button labels and the actions they post, and the answer once there is one. |
 
-### `GET /v1/activities`
+### `GET /activities`
 
 The account's activities, newest first. **Session, or a token with
 `activities:read`.** [Paged](#pagination).
@@ -1827,7 +1826,7 @@ activity plus `source_name` and `source_image_url`.
 
 Cards presenting a question are not listed: they are shown as the question.
 
-### `POST /v1/activities`
+### `POST /activities`
 
 Starts an activity. **API token with `activities:write`.** Supports
 [`Idempotency-Key`](#idempotency).
@@ -1888,7 +1887,7 @@ Starts an activity. **API token with `activities:write`.** Supports
 response includes the blocking activity id only when it belongs to the same
 requester.
 
-### `GET /v1/activities/{identifier}`
+### `GET /activities/{identifier}`
 
 One activity, by id or by key. **Session, or a token with `activities:read`.**
 **200 OK** — `{ "activity": { … } }`.
@@ -1896,7 +1895,7 @@ One activity, by id or by key. **Session, or a token with `activities:read`.**
 Because a key can be reused, the lookup prefers a running activity and then the
 newest.
 
-### `PATCH /v1/activities/{identifier}`
+### `PATCH /activities/{identifier}`
 
 Changes a running activity and pushes the change. **API token with
 `activities:write`.** Supports [`Idempotency-Key`](#idempotency).
@@ -1922,7 +1921,7 @@ device has not yet reported its per-activity update token.
 | 409 | `conflict` | It has already finished. |
 | 409 | `sequence_conflict` | `if_sequence` did not match, including when the activity changed between the read and write. |
 
-### `POST /v1/activities/{identifier}/end`
+### `POST /activities/{identifier}/end`
 
 Finishes an activity and pushes the final state. **API token with
 `activities:write`.** Supports [`Idempotency-Key`](#idempotency).
@@ -1959,8 +1958,8 @@ The payload combines Apple-defined keys with Hark-defined data:
 
 Every Hark object carries `schema_version`, currently `1`. A device announces
 the versions it understands when it registers
-([`POST /v1/devices`](#post-v1devices),
-[`PUT …/push-to-start-token`](#put-v1devicesidpush-to-start-token)), and a
+([`POST /devices`](#post-devices),
+[`PUT …/push-to-start-token`](#put-devicesidpush-to-start-token)), and a
 a device with a different version is [excluded from the
 send](#choosing-devices). Adding a field does not change the schema version, so
 clients must ignore unknown response fields.
@@ -2076,7 +2075,7 @@ object alongside. The category controls which action buttons iOS displays.
 
 | Field | Presence | Notes |
 | --- | --- | --- |
-| `id` | always | Answer at [`POST /v1/interactions/{id}/response`](#post-v1interactionsidresponse). |
+| `id` | always | Answer at [`POST /interactions/{id}/response`](#post-interactionsidresponse). |
 | `kind` | always | `approval`, `yes_no` or `reply`. |
 | `category` | always | The same identifier as `aps.category`, so a decoder never has to read it off the notification. |
 | `action_digest` | always | Send this value when answering. It prevents an older notification from answering a replacement interaction. |
@@ -2097,7 +2096,7 @@ An unrecognized kind uses `hark.reply.v1` so the recipient can provide a
 free-text response.
 
 The action identifier suffix matches the `action` value accepted by
-[the answer endpoint](#post-v1interactionsidresponse). Extensions remove the
+[the answer endpoint](#post-interactionsidresponse). Extensions remove the
 `hark.action.` prefix and submit the remaining value. The client registers action
 identifiers; the server sends only the category.
 
@@ -2131,7 +2130,7 @@ for the lifetime of the activity:
       "schema_version": 1,
       "delivery_id": "0198f3c2-1a5d-7b90-8c34-000000000001",
       "device_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-      "token_registration_url": "https://hark.example.com/v1/activity-deliveries/0198f3c2-1a5d-7b90-8c34-000000000001/update-token",
+      "token_registration_url": "https://hark.example.com/activity-deliveries/0198f3c2-1a5d-7b90-8c34-000000000001/update-token",
       "token_registration_token": "…"
     },
     "alert": { "title": "Deploy", "body": "Building" },
@@ -2190,7 +2189,7 @@ answer interactions:
 | `schema_version` | always | `1`. |
 | `delivery_id` | always | Identifies this activity delivery on this device. |
 | `device_id` | always | Needed to answer a question, and to report a token. |
-| `token_registration_url` | always | Where to `PUT` the per-activity update token provided by ActivityKit: [`PUT /v1/activity-deliveries/{id}/update-token`](#put-v1activity-deliveriesidupdate-token). **Hark cannot update or end the activity until registration succeeds.** |
+| `token_registration_url` | always | Where to `PUT` the per-activity update token provided by ActivityKit: [`PUT /activity-deliveries/{id}/update-token`](#put-activity-deliveriesidupdate-token). **Hark cannot update or end the activity until registration succeeds.** |
 | `token_registration_token` | always | Single-use credential for that request. It is limited to this delivery and expires with the activity. |
 | `question.id` / `question.action_digest` / `question.response_token` | only on a card presenting a question | The same three values a question notification carries, so a Lock Screen button answers through the same endpoint the notification action does. |
 
@@ -2226,7 +2225,7 @@ The following APNs transport rules apply:
 
 ## Events and history
 
-### `GET /v1/events`
+### `GET /events`
 
 The account's webhook deliveries, newest first. **Session, or a token with
 `events:read`.** [Paged](#pagination).
@@ -2260,13 +2259,13 @@ The account's webhook deliveries, newest first. **Session, or a token with
 | `status` | `processing` (briefly, before the fan-out settles), `no_devices`, `accepted`, `partial`, `failed`. |
 | `error` | Truncated APNs failure text. This owner-only field may include a device token, so webhook responses omit it. |
 
-### `DELETE /v1/events/{id}`
+### `DELETE /events/{id}`
 
 **Session only.** **204 No Content.**
 
 Deleting a delivery also deletes its associated interaction.
 
-### `GET /v1/history`
+### `GET /history`
 
 Returns account history in one newest-first list: webhook deliveries, API
 notifications, safety events, answered interactions, and Live Activity
@@ -2311,7 +2310,7 @@ Fields that do not apply to an item's `kind` are `null`.
   were created. Their `result` is `approved`, `denied`, `yes`, `no` or
   `replied`. For Live Activity entries, `result` is `start`, `update` or `end`.
 
-### `DELETE /v1/history/{id}`
+### `DELETE /history/{id}`
 
 Removes one entry. **Session only.** `{id}` is the composite id above.
 
@@ -2330,7 +2329,7 @@ it to access logs, and unknown or malformed tokens return `404 not_found`.
 
 Create or rotate webhook URLs through the [service endpoints](#services).
 
-### `POST /v1/hooks/{token}`
+### `POST /hooks/{token}`
 
 Sends a notification, optionally as a question. Supports
 [`Idempotency-Key`](#idempotency).
@@ -2385,7 +2384,7 @@ Omitted fields use the service defaults. Only `body` is required.
 `response` is present only when the request includes a question. Hark always
 creates the event record. Check `event.status` for the delivery result;
 `message` explains `no_devices` and `failed` results. Detailed APNs errors are
-available only in the owner's [event log](#get-v1events).
+available only in the owner's [event log](#get-events).
 
 **404 `not_found`** for an unknown or malformed token. **422
 `validation_failed`**, **409 `conflict`** for a reused idempotency key, **429
@@ -2427,7 +2426,7 @@ User-Agent: Hark-Callbacks/1
 Rules a receiver can rely on:
 
 * Hark sends callbacks only for answers. Expired and canceled interactions do
-  not trigger one. Poll [the event](#get-v1hookstokeneventsevent_id) if you also
+  not trigger one. Poll [the event](#get-hookstokeneventsevent_id) if you also
   need those states.
 * Any `2xx` response confirms delivery. Other responses fail the attempt.
   Redirects are not followed because the bearer token is valid only for the
@@ -2443,7 +2442,7 @@ Rules a receiver can rely on:
   callback, Hark may send it again. Use `interaction_id` as the idempotency key.
 * The callback does not include account, owner, device, or prompt details.
 
-### `GET /v1/hooks/{token}/events/{event_id}`
+### `GET /hooks/{token}/events/{event_id}`
 
 Returns the delivery result and the current state of its interaction. Use this
 endpoint when the caller cannot receive callbacks.
@@ -2454,7 +2453,7 @@ objects as above.
 If the interaction deadline has passed, this read changes its status to
 `expired` before returning it.
 
-### `POST /v1/hooks/{token}/events/{event_id}/cancel`
+### `POST /hooks/{token}/events/{event_id}/cancel`
 
 Cancels the interaction created by a delivery. No request body.
 
@@ -2473,26 +2472,26 @@ requester.
 A service can only see and drive the activities it started: keys are unique per
 requester, so the same key means different things to different senders.
 
-#### `POST /v1/hooks/{token}/activities`
+#### `POST /hooks/{token}/activities`
 
 Starts a service-owned Live Activity. Same request and response as
-[`POST /v1/activities`](#post-v1activities). Supports `Idempotency-Key`.
+[`POST /activities`](#post-activities). Supports `Idempotency-Key`.
 
-#### `GET /v1/hooks/{token}/activities/{identifier}`
+#### `GET /hooks/{token}/activities/{identifier}`
 
 Reads one Live Activity started by this service. Same response as
-[`GET /v1/activities/{identifier}`](#get-v1activitiesidentifier).
+[`GET /activities/{identifier}`](#get-activitiesidentifier).
 
-#### `PATCH /v1/hooks/{token}/activities/{identifier}`
+#### `PATCH /hooks/{token}/activities/{identifier}`
 
 Updates one Live Activity started by this service. Same request and response as
-[`PATCH /v1/activities/{identifier}`](#patch-v1activitiesidentifier). Supports
+[`PATCH /activities/{identifier}`](#patch-activitiesidentifier). Supports
 `Idempotency-Key`.
 
-#### `POST /v1/hooks/{token}/activities/{identifier}/end`
+#### `POST /hooks/{token}/activities/{identifier}/end`
 
 Ends one Live Activity started by this service. Same request and response as
-[`POST /v1/activities/{identifier}/end`](#post-v1activitiesidentifierend).
+[`POST /activities/{identifier}/end`](#post-activitiesidentifierend).
 Supports `Idempotency-Key`.
 
 ---
@@ -2500,7 +2499,7 @@ Supports `Idempotency-Key`.
 ## Dashboard
 
 Hark includes an owner administration interface at `/dashboard`. Its routes are
-outside the versioned `/v1` API:
+separate from the JSON API:
 
 | Method | Path | What it is |
 | --- | --- | --- |
@@ -2521,7 +2520,7 @@ outside the versioned `/v1` API:
 | `POST` | `/dashboard/safety` | Creates an alert source. |
 | `POST` | `/dashboard/safety/settings` | Saves the account-wide critical toggle. |
 | `POST` | `/dashboard/safety/{id}` | Saves a source's name, alert type, and per-source critical toggle. |
-| `POST` | `/dashboard/safety/{id}/test` | Sends the [setup test](#post-v1safety-sourcesidtest) for one source. |
+| `POST` | `/dashboard/safety/{id}/test` | Sends the [setup test](#post-safety-sourcesidtest) for one source. |
 | `POST` | `/dashboard/safety/{id}/delete` | Deletes the source and its safety events. |
 | `GET` | `/dashboard/devices` | Registered phones. |
 | `POST` | `/dashboard/devices/{id}/delete` | Unregisters one. |
@@ -2539,21 +2538,21 @@ outside the versioned `/v1` API:
 | `GET` | `/dashboard/assets/{file}` | The stylesheets and script, at content-hashed URLs. |
 
 Dashboard routes return HTML, including error responses. They are not a client
-API and may change without a `/v1` version change. Software clients should use
-the `/v1` endpoints.
+API and may change independently. Software clients should use the documented
+JSON endpoints.
 
 ### Authentication
 
 The dashboard uses the same [session](#session) as the API. Signing in through
 `POST /dashboard/login` sets the same cookie as
-[`POST /v1/auth/login`](#post-v1authlogin). In that browser,
-`GET /v1/auth/session` returns `"kind": "session"`.
+[`POST /auth/login`](#post-authlogin). In that browser,
+`GET /auth/session` returns `"kind": "session"`.
 
 Every dashboard page except sign-in requires a session. API tokens do not grant
 dashboard access; requests without a valid session are redirected to sign-in.
 
 Dashboard sign-in uses the same per-client and per-process rate limits as
-`POST /v1/auth/login`. The dashboard and API login routes have separate rate
+`POST /auth/login`. The dashboard and API login routes have separate rate
 limit buckets.
 
 ### CSRF
@@ -2589,16 +2588,16 @@ it is configured as `http://localhost`, opening the dashboard through
 ### The test notification
 
 `POST /dashboard/test` sends one alert through the same push transport as
-[`POST /v1/notifications`](#post-v1notifications), to one device or to all of
+[`POST /notifications`](#post-notifications), to one device or to all of
 them, and reports the accepted count and any provider failures on the page.
 
 Test notifications are not recorded in history. To create a recorded
-notification, create an API token and call `POST /v1/notifications`.
+notification, create an API token and call `POST /notifications`.
 
 ### `GET /cli/authorize`
 
 This page lets the owner approve or deny a
-[device authorization request](#post-v1authdevicecode) from a command-line or
+[device authorization request](#post-authdevicecode) from a command-line or
 other input-limited client. It uses the dashboard session and CSRF protection.
 
 | Parameter | Notes |
@@ -2610,7 +2609,7 @@ code. API tokens cannot access or approve authorization requests.
 
 The page shows the client name, code, expiry times, and requested scopes, then
 offers **Approve** and **Deny**. Both use the same application logic as
-[`POST /v1/auth/device/requests/{user_code}/approve`](#post-v1authdevicerequestsuser_codeapprove)
+[`POST /auth/device/requests/{user_code}/approve`](#post-authdevicerequestsuser_codeapprove)
 and its `deny` counterpart. A request that has already been decided or expired
 returns an HTML `409` response. An unknown code returns an HTML `404` response
 and redisplays the code field.

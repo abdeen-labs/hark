@@ -3,7 +3,7 @@
 //  Hark
 //
 //  Everything that has happened to the account, in one ordering.
-//  GET /v1/history with kind tabs, keyset pagination, swipe-to-delete.
+//  GET /history with kind tabs, keyset pagination, swipe-to-delete.
 //  The archive reads as a ledger: a running index, the age, the entry.
 //
 

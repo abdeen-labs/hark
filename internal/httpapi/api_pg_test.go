@@ -248,14 +248,14 @@ func (f *fixture) registerDevice(apnsToken string) deviceDTO {
 	f.t.Helper()
 
 	var created deviceResponse
-	f.expect(http.MethodPost, "/v1/devices", f.session, `{
+	f.expect(http.MethodPost, "/devices", f.session, `{
 		"apns_token": "`+apnsToken+`",
 		"name": "Test iPhone",
 		"interaction_schema_version": 1,
 		"live_activity_interaction_version": 1
 	}`, http.StatusCreated, &created)
 
-	f.expect(http.MethodPut, "/v1/devices/"+created.Device.ID+"/push-to-start-token", f.session,
+	f.expect(http.MethodPut, "/devices/"+created.Device.ID+"/push-to-start-token", f.session,
 		`{"token":"`+strings.Repeat("ab", 32)+`","environment":"sandbox"}`, http.StatusNoContent, nil)
 	f.sender.reset()
 	return created.Device
@@ -266,7 +266,7 @@ func (f *fixture) createService(title string) (serviceDTO, string) {
 	f.t.Helper()
 
 	var created createdServiceResponse
-	f.expect(http.MethodPost, "/v1/services", f.session,
+	f.expect(http.MethodPost, "/services", f.session,
 		`{"title":"`+title+`","url":"https://example.com/app"}`, http.StatusCreated, &created)
 
 	hook := strings.TrimPrefix(created.WebhookURL, "https://hark.example.com")
@@ -308,7 +308,7 @@ func TestWebhookDeliveryRecordsAndSurfacesTheEvent(t *testing.T) {
 	}
 
 	var events eventListResponse
-	f.expect(http.MethodGet, "/v1/events", f.session, "", http.StatusOK, &events)
+	f.expect(http.MethodGet, "/events", f.session, "", http.StatusOK, &events)
 	if len(events.Events) != 1 || events.Events[0].ServiceName != service.Title {
 		t.Fatalf("events = %+v, want one from %q", events.Events, service.Title)
 	}
@@ -317,13 +317,13 @@ func TestWebhookDeliveryRecordsAndSurfacesTheEvent(t *testing.T) {
 	}
 
 	var history historyListResponse
-	f.expect(http.MethodGet, "/v1/history", f.session, "", http.StatusOK, &history)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 || history.Items[0].Kind != db.FeedKindNotification {
 		t.Fatalf("history = %+v, want one notification", history.Items)
 	}
 
-	f.expect(http.MethodDelete, "/v1/history/"+history.Items[0].ID, f.session, "", http.StatusNoContent, nil)
-	f.expect(http.MethodGet, "/v1/events", f.session, "", http.StatusOK, &events)
+	f.expect(http.MethodDelete, "/history/"+history.Items[0].ID, f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodGet, "/events", f.session, "", http.StatusOK, &events)
 	if len(events.Events) != 0 {
 		t.Errorf("events after deleting the history entry = %+v, want none", events.Events)
 	}
@@ -364,7 +364,7 @@ func TestWebhookQuestionIsAnsweredWithThePushCredential(t *testing.T) {
 		alert.Interaction.ActionDigest + `","response_token":"` + credential + `"}`
 
 	var answered interactionReadResponse
-	f.expect(http.MethodPost, "/v1/interactions/"+alert.Interaction.ID+"/response", "", answer,
+	f.expect(http.MethodPost, "/interactions/"+alert.Interaction.ID+"/response", "", answer,
 		http.StatusOK, &answered)
 	if answered.Interaction.Status != db.InteractionApproved {
 		t.Fatalf("status = %q, want approved", answered.Interaction.Status)
@@ -378,18 +378,18 @@ func TestWebhookQuestionIsAnsweredWithThePushCredential(t *testing.T) {
 
 	// The same answer from the same phone is the same outcome, not a conflict:
 	// a notification action that is tapped twice must not report an error.
-	f.expect(http.MethodPost, "/v1/interactions/"+alert.Interaction.ID+"/response", "", answer,
+	f.expect(http.MethodPost, "/interactions/"+alert.Interaction.ID+"/response", "", answer,
 		http.StatusOK, nil)
 
 	// A different answer is a real conflict.
-	rec := f.request(http.MethodPost, "/v1/interactions/"+alert.Interaction.ID+"/response", "",
+	rec := f.request(http.MethodPost, "/interactions/"+alert.Interaction.ID+"/response", "",
 		strings.ReplaceAll(answer, `"approve"`, `"deny"`))
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("changed answer: status = %d, want 409: %s", rec.Code, rec.Body)
 	}
 
 	// And a wrong credential is indistinguishable from an unknown question.
-	rec = f.request(http.MethodPost, "/v1/interactions/"+alert.Interaction.ID+"/response", "",
+	rec = f.request(http.MethodPost, "/interactions/"+alert.Interaction.ID+"/response", "",
 		strings.ReplaceAll(answer, credential, auth.NewResponseToken()))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("wrong credential: status = %d, want 404: %s", rec.Code, rec.Body)
@@ -421,14 +421,14 @@ func TestALockScreenQuestionFallsBackToANotification(t *testing.T) {
 	// Registered and pushable, but with no push-to-start token — which is what
 	// a Live Activity needs and a notification does not.
 	var created deviceResponse
-	f.expect(http.MethodPost, "/v1/devices", f.session, `{
+	f.expect(http.MethodPost, "/devices", f.session, `{
 		"apns_token": "`+strings.Repeat("e5", 32)+`",
 		"interaction_schema_version": 1
 	}`, http.StatusCreated, &created)
 	f.sender.reset()
 
 	var asked interactionResponse
-	f.expect(http.MethodPost, "/v1/interactions", f.token, `{
+	f.expect(http.MethodPost, "/interactions", f.token, `{
 		"title": "deploy-bot",
 		"prompt": "Deploy to production?",
 		"kind": "approval",
@@ -459,7 +459,7 @@ func TestALockScreenQuestionFallsBackToANotification(t *testing.T) {
 		`","action_digest":"` + alert.Interaction.ActionDigest +
 		`","response_token":"` + alert.Interaction.ResponseToken + `"}`
 	var answered interactionReadResponse
-	f.expect(http.MethodPost, "/v1/interactions/"+asked.Interaction.ID+"/response", "", answer,
+	f.expect(http.MethodPost, "/interactions/"+asked.Interaction.ID+"/response", "", answer,
 		http.StatusOK, &answered)
 	if answered.Interaction.Status != db.InteractionApproved {
 		t.Fatalf("status = %q, want approved", answered.Interaction.Status)
@@ -477,13 +477,13 @@ func TestOnlyTheOwnerMayAnswerAQuestion(t *testing.T) {
 	device := f.registerDevice(strings.Repeat("d4", 32))
 
 	var asked interactionResponse
-	f.expect(http.MethodPost, "/v1/interactions", f.token,
+	f.expect(http.MethodPost, "/interactions", f.token,
 		`{"title":"deploy-bot","prompt":"Deploy to production?","kind":"approval"}`,
 		http.StatusCreated, &asked)
 
 	answer := `{"action":"approve","device_id":"` + device.ID +
 		`","action_digest":"` + asked.Interaction.ActionDigest + `"}`
-	path := "/v1/interactions/" + asked.Interaction.ID + "/response"
+	path := "/interactions/" + asked.Interaction.ID + "/response"
 
 	rec := f.request(http.MethodPost, path, f.token, answer)
 	if rec.Code != http.StatusForbidden {
@@ -518,7 +518,7 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 
 	// A second, independently authenticated agent credential.
 	var minted createTokenResponse
-	f.expect(http.MethodPost, "/v1/tokens", f.session,
+	f.expect(http.MethodPost, "/tokens", f.session,
 		`{"name":"other-agent","scopes":["interactions:create","interactions:read","notifications:send"]}`,
 		http.StatusCreated, &minted)
 	tokenB := minted.Secret
@@ -536,7 +536,7 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 	ask := func(credential, prompt string) string {
 		t.Helper()
 		var asked interactionResponse
-		f.expect(http.MethodPost, "/v1/interactions", credential,
+		f.expect(http.MethodPost, "/interactions", credential,
 			`{"title":"agent","prompt":"`+prompt+`","kind":"approval"}`,
 			http.StatusCreated, &asked)
 		return asked.Interaction.ID
@@ -549,12 +549,12 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 	// Token A's list is its own questions only, and the cursor keeps the
 	// filter: page two continues token A's rows, never drifting account-wide.
 	var first interactionListResponse
-	f.expect(http.MethodGet, "/v1/interactions?limit=2", f.token, "", http.StatusOK, &first)
+	f.expect(http.MethodGet, "/interactions?limit=2", f.token, "", http.StatusOK, &first)
 	if len(first.Interactions) != 2 || first.NextCursor == nil {
 		t.Fatalf("page 1 = %d items, next_cursor %v; want 2 items and a cursor", len(first.Interactions), first.NextCursor)
 	}
 	var second interactionListResponse
-	f.expect(http.MethodGet, "/v1/interactions?limit=2&cursor="+*first.NextCursor, f.token, "",
+	f.expect(http.MethodGet, "/interactions?limit=2&cursor="+*first.NextCursor, f.token, "",
 		http.StatusOK, &second)
 	if len(second.Interactions) != 1 || second.NextCursor != nil {
 		t.Fatalf("page 2 = %d items, next_cursor %v; want token A's last item and no cursor", len(second.Interactions), second.NextCursor)
@@ -572,7 +572,7 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 
 	// Token B sees exactly its one question.
 	var bList interactionListResponse
-	f.expect(http.MethodGet, "/v1/interactions", tokenB, "", http.StatusOK, &bList)
+	f.expect(http.MethodGet, "/interactions", tokenB, "", http.StatusOK, &bList)
 	if len(bList.Interactions) != 1 || bList.Interactions[0].ID != bID {
 		t.Fatalf("token B's list = %+v, want only its own question", bList.Interactions)
 	}
@@ -580,14 +580,14 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 	// The session's inbox is account-wide: both tokens' questions and the
 	// webhook service's.
 	var inbox interactionListResponse
-	f.expect(http.MethodGet, "/v1/interactions", f.session, "", http.StatusOK, &inbox)
+	f.expect(http.MethodGet, "/interactions", f.session, "", http.StatusOK, &inbox)
 	if len(inbox.Interactions) != 5 {
 		t.Fatalf("session inbox = %d items, want all 5", len(inbox.Interactions))
 	}
 
 	// Another requester's question reads as if it did not exist.
 	for _, foreign := range []string{bID, hookID} {
-		rec := f.request(http.MethodGet, "/v1/interactions/"+foreign, f.token, "")
+		rec := f.request(http.MethodGet, "/interactions/"+foreign, f.token, "")
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("token A read %s: status = %d, want 404: %s", foreign, rec.Code, rec.Body)
 		}
@@ -599,7 +599,7 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 	// A long poll on a foreign id refuses immediately: no waiting out the
 	// clock, and no revealing whether the question is pending or answered.
 	start := time.Now()
-	rec := f.request(http.MethodGet, "/v1/interactions/"+bID+"?wait_seconds=10", f.token, "")
+	rec := f.request(http.MethodGet, "/interactions/"+bID+"?wait_seconds=10", f.token, "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("foreign long poll: status = %d, want 404: %s", rec.Code, rec.Body)
 	}
@@ -611,7 +611,7 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 	}
 
 	// Token A cannot cancel B's question, and the refusal changes nothing.
-	rec = f.request(http.MethodPost, "/v1/interactions/"+bID+"/cancel", f.token, "")
+	rec = f.request(http.MethodPost, "/interactions/"+bID+"/cancel", f.token, "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("foreign cancel: status = %d, want 404: %s", rec.Code, rec.Body)
 	}
@@ -619,27 +619,27 @@ func TestAPITokenInteractionIsolation(t *testing.T) {
 		t.Errorf("code = %q, want %q", got.Error.Code, CodeNotFound)
 	}
 	var current interactionReadResponse
-	f.expect(http.MethodGet, "/v1/interactions/"+bID, f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodGet, "/interactions/"+bID, f.session, "", http.StatusOK, &current)
 	if current.Interaction.Status != db.InteractionPending {
 		t.Fatalf("B's question = %q after A's refused cancel, want still pending", current.Interaction.Status)
 	}
 
 	// Within its own reach the token keeps full authority: read and withdraw.
-	f.expect(http.MethodGet, "/v1/interactions/"+a3, f.token, "", http.StatusOK, &current)
-	f.expect(http.MethodPost, "/v1/interactions/"+a3+"/cancel", f.token, "", http.StatusOK, &current)
+	f.expect(http.MethodGet, "/interactions/"+a3, f.token, "", http.StatusOK, &current)
+	f.expect(http.MethodPost, "/interactions/"+a3+"/cancel", f.token, "", http.StatusOK, &current)
 	if current.Interaction.Status != db.InteractionCanceled {
 		t.Fatalf("token A canceling its own question = %q, want canceled", current.Interaction.Status)
 	}
 
 	// The session's authority is unchanged: it reads and cancels either
 	// token's question, and the webhook service's.
-	f.expect(http.MethodGet, "/v1/interactions/"+hookID, f.session, "", http.StatusOK, &current)
-	f.expect(http.MethodGet, "/v1/interactions/"+a1, f.session, "", http.StatusOK, &current)
-	f.expect(http.MethodPost, "/v1/interactions/"+bID+"/cancel", f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodGet, "/interactions/"+hookID, f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodGet, "/interactions/"+a1, f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodPost, "/interactions/"+bID+"/cancel", f.session, "", http.StatusOK, &current)
 	if current.Interaction.Status != db.InteractionCanceled {
 		t.Fatalf("session canceling B's question = %q, want canceled", current.Interaction.Status)
 	}
-	f.expect(http.MethodPost, "/v1/interactions/"+a2+"/cancel", f.session, "", http.StatusOK, &current)
+	f.expect(http.MethodPost, "/interactions/"+a2+"/cancel", f.session, "", http.StatusOK, &current)
 	if current.Interaction.Status != db.InteractionCanceled {
 		t.Fatalf("session canceling A's question = %q, want canceled", current.Interaction.Status)
 	}
@@ -652,14 +652,14 @@ func TestInteractionDigestBindsTheAnswerToTheQuestion(t *testing.T) {
 	device := f.registerDevice(strings.Repeat("c3", 32))
 
 	var asked interactionResponse
-	f.expect(http.MethodPost, "/v1/interactions", f.token,
+	f.expect(http.MethodPost, "/interactions", f.token,
 		`{"title":"Claude Code","prompt":"Run the migration?","kind":"approval"}`,
 		http.StatusCreated, &asked)
 	if asked.Accepted != 1 {
 		t.Fatalf("accepted = %d, want 1", asked.Accepted)
 	}
 
-	rec := f.request(http.MethodPost, "/v1/interactions/"+asked.Interaction.ID+"/response", f.session,
+	rec := f.request(http.MethodPost, "/interactions/"+asked.Interaction.ID+"/response", f.session,
 		`{"action":"approve","device_id":"`+device.ID+`","action_digest":"stale"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("stale digest: status = %d, want 409: %s", rec.Code, rec.Body)
@@ -670,29 +670,29 @@ func TestInteractionDigestBindsTheAnswerToTheQuestion(t *testing.T) {
 
 	// An answer the kind does not accept is a validation failure, not a
 	// conflict: the caller sent something this question never offered.
-	rec = f.request(http.MethodPost, "/v1/interactions/"+asked.Interaction.ID+"/response", f.session,
+	rec = f.request(http.MethodPost, "/interactions/"+asked.Interaction.ID+"/response", f.session,
 		`{"action":"yes","device_id":"`+device.ID+`","action_digest":"`+asked.Interaction.ActionDigest+`"}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("wrong action: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
 
 	var inbox interactionListResponse
-	f.expect(http.MethodGet, "/v1/interactions", f.session, "", http.StatusOK, &inbox)
+	f.expect(http.MethodGet, "/interactions", f.session, "", http.StatusOK, &inbox)
 	if len(inbox.Interactions) != 1 || inbox.Interactions[0].SourceName != "harkctl" {
 		t.Fatalf("inbox = %+v, want one question from harkctl", inbox.Interactions)
 	}
 
-	f.expect(http.MethodPost, "/v1/interactions/"+asked.Interaction.ID+"/response", f.session,
+	f.expect(http.MethodPost, "/interactions/"+asked.Interaction.ID+"/response", f.session,
 		`{"action":"approve","device_id":"`+device.ID+`","action_digest":"`+asked.Interaction.ActionDigest+`"}`,
 		http.StatusOK, nil)
 
 	// Answered questions leave the inbox and enter the history.
-	f.expect(http.MethodGet, "/v1/interactions", f.session, "", http.StatusOK, &inbox)
+	f.expect(http.MethodGet, "/interactions", f.session, "", http.StatusOK, &inbox)
 	if len(inbox.Interactions) != 0 {
 		t.Errorf("inbox after answering = %+v, want empty", inbox.Interactions)
 	}
 	var history historyListResponse
-	f.expect(http.MethodGet, "/v1/history?kind=response", f.session, "", http.StatusOK, &history)
+	f.expect(http.MethodGet, "/history?kind=response", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 || history.Items[0].Kind != db.FeedKindResponse {
 		t.Fatalf("history = %+v, want one answered question", history.Items)
 	}
@@ -706,7 +706,7 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 	device := f.registerDevice(strings.Repeat("d4", 32))
 
 	var started activityResponse
-	f.expect(http.MethodPost, "/v1/activities", f.token,
+	f.expect(http.MethodPost, "/activities", f.token,
 		`{"key":"deploy","title":"Deploy","status":"Building","progress":0.25}`,
 		http.StatusCreated, &started)
 	if started.Accepted != 1 || started.Activity.Status != db.ActivityActive {
@@ -717,7 +717,7 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 	}
 
 	// A second start on the same phone is refused, and says how to proceed.
-	rec := f.request(http.MethodPost, "/v1/activities", f.token,
+	rec := f.request(http.MethodPost, "/activities", f.token,
 		`{"key":"other","title":"Tests","status":"Running"}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("second start: status = %d, want 409: %s", rec.Code, rec.Body)
@@ -729,7 +729,7 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 
 	// With replace it takes the slot, and reports what it displaced.
 	var replaced activityResponse
-	f.expect(http.MethodPost, "/v1/activities", f.token,
+	f.expect(http.MethodPost, "/activities", f.token,
 		`{"key":"other","title":"Tests","status":"Running","replace":true}`,
 		http.StatusCreated, &replaced)
 	if replaced.Replaced == nil || *replaced.Replaced != 1 {
@@ -737,7 +737,7 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 	}
 
 	var reread activityReadResponse
-	f.expect(http.MethodGet, "/v1/activities/"+started.Activity.ID, f.session, "", http.StatusOK, &reread)
+	f.expect(http.MethodGet, "/activities/"+started.Activity.ID, f.session, "", http.StatusOK, &reread)
 	if reread.Activity.Status != db.ActivityEnded {
 		t.Errorf("displaced activity = %q, want ended", reread.Activity.Status)
 	}
@@ -746,19 +746,19 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 	// token yet — the common case, and one the caller is told about rather than
 	// left to infer from a zero count.
 	var updated activityResponse
-	f.expect(http.MethodPatch, "/v1/activities/other", f.token,
+	f.expect(http.MethodPatch, "/activities/other", f.token,
 		`{"status":"Passing","progress":0.9}`, http.StatusOK, &updated)
 	if updated.Accepted != 0 {
 		t.Fatalf("update = %+v, want nothing accepted before token registration", updated)
 	}
 
 	// Once the phone reports the token, updates land.
-	f.expect(http.MethodPut, "/v1/devices/"+device.ID+"/activity-update-token", f.session,
+	f.expect(http.MethodPut, "/devices/"+device.ID+"/activity-update-token", f.session,
 		`{"update_token":"`+strings.Repeat("cd", 32)+`","native_activity_id":"native-1","environment":"sandbox"}`,
 		http.StatusOK, nil)
 
 	stale := updated.Activity.Sequence
-	f.expect(http.MethodPatch, "/v1/activities/other", f.token,
+	f.expect(http.MethodPatch, "/activities/other", f.token,
 		`{"status":"Green","if_sequence":`+strconv.Itoa(stale)+`}`, http.StatusOK, &updated)
 	if updated.Accepted != 1 {
 		t.Fatalf("update after registration = %+v, want one accepted delivery", updated)
@@ -766,7 +766,7 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 
 	// The sequence is the concurrency token: a stale one is refused rather than
 	// silently overwriting somebody else's change.
-	rec = f.request(http.MethodPatch, "/v1/activities/other", f.token,
+	rec = f.request(http.MethodPatch, "/activities/other", f.token,
 		`{"status":"Stale","if_sequence":`+strconv.Itoa(stale)+`}`)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("stale sequence: status = %d, want 409: %s", rec.Code, rec.Body)
@@ -776,14 +776,14 @@ func TestLiveActivityOccupiesOneDeviceSlot(t *testing.T) {
 	}
 
 	var ended activityResponse
-	f.expect(http.MethodPost, "/v1/activities/other/end", f.token,
+	f.expect(http.MethodPost, "/activities/other/end", f.token,
 		`{"status":"Done","dismiss_after_seconds":30}`, http.StatusOK, &ended)
 	if ended.Activity.Status != db.ActivityEnded || ended.Accepted != 1 {
 		t.Fatalf("end = %+v, want an ended activity with one accepted delivery", ended)
 	}
 
 	// Ending frees the key: the same handle starts a new run.
-	f.expect(http.MethodPost, "/v1/activities", f.token,
+	f.expect(http.MethodPost, "/activities", f.token,
 		`{"key":"other","title":"Tests","status":"Running"}`, http.StatusCreated, nil)
 }
 
@@ -797,14 +797,14 @@ func TestIdempotencyKeyReplaysRatherThanResends(t *testing.T) {
 	const body = `{"body":"Build 4821 succeeded","title":"CI"}`
 
 	var first notificationResponse
-	f.withHeader(http.MethodPost, "/v1/notifications", f.token, body,
+	f.withHeader(http.MethodPost, "/notifications", f.token, body,
 		IdempotencyKeyHeader, "build-4821", http.StatusCreated, &first)
 	if first.Notification.AcceptedCount != 1 || first.Replayed {
 		t.Fatalf("first send = %+v, want one accepted and replayed false", first)
 	}
 
 	var second notificationResponse
-	f.withHeader(http.MethodPost, "/v1/notifications", f.token, body,
+	f.withHeader(http.MethodPost, "/notifications", f.token, body,
 		IdempotencyKeyHeader, "build-4821", http.StatusOK, &second)
 	if !second.Replayed || second.Notification.ID != first.Notification.ID {
 		t.Fatalf("replay = %+v, want the first notification back", second)
@@ -815,13 +815,13 @@ func TestIdempotencyKeyReplaysRatherThanResends(t *testing.T) {
 
 	// The same key with a different payload is a client bug: answering with the
 	// first request's outcome would be a lie about what was delivered.
-	f.withHeader(http.MethodPost, "/v1/notifications", f.token, `{"body":"Something else"}`,
+	f.withHeader(http.MethodPost, "/notifications", f.token, `{"body":"Something else"}`,
 		IdempotencyKeyHeader, "build-4821", http.StatusConflict, nil)
 
 	// An empty key is refused rather than treated as absent, because a caller
 	// that computed one and got "" is about to get the double-send it was trying
 	// to avoid.
-	f.withHeader(http.MethodPost, "/v1/notifications", f.token, body,
+	f.withHeader(http.MethodPost, "/notifications", f.token, body,
 		IdempotencyKeyHeader, "   ", http.StatusBadRequest, nil)
 }
 
@@ -832,9 +832,9 @@ func TestDeliveryQuotaRefusesWithRetryAfter(t *testing.T) {
 	f := newFixture(t, fixtureOptions{requesterRate: 1, accountRate: 100})
 	f.registerDevice(strings.Repeat("f6", 32))
 
-	f.expect(http.MethodPost, "/v1/notifications", f.token, `{"body":"one"}`, http.StatusCreated, nil)
+	f.expect(http.MethodPost, "/notifications", f.token, `{"body":"one"}`, http.StatusCreated, nil)
 
-	rec := f.request(http.MethodPost, "/v1/notifications", f.token, `{"body":"two"}`)
+	rec := f.request(http.MethodPost, "/notifications", f.token, `{"body":"two"}`)
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429: %s", rec.Code, rec.Body)
 	}
@@ -856,7 +856,7 @@ func TestWebhookCredentialIsScopedToItsService(t *testing.T) {
 	f.expect(http.MethodPost, hook, "", `{"body":"before rotation"}`, http.StatusCreated, nil)
 
 	var rotated createdServiceResponse
-	f.expect(http.MethodPost, "/v1/services/"+service.ID+"/webhook-token", f.session, "",
+	f.expect(http.MethodPost, "/services/"+service.ID+"/webhook-token", f.session, "",
 		http.StatusCreated, &rotated)
 
 	if rec := f.request(http.MethodPost, hook, "", `{"body":"after rotation"}`); rec.Code != http.StatusNotFound {
@@ -868,11 +868,11 @@ func TestWebhookCredentialIsScopedToItsService(t *testing.T) {
 
 	// A token may read services, but never the URL that can send as one.
 	var listed serviceListResponse
-	f.expect(http.MethodGet, "/v1/services", f.token, "", http.StatusOK, &listed)
+	f.expect(http.MethodGet, "/services", f.token, "", http.StatusOK, &listed)
 	if len(listed.Services) != 1 || listed.Services[0].WebhookURL != nil {
 		t.Fatalf("services for a token = %+v, want the webhook URL withheld", listed.Services)
 	}
-	f.expect(http.MethodGet, "/v1/services", f.session, "", http.StatusOK, &listed)
+	f.expect(http.MethodGet, "/services", f.session, "", http.StatusOK, &listed)
 	if listed.Services[0].WebhookURL == nil {
 		t.Error("the owner cannot see their own webhook URL")
 	}
@@ -888,14 +888,14 @@ func TestStaleDeviceIsDeactivatedByItsOwnFailure(t *testing.T) {
 	f.sender.stale[token] = true
 
 	var sent notificationResponse
-	f.expect(http.MethodPost, "/v1/notifications", f.token, `{"body":"knock knock"}`,
+	f.expect(http.MethodPost, "/notifications", f.token, `{"body":"knock knock"}`,
 		http.StatusCreated, &sent)
 	if sent.Notification.AcceptedCount != 0 {
 		t.Fatalf("send = %+v, want nothing accepted", sent)
 	}
 
 	var listed deviceListResponse
-	f.expect(http.MethodGet, "/v1/devices", f.session, "", http.StatusOK, &listed)
+	f.expect(http.MethodGet, "/devices", f.session, "", http.StatusOK, &listed)
 	if len(listed.Devices) != 1 || listed.Devices[0].ID != device.ID {
 		t.Fatalf("devices = %+v, want the row kept", listed.Devices)
 	}
@@ -907,7 +907,7 @@ func TestStaleDeviceIsDeactivatedByItsOwnFailure(t *testing.T) {
 	// was there and refused the push is a delivery failure; "no devices" would
 	// send the owner off to register a phone they already have.
 	var history historyListResponse
-	f.expect(http.MethodGet, "/v1/history", f.session, "", http.StatusOK, &history)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 {
 		t.Fatalf("history = %+v, want the one send", history.Items)
 	}
@@ -924,7 +924,7 @@ func TestInteractionOnTheLockScreenEndsWhenItIsAnswered(t *testing.T) {
 	device := f.registerDevice(strings.Repeat("c9", 32))
 
 	var asked interactionResponse
-	f.expect(http.MethodPost, "/v1/interactions", f.token, `{
+	f.expect(http.MethodPost, "/interactions", f.token, `{
 		"title": "Claude Code",
 		"prompt": "Allow Bash?",
 		"kind": "approval",
@@ -947,7 +947,7 @@ func TestInteractionOnTheLockScreenEndsWhenItIsAnswered(t *testing.T) {
 	// The activity presenting a question is not an ordinary activity: it is
 	// hidden from the activity surfaces, because it is shown as the question.
 	var activities activityListResponse
-	f.expect(http.MethodGet, "/v1/activities", f.session, "", http.StatusOK, &activities)
+	f.expect(http.MethodGet, "/activities", f.session, "", http.StatusOK, &activities)
 	if len(activities.Activities) != 0 {
 		t.Errorf("activities = %+v, want the interaction's card hidden", activities.Activities)
 	}
@@ -956,13 +956,13 @@ func TestInteractionOnTheLockScreenEndsWhenItIsAnswered(t *testing.T) {
 	// using the capability that push carried rather than a session — a Lock
 	// Screen card outlives the app that started it. Until this lands nothing can
 	// be pushed to the card, so it is the step that makes ending it observable.
-	f.expect(http.MethodPut, "/v1/activity-deliveries/"+start.DeliveryID+"/update-token", "",
+	f.expect(http.MethodPut, "/activity-deliveries/"+start.DeliveryID+"/update-token", "",
 		`{"registration_token":"`+start.Start.RegistrationToken+`",`+
 			`"update_token":"`+strings.Repeat("ef", 32)+`","native_activity_id":"native-q1"}`,
 		http.StatusNoContent, nil)
 
 	f.sender.reset()
-	f.expect(http.MethodPost, "/v1/interactions/"+asked.Interaction.ID+"/response", f.session,
+	f.expect(http.MethodPost, "/interactions/"+asked.Interaction.ID+"/response", f.session,
 		`{"action":"approve","device_id":"`+device.ID+`","action_digest":"`+asked.Interaction.ActionDigest+`"}`,
 		http.StatusOK, nil)
 

@@ -45,7 +45,7 @@ nonisolated enum HarkResponder {
         }
     }
 
-    /// POSTs an answer to `/v1/interactions/{id}/response`.
+    /// POSTs an answer to `/interactions/{id}/response`.
     ///
     /// `responseToken` is the push's one-shot credential; `bearer` is the
     /// app's session when it has one. Either suffices on its own.
@@ -130,7 +130,7 @@ nonisolated enum HarkResponder {
             let registration = URL(string: tokenRegistrationUrl),
             let origin = origin(of: registration)
         else { return nil }
-        return URL(string: origin.absoluteString + "/v1/interactions/\(interactionID)/response")
+        return URL(string: origin.absoluteString + "/interactions/\(interactionID)/response")
     }
 
     // MARK: Transport

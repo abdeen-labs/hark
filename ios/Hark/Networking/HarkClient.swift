@@ -3,7 +3,7 @@
 //  Hark
 //
 //  The session-authenticated HTTP client. A value: base URL plus token,
-//  cheap to recreate whenever either changes. Every call speaks the /v1
+//  cheap to recreate whenever either changes. Every call speaks the API
 //  surface exactly as docs/api.md documents it — snake_case JSON, bearer
 //  auth, the one error envelope.
 //
@@ -72,39 +72,39 @@ nonisolated struct HarkClient: Sendable {
 
     func login(username: String, password: String) async throws -> LoginResponse {
         try await send(
-            "POST", "/v1/auth/login",
+            "POST", "/auth/login",
             body: LoginRequest(username: username, password: password),
             authenticated: false
         )
     }
 
     func logout() async throws {
-        try await sendExpectingNoContent("POST", "/v1/auth/logout")
+        try await sendExpectingNoContent("POST", "/auth/logout")
     }
 
     func session() async throws -> SessionResponse {
-        try await send("GET", "/v1/auth/session")
+        try await send("GET", "/auth/session")
     }
 
     // MARK: - Devices
 
     func registerDevice(_ request: RegisterDeviceRequest) async throws -> APIDevice {
-        let response: DeviceResponse = try await send("POST", "/v1/devices", body: request)
+        let response: DeviceResponse = try await send("POST", "/devices", body: request)
         return response.device
     }
 
     func devices() async throws -> [APIDevice] {
-        let response: DeviceListResponse = try await send("GET", "/v1/devices")
+        let response: DeviceListResponse = try await send("GET", "/devices")
         return response.devices
     }
 
     func deleteDevice(id: String) async throws {
-        try await sendExpectingNoContent("DELETE", "/v1/devices/\(id)")
+        try await sendExpectingNoContent("DELETE", "/devices/\(id)")
     }
 
     func setPushToStartToken(deviceID: String, token: String, environment: String) async throws {
         try await sendExpectingNoContent(
-            "PUT", "/v1/devices/\(deviceID)/push-to-start-token",
+            "PUT", "/devices/\(deviceID)/push-to-start-token",
             body: PushToStartTokenRequest(token: token, environment: environment, schemaVersion: 1)
         )
     }
@@ -117,7 +117,7 @@ nonisolated struct HarkClient: Sendable {
         environment: String
     ) async throws -> ActivityUpdateTokenResponse {
         try await send(
-            "PUT", "/v1/devices/\(deviceID)/activity-update-token",
+            "PUT", "/devices/\(deviceID)/activity-update-token",
             body: ActivityUpdateTokenRequest(
                 updateToken: updateToken,
                 nativeActivityId: nativeActivityID,
@@ -133,7 +133,7 @@ nonisolated struct HarkClient: Sendable {
     func interactions(status: String = "pending", cursor: String? = nil) async throws -> InteractionsPage {
         var query = [URLQueryItem(name: "status", value: status)]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
-        return try await send("GET", "/v1/interactions", query: query)
+        return try await send("GET", "/interactions", query: query)
     }
 
     /// Fetches the complete interactions snapshot for one status, following
@@ -175,7 +175,7 @@ nonisolated struct HarkClient: Sendable {
         if waitSeconds > 0 {
             query.append(URLQueryItem(name: "wait_seconds", value: String(waitSeconds)))
         }
-        let envelope: InteractionEnvelope = try await send("GET", "/v1/interactions/\(id)", query: query)
+        let envelope: InteractionEnvelope = try await send("GET", "/interactions/\(id)", query: query)
         return envelope.interaction
     }
 
@@ -188,7 +188,7 @@ nonisolated struct HarkClient: Sendable {
         responseToken: String? = nil
     ) async throws -> APIInteraction {
         let envelope: InteractionEnvelope = try await send(
-            "POST", "/v1/interactions/\(id)/response",
+            "POST", "/interactions/\(id)/response",
             body: RespondRequest(
                 action: action,
                 text: text,
@@ -201,7 +201,7 @@ nonisolated struct HarkClient: Sendable {
     }
 
     func cancelInteraction(id: String) async throws -> APIInteraction {
-        let envelope: InteractionEnvelope = try await send("POST", "/v1/interactions/\(id)/cancel")
+        let envelope: InteractionEnvelope = try await send("POST", "/interactions/\(id)/cancel")
         return envelope.interaction
     }
 
@@ -210,11 +210,11 @@ nonisolated struct HarkClient: Sendable {
     func history(kind: String = "all", cursor: String? = nil) async throws -> HistoryPage {
         var query = [URLQueryItem(name: "kind", value: kind)]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
-        return try await send("GET", "/v1/history", query: query)
+        return try await send("GET", "/history", query: query)
     }
 
     func deleteHistoryItem(id: String) async throws {
-        try await sendExpectingNoContent("DELETE", "/v1/history/\(id)")
+        try await sendExpectingNoContent("DELETE", "/history/\(id)")
     }
 
     // MARK: - Live Activities (read side)
@@ -222,19 +222,19 @@ nonisolated struct HarkClient: Sendable {
     func liveActivities(status: String = "live", cursor: String? = nil) async throws -> ActivitiesPage {
         var query = [URLQueryItem(name: "status", value: status)]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
-        return try await send("GET", "/v1/activities", query: query)
+        return try await send("GET", "/activities", query: query)
     }
 
     // MARK: - Safety
 
     func safetySources() async throws -> [APISafetySource] {
-        let response: SafetySourceListResponse = try await send("GET", "/v1/safety-sources")
+        let response: SafetySourceListResponse = try await send("GET", "/safety-sources")
         return response.sources
     }
 
     func createSafetySource(name: String) async throws -> APISafetySource {
         let response: SafetySourceResponse = try await send(
-            "POST", "/v1/safety-sources",
+            "POST", "/safety-sources",
             body: CreateSafetySourceRequest(name: name)
         )
         return response.source
@@ -246,28 +246,28 @@ nonisolated struct HarkClient: Sendable {
         criticalEnabled: Bool? = nil
     ) async throws -> APISafetySource {
         let response: SafetySourceResponse = try await send(
-            "PATCH", "/v1/safety-sources/\(id)",
+            "PATCH", "/safety-sources/\(id)",
             body: UpdateSafetySourceRequest(kind: kind, name: nil, criticalEnabled: criticalEnabled)
         )
         return response.source
     }
 
     func deleteSafetySource(id: String) async throws {
-        try await sendExpectingNoContent("DELETE", "/v1/safety-sources/\(id)")
+        try await sendExpectingNoContent("DELETE", "/safety-sources/\(id)")
     }
 
     func sendSafetyTest(sourceId: String) async throws -> APISafetyTestEvent {
-        let response: SafetyTestResponse = try await send("POST", "/v1/safety-sources/\(sourceId)/test")
+        let response: SafetyTestResponse = try await send("POST", "/safety-sources/\(sourceId)/test")
         return response.event
     }
 
     func safetySettings() async throws -> APISafetySettings {
-        try await send("GET", "/v1/safety-settings")
+        try await send("GET", "/safety-settings")
     }
 
     func setSafetySettings(criticalAlertsEnabled: Bool) async throws -> APISafetySettings {
         try await send(
-            "PATCH", "/v1/safety-settings",
+            "PATCH", "/safety-settings",
             body: APISafetySettings(criticalAlertsEnabled: criticalAlertsEnabled)
         )
     }

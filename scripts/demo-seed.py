@@ -89,17 +89,17 @@ class Client:
 
 
 def seed(api, username, password):
-    session = api.must("POST", "/v1/auth/login", {"username": username, "password": password})["token"]
+    session = api.must("POST", "/auth/login", {"username": username, "password": password})["token"]
 
     devices = []
     for name in ("Studio iPhone", "Bench iPad"):
-        device = api.must("POST", "/v1/devices", {
+        device = api.must("POST", "/devices", {
             "apns_token": secrets.token_hex(32), "name": name,
             "interaction_schema_version": 1, "live_activity_interaction_version": 1,
         }, session)["device"]
         devices.append(device["id"])
         print(f"device    {device['id']}  {name}")
-    api.must("PUT", f"/v1/devices/{devices[0]}/push-to-start-token",
+    api.must("PUT", f"/devices/{devices[0]}/push-to-start-token",
              {"token": secrets.token_hex(32), "environment": "sandbox", "schema_version": 1}, session)
 
     hooks = {}
@@ -107,21 +107,21 @@ def seed(api, username, password):
         body = {"title": title, "image_url": image, "priority": priority}
         if url:
             body["url"] = url
-        hooks[title] = api.must("POST", "/v1/services", body, session)["webhook_url"]
+        hooks[title] = api.must("POST", "/services", body, session)["webhook_url"]
         print(f"service   {title}")
 
-    bot = api.must("POST", "/v1/tokens", {
+    bot = api.must("POST", "/tokens", {
         "name": "deploy-bot",
         "scopes": ["notifications:send", "activities:write", "activities:read",
                    "interactions:create", "interactions:read"],
         "expires_in_seconds": 7776000,
     }, session)
     secret = bot.get("secret") or next(v for v in bot.values() if isinstance(v, str) and v.startswith("hark_"))
-    api.must("POST", "/v1/tokens", {"name": "ci-reader", "scopes": ["events:read", "devices:read"]}, session)
-    stale = api.must("POST", "/v1/tokens", {
+    api.must("POST", "/tokens", {"name": "ci-reader", "scopes": ["events:read", "devices:read"]}, session)
+    stale = api.must("POST", "/tokens", {
         "name": "old-laptop", "scopes": ["notifications:send"], "expires_in_seconds": 3600,
     }, session)["token"]["id"]
-    api.must("DELETE", f"/v1/tokens/{stale}", None, session)
+    api.must("DELETE", f"/tokens/{stale}", None, session)
     print("tokens    deploy-bot, ci-reader, old-laptop (revoked)")
 
     for service, title, body in HOOKS:
@@ -136,14 +136,14 @@ def seed(api, username, password):
     print("hook      Railway  Promote to production? (question)")
 
     for title, body, priority in NOTIFICATIONS:
-        api.must("POST", "/v1/notifications", {"title": title, "body": body, "priority": priority}, secret)
+        api.must("POST", "/notifications", {"title": title, "body": body, "priority": priority}, secret)
         print(f"push      {title}  {body}")
-    api.must("POST", "/v1/interactions", {
+    api.must("POST", "/interactions", {
         "title": "Claude Code", "prompt": "Run the migration on production?",
         "kind": "approval", "expires_in_seconds": 3600,
     }, secret)
     print("question  Claude Code  Run the migration on production?")
-    activity = api.must("POST", "/v1/activities", {
+    activity = api.must("POST", "/activities", {
         "key": "deploy", "title": "Deploying hark", "status": "Rolling out 3/5",
         "detail": "Railway · us-west", "progress": 0.6, "expires_in_seconds": 7200,
     }, secret)["activity"]

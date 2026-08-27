@@ -13,11 +13,11 @@ func (f *fixture) createSafetySource(kind, name string) safetySourceDTO {
 	f.t.Helper()
 
 	var created safetySourceResponse
-	f.expect(http.MethodPost, "/v1/safety-sources", f.session,
+	f.expect(http.MethodPost, "/safety-sources", f.session,
 		`{"name":"`+name+`"}`, http.StatusCreated, &created)
 	if kind != db.SafetyKindGeneral {
 		var updated safetySourceResponse
-		f.expect(http.MethodPatch, "/v1/safety-sources/"+created.Source.ID, f.session,
+		f.expect(http.MethodPatch, "/safety-sources/"+created.Source.ID, f.session,
 			`{"kind":"`+kind+`"}`, http.StatusOK, &updated)
 		return updated.Source
 	}
@@ -27,7 +27,7 @@ func (f *fixture) createSafetySource(kind, name string) safetySourceDTO {
 // enableCritical enables Critical Alerts for a source.
 func (f *fixture) enableCritical(sourceID string) {
 	f.t.Helper()
-	f.expect(http.MethodPatch, "/v1/safety-sources/"+sourceID, f.session,
+	f.expect(http.MethodPatch, "/safety-sources/"+sourceID, f.session,
 		`{"critical_enabled":true}`, http.StatusOK, nil)
 }
 
@@ -36,7 +36,7 @@ func (f *fixture) reportSafety(sourceID, state string, want int) safetyEventResp
 	f.t.Helper()
 
 	var out safetyEventResponse
-	f.expect(http.MethodPost, "/v1/safety-events", f.token,
+	f.expect(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+sourceID+`","state":"`+state+`"}`, want, &out)
 	return out
 }
@@ -51,20 +51,20 @@ func TestSafetySourceLifecycle(t *testing.T) {
 
 	// Creation has one shape: a name-only general source. Classification and
 	// Critical Alerts are separate updates.
-	rec := f.request(http.MethodPost, "/v1/safety-sources", f.session,
+	rec := f.request(http.MethodPost, "/safety-sources", f.session,
 		`{"kind":"smoke","name":"Garage","critical_enabled":true}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("create with classification fields: status = %d, want 400: %s", rec.Code, rec.Body)
 	}
 
-	rec = f.request(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session, `{"kind":"fire"}`)
+	rec = f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session, `{"kind":"fire"}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("classify with an unknown kind: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
 
 	// A general source cannot be made critical until the owner assigns an
 	// eligible safety alert type.
-	rec = f.request(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session,
+	rec = f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session,
 		`{"critical_enabled":true}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("enable a general source: status = %d, want 422: %s", rec.Code, rec.Body)
@@ -72,36 +72,36 @@ func TestSafetySourceLifecycle(t *testing.T) {
 
 	second := f.createSafetySource(db.SafetyKindWaterLeak, "Basement")
 	var listed safetySourceListResponse
-	f.expect(http.MethodGet, "/v1/safety-sources", f.session, "", http.StatusOK, &listed)
+	f.expect(http.MethodGet, "/safety-sources", f.session, "", http.StatusOK, &listed)
 	if len(listed.Sources) != 2 || listed.Sources[0].ID != second.ID {
 		t.Fatalf("sources = %+v, want both, newest first", listed.Sources)
 	}
 
 	var got safetySourceResponse
-	f.expect(http.MethodGet, "/v1/safety-sources/"+src.ID, f.session, "", http.StatusOK, &got)
+	f.expect(http.MethodGet, "/safety-sources/"+src.ID, f.session, "", http.StatusOK, &got)
 	if got.Source.ID != src.ID {
 		t.Fatalf("get = %+v, want %s", got.Source, src.ID)
 	}
 
-	f.expect(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session,
+	f.expect(http.MethodPatch, "/safety-sources/"+src.ID, f.session,
 		`{"name":"Hallway"}`, http.StatusOK, &got)
 	if got.Source.Name != "Hallway" || got.Source.CriticalEnabled {
 		t.Fatalf("renamed = %+v, want the toggle untouched", got.Source)
 	}
-	f.expect(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session,
+	f.expect(http.MethodPatch, "/safety-sources/"+src.ID, f.session,
 		`{"kind":"smoke","critical_enabled":true}`, http.StatusOK, &got)
 	if !got.Source.CriticalEnabled || got.Source.Name != "Hallway" || got.Source.Kind != db.SafetyKindSmoke {
 		t.Fatalf("classified = %+v, want a critical smoke source with the name untouched", got.Source)
 	}
 
 	// An empty PATCH changes nothing.
-	rec = f.request(http.MethodPatch, "/v1/safety-sources/"+src.ID, f.session, `{}`)
+	rec = f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session, `{}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("empty patch: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
 
-	f.expect(http.MethodDelete, "/v1/safety-sources/"+second.ID, f.session, "", http.StatusNoContent, nil)
-	rec = f.request(http.MethodGet, "/v1/safety-sources/"+second.ID, f.session, "")
+	f.expect(http.MethodDelete, "/safety-sources/"+second.ID, f.session, "", http.StatusNoContent, nil)
+	rec = f.request(http.MethodGet, "/safety-sources/"+second.ID, f.session, "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("get after delete: status = %d, want 404: %s", rec.Code, rec.Body)
 	}
@@ -111,23 +111,23 @@ func TestSafetySettingsToggle(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 
 	var settings safetySettingsResponse
-	f.expect(http.MethodGet, "/v1/safety-settings", f.session, "", http.StatusOK, &settings)
+	f.expect(http.MethodGet, "/safety-settings", f.session, "", http.StatusOK, &settings)
 	if !settings.CriticalAlertsEnabled {
 		t.Fatal("a fresh account should have critical alerts enabled")
 	}
 
-	f.expect(http.MethodPatch, "/v1/safety-settings", f.session,
+	f.expect(http.MethodPatch, "/safety-settings", f.session,
 		`{"critical_alerts_enabled":false}`, http.StatusOK, &settings)
 	if settings.CriticalAlertsEnabled {
 		t.Fatal("the PATCH did not echo the new value")
 	}
-	f.expect(http.MethodGet, "/v1/safety-settings", f.session, "", http.StatusOK, &settings)
+	f.expect(http.MethodGet, "/safety-settings", f.session, "", http.StatusOK, &settings)
 	if settings.CriticalAlertsEnabled {
 		t.Fatal("the toggle did not persist")
 	}
 
 	// The account setting is required.
-	rec := f.request(http.MethodPatch, "/v1/safety-settings", f.session, `{}`)
+	rec := f.request(http.MethodPatch, "/safety-settings", f.session, `{}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("empty patch: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
@@ -138,7 +138,7 @@ func TestSafetyAuthBoundaries(t *testing.T) {
 	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
 
 	// Sessions cannot report safety events.
-	rec := f.request(http.MethodPost, "/v1/safety-events", f.session,
+	rec := f.request(http.MethodPost, "/safety-events", f.session,
 		`{"source_id":"`+src.ID+`","state":"active"}`)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("session report: status = %d, want 403: %s", rec.Code, rec.Body)
@@ -149,9 +149,9 @@ func TestSafetyAuthBoundaries(t *testing.T) {
 
 	// Reporting requires safety:report.
 	var minted createTokenResponse
-	f.expect(http.MethodPost, "/v1/tokens", f.session,
+	f.expect(http.MethodPost, "/tokens", f.session,
 		`{"name":"narrow","scopes":["notifications:send"]}`, http.StatusCreated, &minted)
-	rec = f.request(http.MethodPost, "/v1/safety-events", minted.Secret,
+	rec = f.request(http.MethodPost, "/safety-events", minted.Secret,
 		`{"source_id":"`+src.ID+`","state":"active"}`)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("unscoped report: status = %d, want 403: %s", rec.Code, rec.Body)
@@ -162,14 +162,14 @@ func TestSafetyAuthBoundaries(t *testing.T) {
 
 	// Source configuration and setup tests require a session.
 	sessionOnly := []struct{ method, path, body string }{
-		{http.MethodGet, "/v1/safety-sources", ""},
-		{http.MethodPost, "/v1/safety-sources", `{"name":"Garage"}`},
-		{http.MethodGet, "/v1/safety-sources/" + src.ID, ""},
-		{http.MethodPatch, "/v1/safety-sources/" + src.ID, `{"critical_enabled":true}`},
-		{http.MethodDelete, "/v1/safety-sources/" + src.ID, ""},
-		{http.MethodPost, "/v1/safety-sources/" + src.ID + "/test", ""},
-		{http.MethodGet, "/v1/safety-settings", ""},
-		{http.MethodPatch, "/v1/safety-settings", `{"critical_alerts_enabled":false}`},
+		{http.MethodGet, "/safety-sources", ""},
+		{http.MethodPost, "/safety-sources", `{"name":"Garage"}`},
+		{http.MethodGet, "/safety-sources/" + src.ID, ""},
+		{http.MethodPatch, "/safety-sources/" + src.ID, `{"critical_enabled":true}`},
+		{http.MethodDelete, "/safety-sources/" + src.ID, ""},
+		{http.MethodPost, "/safety-sources/" + src.ID + "/test", ""},
+		{http.MethodGet, "/safety-settings", ""},
+		{http.MethodPatch, "/safety-settings", `{"critical_alerts_enabled":false}`},
 	}
 	for _, route := range sessionOnly {
 		rec := f.request(route.method, route.path, f.token, route.body)
@@ -246,7 +246,7 @@ func TestSafetyDowngradeMatrix(t *testing.T) {
 
 	globalOff := f.createSafetySource(db.SafetyKindPanic, "Wristband")
 	f.enableCritical(globalOff.ID)
-	f.expect(http.MethodPatch, "/v1/safety-settings", f.session,
+	f.expect(http.MethodPatch, "/safety-settings", f.session,
 		`{"critical_alerts_enabled":false}`, http.StatusOK, nil)
 	sent = f.reportSafety(globalOff.ID, db.SafetyStateActive, http.StatusCreated)
 	if sent.Event.Priority != db.PriorityTimeSensitive {
@@ -258,7 +258,7 @@ func TestSafetyDowngradeMatrix(t *testing.T) {
 
 	bothOn := f.createSafetySource(db.SafetyKindIntrusion, "Front door")
 	f.enableCritical(bothOn.ID)
-	f.expect(http.MethodPatch, "/v1/safety-settings", f.session,
+	f.expect(http.MethodPatch, "/safety-settings", f.session,
 		`{"critical_alerts_enabled":true}`, http.StatusOK, nil)
 	sent = f.reportSafety(bothOn.ID, db.SafetyStateActive, http.StatusCreated)
 	if sent.Event.Priority != db.PriorityCritical {
@@ -343,7 +343,7 @@ func TestSafetySetupTest(t *testing.T) {
 	f.enableCritical(src.ID)
 
 	var sent safetyTestResponse
-	f.expect(http.MethodPost, "/v1/safety-sources/"+src.ID+"/test", f.session, "",
+	f.expect(http.MethodPost, "/safety-sources/"+src.ID+"/test", f.session, "",
 		http.StatusCreated, &sent)
 	if sent.Event.State != db.SafetyStateTest || sent.Event.Status != db.EventAccepted {
 		t.Fatalf("test = %+v, want an accepted test event", sent.Event)
@@ -357,7 +357,7 @@ func TestSafetySetupTest(t *testing.T) {
 	}
 
 	// Tests are throttled per source.
-	rec := f.request(http.MethodPost, "/v1/safety-sources/"+src.ID+"/test", f.session, "")
+	rec := f.request(http.MethodPost, "/safety-sources/"+src.ID+"/test", f.session, "")
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("second test: status = %d, want 429: %s", rec.Code, rec.Body)
 	}
@@ -373,13 +373,13 @@ func TestSafetySetupTest(t *testing.T) {
 
 	// A disabled source setting downgrades the test.
 	plain := f.createSafetySource(db.SafetyKindPanic, "Wristband")
-	f.expect(http.MethodPost, "/v1/safety-sources/"+plain.ID+"/test", f.session, "",
+	f.expect(http.MethodPost, "/safety-sources/"+plain.ID+"/test", f.session, "",
 		http.StatusCreated, &sent)
 	if sent.Event.Priority != db.PriorityTimeSensitive {
 		t.Errorf("downgraded test priority = %q, want %q", sent.Event.Priority, db.PriorityTimeSensitive)
 	}
 
-	rec = f.request(http.MethodPost, "/v1/safety-sources/unknown/test", f.session, "")
+	rec = f.request(http.MethodPost, "/safety-sources/unknown/test", f.session, "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("test on an unknown source: status = %d, want 404: %s", rec.Code, rec.Body)
 	}
@@ -391,7 +391,7 @@ func TestSafetyReportValidation(t *testing.T) {
 	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
 
 	// Setup tests use their session-only endpoint.
-	rec := f.request(http.MethodPost, "/v1/safety-events", f.token,
+	rec := f.request(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+src.ID+`","state":"test"}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("state test: status = %d, want 422: %s", rec.Code, rec.Body)
@@ -402,7 +402,7 @@ func TestSafetyReportValidation(t *testing.T) {
 	}
 
 	// Unknown sources produce a source_id field error.
-	rec = f.request(http.MethodPost, "/v1/safety-events", f.token,
+	rec = f.request(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+newID()+`","state":"active"}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("unknown source: status = %d, want 422: %s", rec.Code, rec.Body)
@@ -416,7 +416,7 @@ func TestSafetyReportValidation(t *testing.T) {
 	}
 
 	// Reporters cannot supply alert text.
-	rec = f.request(http.MethodPost, "/v1/safety-events", f.token,
+	rec = f.request(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+src.ID+`","state":"active","title":"EVACUATE"}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("caller-supplied title: status = %d, want 400: %s", rec.Code, rec.Body)
@@ -431,14 +431,14 @@ func TestSafetyReportIdempotency(t *testing.T) {
 	body := `{"source_id":"` + src.ID + `","state":"active"}`
 
 	var first safetyEventResponse
-	f.withHeader(http.MethodPost, "/v1/safety-events", f.token, body,
+	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
 		IdempotencyKeyHeader, "alarm-1", http.StatusCreated, &first)
 	if first.Event.Status != db.EventAccepted || first.Replayed {
 		t.Fatalf("first report = %+v, want one accepted delivery", first)
 	}
 
 	var second safetyEventResponse
-	f.withHeader(http.MethodPost, "/v1/safety-events", f.token, body,
+	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
 		IdempotencyKeyHeader, "alarm-1", http.StatusOK, &second)
 	if !second.Replayed || second.Event.ID != first.Event.ID {
 		t.Fatalf("replay = %+v, want the first event back", second)
@@ -448,19 +448,19 @@ func TestSafetyReportIdempotency(t *testing.T) {
 	}
 
 	// Reusing a key for a different payload is a conflict.
-	f.withHeader(http.MethodPost, "/v1/safety-events", f.token,
+	f.withHeader(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+src.ID+`","state":"resolved"}`,
 		IdempotencyKeyHeader, "alarm-1", http.StatusConflict, nil)
 
 	// Replaying a coalesced report does not send it.
 	var coalesced safetyEventResponse
-	f.withHeader(http.MethodPost, "/v1/safety-events", f.token, body,
+	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
 		IdempotencyKeyHeader, "alarm-2", http.StatusCreated, &coalesced)
 	if coalesced.Event.Status != db.SafetyCoalesced {
 		t.Fatalf("second alarm = %+v, want it coalesced", coalesced.Event)
 	}
 	var replayed safetyEventResponse
-	f.withHeader(http.MethodPost, "/v1/safety-events", f.token, body,
+	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
 		IdempotencyKeyHeader, "alarm-2", http.StatusOK, &replayed)
 	if !replayed.Replayed || replayed.Event.Status != db.SafetyCoalesced {
 		t.Fatalf("replayed = %+v, want the stored coalesced outcome", replayed)
@@ -478,7 +478,7 @@ func TestSafetyEventsEnterTheHistory(t *testing.T) {
 	sent := f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 
 	var history historyListResponse
-	f.expect(http.MethodGet, "/v1/history", f.session, "", http.StatusOK, &history)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 {
 		t.Fatalf("history = %+v, want the one safety event", history.Items)
 	}
@@ -494,8 +494,8 @@ func TestSafetyEventsEnterTheHistory(t *testing.T) {
 		t.Errorf("item = %+v, want the delivery fields populated", item)
 	}
 
-	f.expect(http.MethodDelete, "/v1/history/"+item.ID, f.session, "", http.StatusNoContent, nil)
-	f.expect(http.MethodGet, "/v1/history", f.session, "", http.StatusOK, &history)
+	f.expect(http.MethodDelete, "/history/"+item.ID, f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 0 {
 		t.Errorf("history after the delete = %+v, want empty", history.Items)
 	}
@@ -508,7 +508,7 @@ func TestSafetyReportsConsumeDeliveryQuota(t *testing.T) {
 
 	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 
-	rec := f.request(http.MethodPost, "/v1/safety-events", f.token,
+	rec := f.request(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+src.ID+`","state":"resolved"}`)
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("second report: status = %d, want 429: %s", rec.Code, rec.Body)
@@ -525,7 +525,7 @@ func TestSafetyReportsCountAgainstTheAccountCeiling(t *testing.T) {
 
 	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 
-	rec := f.request(http.MethodPost, "/v1/notifications", f.token, `{"body":"hello"}`)
+	rec := f.request(http.MethodPost, "/notifications", f.token, `{"body":"hello"}`)
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("notification after a safety report: status = %d, want 429: %s", rec.Code, rec.Body)
 	}
@@ -537,12 +537,12 @@ func TestCriticalPriorityIsRefusedEverywhere(t *testing.T) {
 	service, hook := f.createService("Deploy bot")
 
 	refused := []struct{ method, path, credential, body string }{
-		{http.MethodPost, "/v1/notifications", f.token, `{"body":"hi","priority":"critical"}`},
+		{http.MethodPost, "/notifications", f.token, `{"body":"hi","priority":"critical"}`},
 		{http.MethodPost, hook, "", `{"body":"hi","priority":"critical"}`},
-		{http.MethodPost, "/v1/interactions", f.token,
+		{http.MethodPost, "/interactions", f.token,
 			`{"title":"t","prompt":"p","kind":"approval","priority":"critical"}`},
-		{http.MethodPost, "/v1/services", f.session, `{"title":"New","priority":"critical"}`},
-		{http.MethodPatch, "/v1/services/" + service.ID, f.session, `{"priority":"critical"}`},
+		{http.MethodPost, "/services", f.session, `{"title":"New","priority":"critical"}`},
+		{http.MethodPatch, "/services/" + service.ID, f.session, `{"priority":"critical"}`},
 	}
 	for _, route := range refused {
 		rec := f.request(route.method, route.path, route.credential, route.body)
@@ -562,7 +562,7 @@ func TestCriticalPriorityIsRefusedEverywhere(t *testing.T) {
 	// Normal and Time Sensitive remain valid.
 	for _, priority := range db.Priorities {
 		var sent notificationResponse
-		f.expect(http.MethodPost, "/v1/notifications", f.token,
+		f.expect(http.MethodPost, "/notifications", f.token,
 			`{"body":"hi","priority":"`+priority+`"}`, http.StatusCreated, &sent)
 		if got := f.sender.lastAlert(t).Priority; got != priority {
 			t.Errorf("alert priority = %q, want %q", got, priority)

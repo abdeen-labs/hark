@@ -329,7 +329,7 @@ func TestBuildActivityStart(t *testing.T) {
 	event.StaleAt = &stale
 	event.Start = &push.ActivityStart{
 		Banner:               push.ActivityBanner{Title: "Deploy", Body: "Building"},
-		TokenRegistrationURL: "https://hark.example/v1/activity-deliveries/lad/update-token",
+		TokenRegistrationURL: "https://hark.example/activity-deliveries/lad/update-token",
 		RegistrationToken:    "registration-token",
 	}
 
@@ -401,7 +401,7 @@ func TestBuildActivityStartWithQuestion(t *testing.T) {
 	event := sampleActivity(push.EventStart)
 	event.Start = &push.ActivityStart{
 		Banner:               push.ActivityBanner{Title: "Release", Body: "Waiting for you"},
-		TokenRegistrationURL: "https://hark.example/v1/activity-deliveries/lad/update-token",
+		TokenRegistrationURL: "https://hark.example/activity-deliveries/lad/update-token",
 		RegistrationToken:    "registration-token",
 		Interaction: &push.ActivityInteraction{
 			ID:            "0198f3a1-2b4c-7d8e-9f01-000000000003",

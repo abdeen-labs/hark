@@ -481,7 +481,7 @@ func TestSafeNext(t *testing.T) {
 		pathTokens:               pathTokens,
 		"https://evil.example":   pathHome,
 		"//evil.example":         pathHome,
-		"/v1/tokens":             pathHome,
+		"/tokens":                pathHome,
 		"/dashboard/../../etc":   pathHome,
 		"/dashboard/x\nSet: y":   pathHome,
 		"/dashboard//evil":       pathHome,
@@ -627,7 +627,7 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 						ImageURL: ptr("https://example.com/logo.png"), URL: ptr("https://example.com/run"),
 						Priority: db.PriorityTimeSensitive, CreatedAt: now, UpdatedAt: now,
 					},
-					WebhookURL: ptr("https://hark.example.com/v1/hooks/harkhook_notarealtoken"),
+					WebhookURL: ptr("https://hark.example.com/hooks/harkhook_notarealtoken"),
 				},
 				{
 					Service: db.Service{ID: "svc-2", Title: "ci", Priority: db.PriorityNormal, CreatedAt: now, UpdatedAt: now},
@@ -643,7 +643,7 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 				ImageURL: ptr("https://example.com/logo.png"), URL: ptr("https://example.com/run"),
 				Priority: db.PriorityTimeSensitive, CreatedAt: now, UpdatedAt: now,
 			},
-			WebhookURL: ptr("https://hark.example.com/v1/hooks/harkhook_notarealtoken"),
+			WebhookURL: ptr("https://hark.example.com/hooks/harkhook_notarealtoken"),
 			Priorities: db.Priorities,
 			Form:       serviceForm{Title: "CI", ImageURL: "https://example.com/logo.png", Priority: db.PriorityTimeSensitive},
 			Deliveries: []db.EventListItem{

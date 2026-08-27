@@ -146,7 +146,7 @@ func TestServiceLifecycleThroughTheDashboard(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("show: status = %d: %s", rec.Code, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "/v1/hooks/"+auth.WebhookTokenPrefix) {
+	if !strings.Contains(rec.Body.String(), "/hooks/"+auth.WebhookTokenPrefix) {
 		t.Errorf("the service page does not show the webhook URL:\n%s", rec.Body)
 	}
 

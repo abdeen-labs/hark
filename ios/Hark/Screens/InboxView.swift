@@ -2,7 +2,7 @@
 //  InboxView.swift
 //  Hark
 //
-//  Pending questions, answerable in place. GET /v1/interactions?status=pending.
+//  Pending questions, answerable in place. GET /interactions?status=pending.
 //  The count is the page's anchor; the questions read as a ledger under it.
 //
 

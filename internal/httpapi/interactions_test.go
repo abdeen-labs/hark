@@ -18,7 +18,7 @@ import (
 // api_pg_test.go: the session in TestOnlyTheOwnerMayAnswerAQuestion, and the
 // push credential in TestWebhookQuestionIsAnsweredWithThePushCredential.
 
-const respondPath = "/v1/interactions/0198f3e4-0d22-7063-b1c8-6e9f0a1b2c3d/response"
+const respondPath = "/interactions/0198f3e4-0d22-7063-b1c8-6e9f0a1b2c3d/response"
 
 // respondBody is a well-formed answer, so every rejection below is the
 // authorization gate rather than validation.

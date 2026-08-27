@@ -2,7 +2,7 @@
 
 > Hark is a self-hosted service for sending iOS notifications, Live Activities, and interactive prompts from webhooks and API clients.
 
-Each Hark deployment has one owner account. Its JSON API is versioned under `/v1`. Identifiers are UUIDv7, timestamps use RFC 3339 UTC, and errors include a stable `error.code`. Owner sessions, scoped `hark_…` API tokens, and service-specific webhook URLs provide access.
+Each Hark deployment has one owner account. Its JSON API is served directly from the deployment root. Identifiers are UUIDv7, timestamps use RFC 3339 UTC, and errors include a stable `error.code`. Owner sessions, scoped `hark_…` API tokens, and service-specific webhook URLs provide access.
 
 ## Documentation
 

@@ -34,7 +34,7 @@
         }
       }
     },
-    "/v1/auth/login": {
+    "/auth/login": {
       "post": {
         "tags": ["Authentication"], "summary": "Exchange the owner password for a session", "operationId": "login",
         "security": [], "x-hark-auth": "public",
@@ -42,21 +42,21 @@
         "responses": { "200": { "$ref": "#/components/responses/Login" }, "401": { "$ref": "#/components/responses/Error" }, "429": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/logout": {
+    "/auth/logout": {
       "post": {
         "tags": ["Authentication"], "summary": "Invalidate the presented session or API token", "operationId": "logout",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token",
         "responses": { "204": { "description": "Credential invalidated." }, "401": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/session": {
+    "/auth/session": {
       "get": {
         "tags": ["Authentication"], "summary": "Describe the current authenticated user and credential", "operationId": "getCurrentSession",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "401": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/password": {
+    "/auth/password": {
       "post": {
         "tags": ["Authentication"], "summary": "Change the owner password", "operationId": "changePassword",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
@@ -64,7 +64,7 @@
         "responses": { "204": { "description": "Password changed; other sessions retired." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/device/code": {
+    "/auth/device/code": {
       "post": {
         "tags": ["Authentication"], "summary": "Start a device authorization grant", "operationId": "createDeviceCode",
         "security": [], "x-hark-auth": "public",
@@ -72,7 +72,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/device/token": {
+    "/auth/device/token": {
       "post": {
         "tags": ["Authentication"], "summary": "Poll a device authorization grant", "operationId": "pollDeviceToken",
         "security": [], "x-hark-auth": "device_code_in_body",
@@ -80,7 +80,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/device/requests/{user_code}": {
+    "/auth/device/requests/{user_code}": {
       "parameters": [{ "$ref": "#/components/parameters/UserCode" }],
       "get": {
         "tags": ["Authentication"], "summary": "Describe a device authorization request", "operationId": "getDeviceRequest",
@@ -88,7 +88,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/device/requests/{user_code}/approve": {
+    "/auth/device/requests/{user_code}/approve": {
       "parameters": [{ "$ref": "#/components/parameters/UserCode" }],
       "post": {
         "tags": ["Authentication"], "summary": "Approve a device authorization request", "operationId": "approveDeviceRequest",
@@ -96,7 +96,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/auth/device/requests/{user_code}/deny": {
+    "/auth/device/requests/{user_code}/deny": {
       "parameters": [{ "$ref": "#/components/parameters/UserCode" }],
       "post": {
         "tags": ["Authentication"], "summary": "Deny a device authorization request", "operationId": "denyDeviceRequest",
@@ -104,7 +104,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/tokens": {
+    "/tokens": {
       "get": {
         "tags": ["Tokens"], "summary": "List API tokens", "operationId": "listTokens",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
@@ -117,7 +117,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/tokens/{id}": {
+    "/tokens/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "delete": {
         "tags": ["Tokens"], "summary": "Revoke an API token", "operationId": "revokeToken",
@@ -125,7 +125,7 @@
         "responses": { "204": { "description": "Token revoked." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/services": {
+    "/services": {
       "get": {
         "tags": ["Services"], "summary": "List webhook services", "operationId": "listServices",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:read"],
@@ -138,7 +138,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/services/{id}": {
+    "/services/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
         "tags": ["Services"], "summary": "Get a webhook service", "operationId": "getService",
@@ -157,7 +157,7 @@
         "responses": { "204": { "description": "Service deleted." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/services/{id}/webhook-token": {
+    "/services/{id}/webhook-token": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
         "tags": ["Services"], "summary": "Rotate a service webhook token", "operationId": "rotateServiceWebhookToken",
@@ -165,7 +165,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/devices": {
+    "/devices": {
       "get": {
         "tags": ["Devices"], "summary": "List registered devices", "operationId": "listDevices",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["devices:read"],
@@ -178,7 +178,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/devices/{id}": {
+    "/devices/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
         "tags": ["Devices"], "summary": "Get a registered device", "operationId": "getDevice",
@@ -191,7 +191,7 @@
         "responses": { "204": { "description": "Device unregistered." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/devices/{id}/push-to-start-token": {
+    "/devices/{id}/push-to-start-token": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "put": {
         "tags": ["Devices"], "summary": "Register a device push-to-start token", "operationId": "putPushToStartToken",
@@ -200,7 +200,7 @@
         "responses": { "204": { "description": "Token registered." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/devices/{id}/activity-update-token": {
+    "/devices/{id}/activity-update-token": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "put": {
         "tags": ["Devices"], "summary": "Register a Live Activity update token", "operationId": "putActivityUpdateToken",
@@ -209,7 +209,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/activity-deliveries/{id}/update-token": {
+    "/activity-deliveries/{id}/update-token": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "put": {
         "tags": ["Devices"], "summary": "Register a delivery update token using its single-use credential", "operationId": "putDeliveryUpdateToken",
@@ -218,7 +218,7 @@
         "responses": { "204": { "description": "Token registered." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/notifications": {
+    "/notifications": {
       "post": {
         "tags": ["Notifications"], "summary": "Send a notification", "operationId": "sendNotification",
         "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["notifications:send"],
@@ -227,7 +227,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/safety-sources": {
+    "/safety-sources": {
       "get": {
         "tags": ["Critical Alerts"], "summary": "List alert sources", "operationId": "listSafetySources",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
@@ -241,7 +241,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/safety-sources/{id}": {
+    "/safety-sources/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
         "tags": ["Critical Alerts"], "summary": "Get an alert source", "operationId": "getSafetySource",
@@ -260,7 +260,7 @@
         "responses": { "204": { "description": "Source deleted, along with its safety events." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/safety-sources/{id}/test": {
+    "/safety-sources/{id}/test": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
         "tags": ["Critical Alerts"], "summary": "Send an alert-source setup test", "operationId": "testSafetySource",
@@ -269,7 +269,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/safety-settings": {
+    "/safety-settings": {
       "get": {
         "tags": ["Critical Alerts"], "summary": "Get the account-wide Critical Alert setting", "operationId": "getSafetySettings",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
@@ -282,7 +282,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/safety-events": {
+    "/safety-events": {
       "post": {
         "tags": ["Critical Alerts"], "summary": "Report an alert-source event", "operationId": "reportSafetyEvent",
         "description": "The request contains a source and state; the server supplies the alert text and priority. Suppressed reports are recorded and return 201 without sending a push.",
@@ -292,7 +292,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/interactions": {
+    "/interactions": {
       "get": {
         "tags": ["Interactions"], "summary": "List interactions", "operationId": "listInteractions",
         "description": "A session lists all interactions in the account. An API token lists only interactions created by that token. Pagination also excludes interactions from other requesters.",
@@ -308,7 +308,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/interactions/{id}": {
+    "/interactions/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
         "tags": ["Interactions"], "summary": "Get an interaction", "operationId": "getInteraction",
@@ -317,7 +317,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/interactions/{id}/response": {
+    "/interactions/{id}/response": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
         "tags": ["Interactions"], "summary": "Answer an interaction", "operationId": "respondToInteraction",
@@ -326,7 +326,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/interactions/{id}/cancel": {
+    "/interactions/{id}/cancel": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
         "tags": ["Interactions"], "summary": "Cancel a pending interaction", "operationId": "cancelInteraction",
@@ -335,7 +335,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/activities": {
+    "/activities": {
       "get": {
         "tags": ["Live Activities"], "summary": "List Live Activities", "operationId": "listActivities",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["activities:read"],
@@ -350,7 +350,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/activities/{identifier}": {
+    "/activities/{identifier}": {
       "parameters": [{ "$ref": "#/components/parameters/Identifier" }],
       "get": {
         "tags": ["Live Activities"], "summary": "Get a Live Activity", "operationId": "getActivity",
@@ -365,7 +365,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/activities/{identifier}/end": {
+    "/activities/{identifier}/end": {
       "parameters": [{ "$ref": "#/components/parameters/Identifier" }],
       "post": {
         "tags": ["Live Activities"], "summary": "End a Live Activity", "operationId": "endActivity",
@@ -375,7 +375,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/events": {
+    "/events": {
       "get": {
         "tags": ["Events"], "summary": "List webhook deliveries", "operationId": "listEvents",
         "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["events:read"],
@@ -383,7 +383,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/events/{id}": {
+    "/events/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "delete": {
         "tags": ["Events"], "summary": "Delete a webhook delivery", "operationId": "deleteEvent",
@@ -391,7 +391,7 @@
         "responses": { "204": { "description": "Event deleted." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/history": {
+    "/history": {
       "get": {
         "tags": ["History"], "summary": "List unified account history", "operationId": "listHistory",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
@@ -399,7 +399,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/history/{id}": {
+    "/history/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/HistoryID" }],
       "delete": {
         "tags": ["History"], "summary": "Delete one history entry", "operationId": "deleteHistoryItem",
@@ -407,7 +407,7 @@
         "responses": { "204": { "description": "History item deleted." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/hooks/{token}": {
+    "/hooks/{token}": {
       "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }],
       "post": {
         "tags": ["Webhooks"], "summary": "Send a webhook notification or question", "operationId": "sendWebhook",
@@ -417,7 +417,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/hooks/{token}/events/{event_id}": {
+    "/hooks/{token}/events/{event_id}": {
       "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/EventID" }],
       "get": {
         "tags": ["Webhooks"], "summary": "Poll a webhook delivery and its response", "operationId": "getWebhookEvent",
@@ -425,7 +425,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/hooks/{token}/events/{event_id}/cancel": {
+    "/hooks/{token}/events/{event_id}/cancel": {
       "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/EventID" }],
       "post": {
         "tags": ["Webhooks"], "summary": "Cancel a webhook question", "operationId": "cancelWebhookEvent",
@@ -433,7 +433,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/hooks/{token}/activities": {
+    "/hooks/{token}/activities": {
       "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }],
       "post": {
         "tags": ["Webhooks", "Live Activities"], "summary": "Start a service-owned Live Activity", "operationId": "startWebhookActivity",
@@ -443,7 +443,7 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/hooks/{token}/activities/{identifier}": {
+    "/hooks/{token}/activities/{identifier}": {
       "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/Identifier" }],
       "get": {
         "tags": ["Webhooks", "Live Activities"], "summary": "Get a service-owned Live Activity", "operationId": "getWebhookActivity",
@@ -458,7 +458,7 @@
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/v1/hooks/{token}/activities/{identifier}/end": {
+    "/hooks/{token}/activities/{identifier}/end": {
       "parameters": [{ "$ref": "#/components/parameters/WebhookToken" }, { "$ref": "#/components/parameters/Identifier" }],
       "post": {
         "tags": ["Webhooks", "Live Activities"], "summary": "End a service-owned Live Activity", "operationId": "endWebhookActivity",

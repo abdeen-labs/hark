@@ -40,7 +40,7 @@ type Authenticator interface {
 	// The approval half of the device grant. It is the account owner's
 	// decision, which is why it lives on a session surface at all: an API token
 	// must never be able to approve its own successor. These are the same three
-	// operations the JSON routes under /v1/auth/device/requests call.
+	// operations the JSON routes under /auth/device/requests call.
 	DeviceGrantByUserCode(ctx context.Context, userCode string) (*db.DeviceAuthorization, error)
 	ApproveDeviceGrant(ctx context.Context, userCode, userID string) (*db.DeviceAuthorization, error)
 	DenyDeviceGrant(ctx context.Context, userCode string) (*db.DeviceAuthorization, error)

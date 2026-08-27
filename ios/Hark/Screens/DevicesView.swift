@@ -2,7 +2,7 @@
 //  DevicesView.swift
 //  Hark
 //
-//  Registered phones. GET /v1/devices, DELETE /v1/devices/{id}. A registry:
+//  Registered phones. GET /devices, DELETE /devices/{id}. A registry:
 //  the count beside the title, one indexed row per handset, this one marked
 //  with a signal strip.
 //

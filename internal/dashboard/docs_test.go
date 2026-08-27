@@ -108,7 +108,7 @@ func TestTheContractOutlineFollowsTheDocument(t *testing.T) {
 		if !strings.Contains(body, `id="`+heading.ID+`"`) {
 			t.Errorf("the outline links #%s, which the page does not define", heading.ID)
 		}
-		// The outline shows plain text: a heading written as `GET /v1/events`
+		// The outline shows plain text: a heading written as `GET /events`
 		// must not carry its backticks into the link.
 		if strings.Contains(heading.Text, "`") {
 			t.Errorf("outline entry %q was not flattened", heading.Text)

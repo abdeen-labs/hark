@@ -94,41 +94,41 @@ func TestDeliveryRoutesAreClosedByDefault(t *testing.T) {
 	h := newTestServer(t, stubPinger{})
 
 	closed := []struct{ method, path string }{
-		{http.MethodGet, "/v1/services"},
-		{http.MethodPost, "/v1/services"},
-		{http.MethodGet, "/v1/services/svc"},
-		{http.MethodPatch, "/v1/services/svc"},
-		{http.MethodDelete, "/v1/services/svc"},
-		{http.MethodPost, "/v1/services/svc/webhook-token"},
-		{http.MethodGet, "/v1/devices"},
-		{http.MethodPost, "/v1/devices"},
-		{http.MethodGet, "/v1/devices/dev"},
-		{http.MethodDelete, "/v1/devices/dev"},
-		{http.MethodPut, "/v1/devices/dev/push-to-start-token"},
-		{http.MethodPut, "/v1/devices/dev/activity-update-token"},
-		{http.MethodGet, "/v1/events"},
-		{http.MethodDelete, "/v1/events/evt"},
-		{http.MethodGet, "/v1/history"},
-		{http.MethodDelete, "/v1/history/event:evt"},
-		{http.MethodPost, "/v1/notifications"},
-		{http.MethodGet, "/v1/safety-sources"},
-		{http.MethodPost, "/v1/safety-sources"},
-		{http.MethodGet, "/v1/safety-sources/src"},
-		{http.MethodPatch, "/v1/safety-sources/src"},
-		{http.MethodDelete, "/v1/safety-sources/src"},
-		{http.MethodPost, "/v1/safety-sources/src/test"},
-		{http.MethodGet, "/v1/safety-settings"},
-		{http.MethodPatch, "/v1/safety-settings"},
-		{http.MethodPost, "/v1/safety-events"},
-		{http.MethodPost, "/v1/interactions"},
-		{http.MethodGet, "/v1/interactions"},
-		{http.MethodGet, "/v1/interactions/int"},
-		{http.MethodPost, "/v1/interactions/int/cancel"},
-		{http.MethodGet, "/v1/activities"},
-		{http.MethodPost, "/v1/activities"},
-		{http.MethodGet, "/v1/activities/act"},
-		{http.MethodPatch, "/v1/activities/act"},
-		{http.MethodPost, "/v1/activities/act/end"},
+		{http.MethodGet, "/services"},
+		{http.MethodPost, "/services"},
+		{http.MethodGet, "/services/svc"},
+		{http.MethodPatch, "/services/svc"},
+		{http.MethodDelete, "/services/svc"},
+		{http.MethodPost, "/services/svc/webhook-token"},
+		{http.MethodGet, "/devices"},
+		{http.MethodPost, "/devices"},
+		{http.MethodGet, "/devices/dev"},
+		{http.MethodDelete, "/devices/dev"},
+		{http.MethodPut, "/devices/dev/push-to-start-token"},
+		{http.MethodPut, "/devices/dev/activity-update-token"},
+		{http.MethodGet, "/events"},
+		{http.MethodDelete, "/events/evt"},
+		{http.MethodGet, "/history"},
+		{http.MethodDelete, "/history/event:evt"},
+		{http.MethodPost, "/notifications"},
+		{http.MethodGet, "/safety-sources"},
+		{http.MethodPost, "/safety-sources"},
+		{http.MethodGet, "/safety-sources/src"},
+		{http.MethodPatch, "/safety-sources/src"},
+		{http.MethodDelete, "/safety-sources/src"},
+		{http.MethodPost, "/safety-sources/src/test"},
+		{http.MethodGet, "/safety-settings"},
+		{http.MethodPatch, "/safety-settings"},
+		{http.MethodPost, "/safety-events"},
+		{http.MethodPost, "/interactions"},
+		{http.MethodGet, "/interactions"},
+		{http.MethodGet, "/interactions/int"},
+		{http.MethodPost, "/interactions/int/cancel"},
+		{http.MethodGet, "/activities"},
+		{http.MethodPost, "/activities"},
+		{http.MethodGet, "/activities/act"},
+		{http.MethodPatch, "/activities/act"},
+		{http.MethodPost, "/activities/act/end"},
 	}
 	for _, route := range closed {
 		rec := do(t, h, route.method, route.path, strings.NewReader("{}"))
@@ -152,18 +152,18 @@ func TestCredentialRoutesTakeTheirOwnCredential(t *testing.T) {
 
 	// A malformed webhook token never reaches the database, so this exercises
 	// the whole route without a store.
-	rec := do(t, h, http.MethodPost, "/v1/hooks/not-a-token", strings.NewReader(`{"body":"hi"}`))
+	rec := do(t, h, http.MethodPost, "/hooks/not-a-token", strings.NewReader(`{"body":"hi"}`))
 	if rec.Code != http.StatusNotFound {
-		t.Errorf("POST /v1/hooks/{bad}: status = %d, want 404: %s", rec.Code, rec.Body)
+		t.Errorf("POST /hooks/{bad}: status = %d, want 404: %s", rec.Code, rec.Body)
 	}
 	if got := decodeError(t, rec); got.Error.Code != CodeNotFound {
 		t.Errorf("code = %q, want %q", got.Error.Code, CodeNotFound)
 	}
 
 	// The response path is reachable without a session; the body decides.
-	rec = do(t, h, http.MethodPost, "/v1/interactions/int/response", strings.NewReader(`{}`))
+	rec = do(t, h, http.MethodPost, "/interactions/int/response", strings.NewReader(`{}`))
 	if rec.Code != http.StatusUnprocessableEntity {
-		t.Errorf("POST /v1/interactions/{id}/response: status = %d, want 422: %s", rec.Code, rec.Body)
+		t.Errorf("POST /interactions/{id}/response: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
 }
 
@@ -206,7 +206,7 @@ func TestCreateServiceRequiresSession(t *testing.T) {
 	// exercises the registered route and the real wrapper around the handler.
 	post := func(t *testing.T, p *auth.Principal, body string) *httptest.ResponseRecorder {
 		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/v1/services", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/services", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		if p != nil {
 			req = req.WithContext(auth.WithPrincipal(req.Context(), p))
@@ -294,7 +294,7 @@ func TestScopesConstrainTokensOnly(t *testing.T) {
 }
 
 func serveWithPrincipal(h http.Handler, p *auth.Principal) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodPost, "/v1/anything", nil)
+	req := httptest.NewRequest(http.MethodPost, "/anything", nil)
 	if p != nil {
 		req = req.WithContext(auth.WithPrincipal(req.Context(), p))
 	}
@@ -309,11 +309,11 @@ func serveWithPrincipal(h http.Handler, p *auth.Principal) *httptest.ResponseRec
 func TestWebhookTokensAreNeverLogged(t *testing.T) {
 	secretToken := "harkhook_V3kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv"
 	tests := map[string]string{
-		"/v1/hooks/" + secretToken:                       "/v1/hooks/{token}",
-		"/v1/hooks/" + secretToken + "/events/evt":       "/v1/hooks/{token}/events/evt",
-		"/v1/hooks/" + secretToken + "/activities/build": "/v1/hooks/{token}/activities/build",
-		"/v1/services": "/v1/services",
-		"/healthz":     "/healthz",
+		"/hooks/" + secretToken:                       "/hooks/{token}",
+		"/hooks/" + secretToken + "/events/evt":       "/hooks/{token}/events/evt",
+		"/hooks/" + secretToken + "/activities/build": "/hooks/{token}/activities/build",
+		"/services": "/services",
+		"/healthz":  "/healthz",
 	}
 	for in, want := range tests {
 		if got := redactPath(in); got != want {
@@ -342,7 +342,7 @@ func TestPaginationRejectsForeignCursors(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/v1/events"+tc.query, nil)
+			req := httptest.NewRequest(http.MethodGet, "/events"+tc.query, nil)
 
 			s := &server{}
 			if _, ok := s.parseList(rec, req); ok {
@@ -364,7 +364,7 @@ func TestPaginationRejectsForeignCursors(t *testing.T) {
 	// A limit past the ceiling is clamped rather than refused: asking for more
 	// than the server will give is not a mistake, it is optimism.
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/v1/events?limit=5000", nil)
+	req := httptest.NewRequest(http.MethodGet, "/events?limit=5000", nil)
 	s := &server{}
 	query, ok := s.parseList(rec, req)
 	if !ok || query.Limit != db.MaxPageSize {

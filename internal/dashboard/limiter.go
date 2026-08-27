@@ -8,7 +8,7 @@ import (
 )
 
 // Sign-in ceilings. The dashboard's form is a second door onto the same
-// password as POST /v1/auth/login, so it needs its own ceiling — otherwise the
+// password as POST /auth/login, so it needs its own ceiling — otherwise the
 // API's limit is a formality anyone can walk around by posting a form instead.
 //
 // The numbers match the API's: generous for a person who mistypes, hopeless for

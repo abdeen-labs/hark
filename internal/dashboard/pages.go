@@ -225,7 +225,7 @@ func (d *Dashboard) showDevices(w http.ResponseWriter, r *http.Request, p *auth.
 //
 // The row is deleted rather than deactivated, which takes its Live Activity
 // deliveries with it and sends no end push — the same trade POST
-// /v1/devices/{id} makes, and for the same reason: "this is not my phone any
+// /devices/{id} makes, and for the same reason: "this is not my phone any
 // more" has to stop the pushes.
 func (d *Dashboard) deleteDevice(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	deleted, err := d.opts.Store.Devices.Delete(r.Context(), r.PathValue("id"), p.UserID())

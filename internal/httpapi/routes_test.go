@@ -21,15 +21,15 @@ func TestCredentialRoutesAreClosedByDefault(t *testing.T) {
 	closed := []struct {
 		method, path string
 	}{
-		{http.MethodPost, "/v1/auth/logout"},
-		{http.MethodGet, "/v1/auth/session"},
-		{http.MethodPost, "/v1/auth/password"},
-		{http.MethodGet, "/v1/auth/device/requests/K7QM-3XPD"},
-		{http.MethodPost, "/v1/auth/device/requests/K7QM-3XPD/approve"},
-		{http.MethodPost, "/v1/auth/device/requests/K7QM-3XPD/deny"},
-		{http.MethodGet, "/v1/tokens"},
-		{http.MethodPost, "/v1/tokens"},
-		{http.MethodDelete, "/v1/tokens/0198f3a1-2b4c-7d8e-9f01-23456789abcd"},
+		{http.MethodPost, "/auth/logout"},
+		{http.MethodGet, "/auth/session"},
+		{http.MethodPost, "/auth/password"},
+		{http.MethodGet, "/auth/device/requests/K7QM-3XPD"},
+		{http.MethodPost, "/auth/device/requests/K7QM-3XPD/approve"},
+		{http.MethodPost, "/auth/device/requests/K7QM-3XPD/deny"},
+		{http.MethodGet, "/tokens"},
+		{http.MethodPost, "/tokens"},
+		{http.MethodDelete, "/tokens/0198f3a1-2b4c-7d8e-9f01-23456789abcd"},
 	}
 	for _, route := range closed {
 		rec := do(t, h, route.method, route.path, strings.NewReader("{}"))
@@ -51,7 +51,7 @@ func TestPublicRoutesTakeNoCredential(t *testing.T) {
 
 	// A malformed body proves the request reached the handler rather than
 	// being turned away by an auth middleware, without needing a database.
-	for _, path := range []string{"/v1/auth/login", "/v1/auth/device/code", "/v1/auth/device/token"} {
+	for _, path := range []string{"/auth/login", "/auth/device/code", "/auth/device/token"} {
 		rec := do(t, h, http.MethodPost, path, strings.NewReader("not json"))
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("POST %s: status = %d, want 400 from the handler: %s", path, rec.Code, rec.Body)
@@ -87,7 +87,7 @@ func TestJSONBodiesMustBeJSON(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			req := newRequest(t, http.MethodPost, "/v1/auth/login", tc.body)
+			req := newRequest(t, http.MethodPost, "/auth/login", tc.body)
 			if tc.contentType != "" {
 				req.Header.Set("Content-Type", tc.contentType)
 			}
@@ -103,7 +103,7 @@ func TestJSONBodiesMustBeJSON(t *testing.T) {
 	}
 
 	// A charset parameter is part of the media type, not a different one.
-	req := newRequest(t, http.MethodPost, "/v1/auth/login", `{"username":"admin"`)
+	req := newRequest(t, http.MethodPost, "/auth/login", `{"username":"admin"`)
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	if rec := send(t, h, req); rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d for a charset parameter, want the body to be parsed", rec.Code)
@@ -214,8 +214,8 @@ func TestDashboardMount(t *testing.T) {
 		}
 	}
 
-	// The catch-all still belongs to the API, and so does anything under /v1.
-	for _, path := range []string{"/nope", "/v1/nope", "/dashboardish"} {
+	// The API catch-all still owns paths the dashboard does not claim.
+	for _, path := range []string{"/nope", "/apiish/nope", "/dashboardish"} {
 		rec := do(t, h, http.MethodGet, path, nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("GET %s: status = %d, want 404", path, rec.Code)
@@ -265,10 +265,10 @@ func TestTheContractIsServedOutsideTheCredentialChain(t *testing.T) {
 
 	// The same header on an API route is refused, preserving the boundary
 	// above mean anything.
-	req := httptest.NewRequest(http.MethodGet, APIPrefix+"/interactions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/interactions", nil)
 	req.Header.Set("Authorization", "Bearer not-a-credential")
 	if rec := send(t, h, req); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("GET /v1/interactions with the same header: status = %d, want 401", rec.Code)
+		t.Fatalf("GET /interactions with the same header: status = %d, want 401", rec.Code)
 	}
 }
 

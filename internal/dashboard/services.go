@@ -117,7 +117,7 @@ func formFor(svc db.Service) serviceForm {
 // hookURL renders the public ingest URL for a plaintext webhook token — the
 // same spelling internal/httpapi hands to API callers.
 func (d *Dashboard) hookURL(token string) string {
-	p := httpapi.APIPrefix + "/hooks/" + token
+	p := "/hooks/" + token
 	if d.opts.PublicURL == nil {
 		return p
 	}
@@ -282,7 +282,7 @@ func (d *Dashboard) updateService(w http.ResponseWriter, r *http.Request, p *aut
 
 // rotateWebhookToken replaces a service's credential. The previous URL stops
 // working immediately — the same no-grace trade POST
-// /v1/services/{id}/webhook-token makes, and for the same reason: a rotation
+// /services/{id}/webhook-token makes, and for the same reason: a rotation
 // is what an owner reaches for when the URL has leaked.
 func (d *Dashboard) rotateWebhookToken(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	token := auth.NewWebhookToken()

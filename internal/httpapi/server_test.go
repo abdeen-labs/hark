@@ -151,7 +151,7 @@ func TestNewRequiresItsDependencies(t *testing.T) {
 }
 
 func TestUnknownRouteIsJSON404(t *testing.T) {
-	for _, target := range []string{"/", "/nope", "/v1/services/", "/v1/unicorns", "/healthz/"} {
+	for _, target := range []string{"/", "/nope", "/services/", "/unicorns", "/healthz/"} {
 		rec := do(t, newTestServer(t, stubPinger{}), http.MethodGet, target, nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("GET %s: status = %d, want 404", target, rec.Code)
@@ -259,7 +259,7 @@ func TestPanicPathIsRedacted(t *testing.T) {
 
 	var logs bytes.Buffer
 	rt := newRouter()
-	rt.handleFunc(http.MethodPost, "/v1/hooks/{token}", func(http.ResponseWriter, *http.Request) {
+	rt.handleFunc(http.MethodPost, "/hooks/{token}", func(http.ResponseWriter, *http.Request) {
 		panic("hook exploded")
 	})
 	h := Chain(rt.handler(),
@@ -268,7 +268,7 @@ func TestPanicPathIsRedacted(t *testing.T) {
 		Recover,
 	)
 
-	rec := do(t, h, http.MethodPost, "/v1/hooks/"+sentinelToken, strings.NewReader(`{"body":"hi"}`))
+	rec := do(t, h, http.MethodPost, "/hooks/"+sentinelToken, strings.NewReader(`{"body":"hi"}`))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", rec.Code)
 	}
@@ -280,7 +280,7 @@ func TestPanicPathIsRedacted(t *testing.T) {
 	if !strings.Contains(logged, "hook exploded") {
 		t.Errorf("panic was not logged:\n%s", logged)
 	}
-	if !strings.Contains(logged, "/v1/hooks/{token}") {
+	if !strings.Contains(logged, "/hooks/{token}") {
 		t.Errorf("logs do not carry the redacted placeholder path:\n%s", logged)
 	}
 	// Both the recovery line and the access line are in this buffer, and the
@@ -291,7 +291,7 @@ func TestPanicPathIsRedacted(t *testing.T) {
 }
 
 func TestRequestWithoutCredentialsIsAnonymous(t *testing.T) {
-	rec := do(t, newTestServer(t, stubPinger{}), http.MethodGet, "/v1/auth/session", nil)
+	rec := do(t, newTestServer(t, stubPinger{}), http.MethodGet, "/auth/session", nil)
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)

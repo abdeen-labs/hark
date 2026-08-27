@@ -2,7 +2,7 @@
 // caller that asked it.
 //
 // A webhook may ask its question with a callback URL and a bearer token
-// ([`POST /v1/hooks/{token}`] in the API contract). When the question is
+// ([`POST /hooks/{token}`] in the API contract). When the question is
 // answered, the row becomes pending and this worker sends the callback.
 //
 // The worker owns nothing: the claim, the retry schedule and the terminal

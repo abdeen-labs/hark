@@ -92,7 +92,7 @@ final class AppModel {
 
     // MARK: - Lifecycle
 
-    /// Validates the stored session on launch. GET /v1/auth/session — the
+    /// Validates the stored session on launch. GET /auth/session — the
     /// call also slides the session's expiry forward.
     func bootstrap() async {
         guard phase == .loading else { return }
@@ -281,7 +281,7 @@ final class AppModel {
         Task { await registerDeviceIfPossible() }
     }
 
-    /// POST /v1/devices — replace semantics, so this runs on every launch,
+    /// POST /devices — replace semantics, so this runs on every launch,
     /// every foreground, and every token change. The client sends its
     /// complete capability state each time; omission clears.
     func registerDeviceIfPossible() async {
@@ -346,7 +346,7 @@ final class AppModel {
         await sendPushToStartToken(hex)
     }
 
-    /// PUT /v1/devices/{id}/push-to-start-token. Held until the device row
+    /// PUT /devices/{id}/push-to-start-token. Held until the device row
     /// exists; re-sent after every registration because registration is a
     /// replace.
     private func sendPushToStartToken(_ tokenHex: String) async {
@@ -510,7 +510,7 @@ final class AppModel {
 
         if let wireAction = HarkNotification.wireAction(for: actionIdentifier) {
             guard let question = payload.question else { return }
-            let endpoint = serverURL.appendingPathComponent("v1/interactions/\(question.id)/response")
+            let endpoint = serverURL.appendingPathComponent("interactions/\(question.id)/response")
             let text = wireAction == "reply" ? userText : nil
             try? await HarkResponder.postAnswer(
                 endpoint: endpoint,

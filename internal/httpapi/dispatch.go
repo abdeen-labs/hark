@@ -143,7 +143,7 @@ func (s *server) sendOneActivity(r *http.Request, d activityDispatch, delivery d
 	if event == db.OperationStart {
 		event2.Start = &push.ActivityStart{
 			Banner:               activityBanner(d.Operation.Props),
-			TokenRegistrationURL: s.publicPath(APIPrefix + "/activity-deliveries/" + delivery.ID + "/update-token"),
+			TokenRegistrationURL: s.publicPath("/activity-deliveries/" + delivery.ID + "/update-token"),
 			RegistrationToken:    s.registrationToken(delivery.ID, d.Activity.ID, d.Activity.ExpiresAt),
 		}
 		if d.Interaction != nil {
