@@ -37,6 +37,56 @@ func ValidFeedFilter(f string) bool {
 	}
 }
 
+// ValidRecordedPriority reports whether p is a priority the history records.
+// Unlike [ValidPriority] it admits critical, which safety events record.
+func ValidRecordedPriority(p string) bool {
+	switch p {
+	case PriorityNormal, PriorityTimeSensitive, PriorityCritical:
+		return true
+	default:
+		return false
+	}
+}
+
+// FeedFilters narrows a history read or delete. The zero value matches every
+// entry.
+type FeedFilters struct {
+	// Kind is "" or FeedFilterAll for every kind, or one of the feed filters.
+	Kind string
+	// Source is an exact source-name match; "" matches every source.
+	Source string
+	// Priority matches an entry's recorded priority. Entries that record none —
+	// responses and Live Activity changes — never match a set Priority.
+	Priority string
+}
+
+// validate rejects filter values the queries have no branch for.
+func (f FeedFilters) validate(op string) error {
+	if f.Kind != "" && !ValidFeedFilter(f.Kind) {
+		return fmt.Errorf("db: %s: unknown filter %q", op, f.Kind)
+	}
+	if f.Priority != "" && !ValidRecordedPriority(f.Priority) {
+		return fmt.Errorf("db: %s: unknown priority %q", op, f.Priority)
+	}
+	return nil
+}
+
+// args expands the filters into the (kind, source, priority) parameters the
+// feed queries take, with NULL standing for "not filtered".
+func (f FeedFilters) args() (kind string, source, priority *string) {
+	kind = f.Kind
+	if kind == "" {
+		kind = FeedFilterAll
+	}
+	if f.Source != "" {
+		source = &f.Source
+	}
+	if f.Priority != "" {
+		priority = &f.Priority
+	}
+	return kind, source, priority
+}
+
 // Feed sources prefix a feed item's composite id.
 const (
 	FeedSourceEvent        = "event"
@@ -106,6 +156,8 @@ const feedQuery = `
 		FROM events e
 		JOIN services s ON s.id = e.service_id
 		WHERE s.user_id = $1 AND $2::text IN ('all', 'notification')
+		  AND ($3::text IS NULL OR s.title = $3)
+		  AND ($4::text IS NULL OR e.priority = $4)
 
 		UNION ALL
 
@@ -115,6 +167,8 @@ const feedQuery = `
 		FROM agent_notifications n
 		JOIN api_tokens t ON t.id = n.requester_token_id
 		WHERE n.user_id = $1 AND $2::text IN ('all', 'notification')
+		  AND ($3::text IS NULL OR t.name = $3)
+		  AND ($4::text IS NULL OR n.priority = $4)
 
 		UNION ALL
 
@@ -128,6 +182,8 @@ const feedQuery = `
 		WHERE i.user_id = $1 AND $2::text IN ('all', 'response')
 		  AND i.status IN ('approved', 'denied', 'yes', 'no', 'replied')
 		  AND i.responded_at IS NOT NULL
+		  AND ($3::text IS NULL OR coalesce(sv.title, t.name, i.title) = $3)
+		  AND $4::text IS NULL
 
 		UNION ALL
 
@@ -143,6 +199,8 @@ const feedQuery = `
 		LEFT JOIN api_tokens t ON t.id  = o.requester_token_id
 		WHERE a.user_id = $1 AND $2::text IN ('all', 'live_activity')
 		  AND a.interaction_id IS NULL
+		  AND ($3::text IS NULL OR coalesce(sv.title, t.name, 'Hark') = $3)
+		  AND $4::text IS NULL
 
 		UNION ALL
 
@@ -152,13 +210,15 @@ const feedQuery = `
 		FROM safety_events se
 		JOIN safety_sources ss ON ss.id = se.source_id
 		WHERE ss.user_id = $1 AND $2::text IN ('all', 'notification')
+		  AND ($3::text IS NULL OR ss.name = $3)
+		  AND ($4::text IS NULL OR se.priority = $4)
 	)
 	SELECT id, kind, source_name, source_image_url, title, detail, url, result,
 	       status, delivered_count, error, priority, created_at
 	FROM feed
-	WHERE ($3::timestamptz IS NULL OR (created_at, id) < ($3, $4))
+	WHERE ($5::timestamptz IS NULL OR (created_at, id) < ($5, $6))
 	ORDER BY created_at DESC, id DESC
-	LIMIT $5`
+	LIMIT $7`
 
 // List pages the account's history, newest first.
 //
@@ -167,22 +227,90 @@ const feedQuery = `
 // sources routinely produce rows in the same millisecond, and without the
 // tie-break a page boundary would drop or repeat them.
 func (s *Feed) List(ctx context.Context, userID, filter string, cursor Cursor, limit int) (Page[FeedItem], error) {
-	if filter == "" {
-		filter = FeedFilterAll
-	}
-	if !ValidFeedFilter(filter) {
-		return Page[FeedItem]{}, fmt.Errorf("db: list feed: unknown filter %q", filter)
+	return s.ListFiltered(ctx, userID, FeedFilters{Kind: filter}, cursor, limit)
+}
+
+// ListFiltered pages the history narrowed by f, under the same ordering and
+// cursor contract as [Feed.List].
+func (s *Feed) ListFiltered(ctx context.Context, userID string, f FeedFilters, cursor Cursor, limit int) (Page[FeedItem], error) {
+	if err := f.validate("list feed"); err != nil {
+		return Page[FeedItem]{}, err
 	}
 
 	limit = ClampLimit(limit)
+	kind, source, priority := f.args()
 	at, id := cursor.args()
-	rows, err := queryAll[FeedItem](ctx, s.q, "list feed", feedQuery, userID, filter, at, id, limit+1)
+	rows, err := queryAll[FeedItem](ctx, s.q, "list feed", feedQuery,
+		userID, kind, source, priority, at, id, limit+1)
 	if err != nil {
 		return Page[FeedItem]{}, err
 	}
 	return paginate(rows, limit, func(i FeedItem) Cursor {
 		return Cursor{Time: i.CreatedAt, ID: i.ID}
 	}), nil
+}
+
+// feedSourcesQuery lists the distinct source names behind the feed's branches.
+// UNION rather than UNION ALL, because deduplication is the point.
+const feedSourcesQuery = `
+	SELECT source_name FROM (
+		SELECT s.title AS source_name
+		FROM events e
+		JOIN services s ON s.id = e.service_id
+		WHERE s.user_id = $1
+
+		UNION
+
+		SELECT t.name
+		FROM agent_notifications n
+		JOIN api_tokens t ON t.id = n.requester_token_id
+		WHERE n.user_id = $1
+
+		UNION
+
+		SELECT coalesce(sv.title, t.name, i.title)
+		FROM interactions i
+		LEFT JOIN services sv  ON sv.id = i.requester_service_id
+		LEFT JOIN api_tokens t ON t.id  = i.requester_token_id
+		WHERE i.user_id = $1
+		  AND i.status IN ('approved', 'denied', 'yes', 'no', 'replied')
+		  AND i.responded_at IS NOT NULL
+
+		UNION
+
+		SELECT coalesce(sv.title, t.name, 'Hark')
+		FROM live_activity_operations o
+		JOIN live_activities a ON a.id = o.activity_id
+		LEFT JOIN services sv  ON sv.id = o.requester_service_id
+		LEFT JOIN api_tokens t ON t.id  = o.requester_token_id
+		WHERE a.user_id = $1 AND a.interaction_id IS NULL
+
+		UNION
+
+		SELECT ss.name
+		FROM safety_events se
+		JOIN safety_sources ss ON ss.id = se.source_id
+		WHERE ss.user_id = $1
+	) sources
+	ORDER BY lower(source_name), source_name`
+
+type feedSource struct {
+	SourceName string `db:"source_name"`
+}
+
+// Sources lists the distinct source names of the entries currently in the
+// history, sorted case-insensitively. The list is bounded by the account's
+// services, tokens and safety sources, so it is not paged.
+func (s *Feed) Sources(ctx context.Context, userID string) ([]string, error) {
+	rows, err := queryAll[feedSource](ctx, s.q, "list feed sources", feedSourcesQuery, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.SourceName)
+	}
+	return out, nil
 }
 
 // ParseFeedID splits a composite feed id into its source and row id. It reports
@@ -226,4 +354,79 @@ func (s *Feed) Delete(ctx context.Context, userID, feedID string) (bool, error) 
 	default:
 		return false, nil
 	}
+}
+
+// feedDeleteQueries removes matching rows from each source table. Every
+// statement mirrors its feedQuery branch, so what disappears is exactly what a
+// list under the same filters would have shown; the branches that need a LEFT
+// JOIN to name their source select ids instead of joining in the DELETE.
+var feedDeleteQueries = []string{
+	`DELETE FROM events e
+	 USING services s
+	 WHERE e.service_id = s.id AND s.user_id = $1
+	   AND $2::text IN ('all', 'notification')
+	   AND ($3::text IS NULL OR s.title = $3)
+	   AND ($4::text IS NULL OR e.priority = $4)`,
+
+	`DELETE FROM agent_notifications n
+	 USING api_tokens t
+	 WHERE t.id = n.requester_token_id AND n.user_id = $1
+	   AND $2::text IN ('all', 'notification')
+	   AND ($3::text IS NULL OR t.name = $3)
+	   AND ($4::text IS NULL OR n.priority = $4)`,
+
+	`DELETE FROM interactions
+	 WHERE id IN (
+	 	SELECT i.id
+	 	FROM interactions i
+	 	LEFT JOIN services sv  ON sv.id = i.requester_service_id
+	 	LEFT JOIN api_tokens t ON t.id  = i.requester_token_id
+	 	WHERE i.user_id = $1 AND $2::text IN ('all', 'response')
+	 	  AND i.status IN ('approved', 'denied', 'yes', 'no', 'replied')
+	 	  AND i.responded_at IS NOT NULL
+	 	  AND ($3::text IS NULL OR coalesce(sv.title, t.name, i.title) = $3)
+	 	  AND $4::text IS NULL
+	 )`,
+
+	`DELETE FROM live_activity_operations
+	 WHERE id IN (
+	 	SELECT o.id
+	 	FROM live_activity_operations o
+	 	JOIN live_activities a ON a.id = o.activity_id
+	 	LEFT JOIN services sv  ON sv.id = o.requester_service_id
+	 	LEFT JOIN api_tokens t ON t.id  = o.requester_token_id
+	 	WHERE a.user_id = $1 AND $2::text IN ('all', 'live_activity')
+	 	  AND a.interaction_id IS NULL
+	 	  AND ($3::text IS NULL OR coalesce(sv.title, t.name, 'Hark') = $3)
+	 	  AND $4::text IS NULL
+	 )`,
+
+	`DELETE FROM safety_events se
+	 USING safety_sources ss
+	 WHERE se.source_id = ss.id AND ss.user_id = $1
+	   AND $2::text IN ('all', 'notification')
+	   AND ($3::text IS NULL OR ss.name = $3)
+	   AND ($4::text IS NULL OR se.priority = $4)`,
+}
+
+// DeleteAll removes every history entry the filters match, in one transaction
+// across the source tables.
+//
+// Deleting a webhook event takes the question it asked with it, through the
+// same foreign key as [Feed.Delete]. Pending interactions are not history
+// entries, so the interactions statement never targets them.
+func (s *Feed) DeleteAll(ctx context.Context, userID string, f FeedFilters) error {
+	if err := f.validate("delete feed"); err != nil {
+		return err
+	}
+	kind, source, priority := f.args()
+	return s.store.Tx(ctx, func(ctx context.Context, tx *Store) error {
+		for _, q := range feedDeleteQueries {
+			if _, err := execAffected(ctx, tx.q, "delete feed entries", q,
+				userID, kind, source, priority); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

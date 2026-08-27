@@ -3,32 +3,35 @@
 //  Hark
 //
 //  The design tokens every Hark surface draws from: the app, the notification
-//  service extension, and the widget extension. They are the dashboard's
-//  tokens (internal/dashboard/assets/app.css) spelled in Swift — pitch
-//  surfaces, chalk ink, lacquer red as the single signal colour, jade for
-//  success. Red never means delivered.
+//  service extension, and the widget extension. Each token resolves per
+//  appearance. In dark they are the dashboard's tokens
+//  (internal/dashboard/assets/app.css) spelled in Swift — pitch surfaces,
+//  chalk ink, lacquer red as the single signal colour, jade for success. In
+//  light the same instrument reads on industrial paper-white. Red never
+//  means delivered.
 //
 
 import SwiftUI
+import UIKit
 
 nonisolated enum Axis {
     // MARK: Surfaces
 
-    static let paper = Color(axisRGB: axisPaperRGB)
-    static let surface = Color(axisRGB: 0x0B0E14)
-    static let surface2 = Color(axisRGB: 0x11161F)
-    static let surface3 = Color(axisRGB: 0x1A212C)
-    static let field = Color(axisRGB: 0x090C11)
+    static let paper = Color(axisDark: axisPaperDarkRGB, light: axisPaperLightRGB)
+    static let surface = Color(axisDark: 0x0B0E14, light: 0xFFFFFF)
+    static let surface2 = Color(axisDark: 0x11161F, light: 0xEDEFF3)
+    static let surface3 = Color(axisDark: 0x1A212C, light: 0xE2E5EB)
+    static let field = Color(axisDark: 0x090C11, light: 0xECEEF2)
 
     // MARK: Ink
 
-    static let ink = Color(axisRGB: 0xF4F6F9)
-    static let inkMuted = Color(axisRGB: 0xD5DBE4)
-    static let inkSubtle = Color(axisRGB: 0xA2ABB9)
-    static let inkFaint = Color(axisRGB: 0x8F99AB)
+    static let ink = Color(axisDark: 0xF4F6F9, light: 0x10141B)
+    static let inkMuted = Color(axisDark: 0xD5DBE4, light: 0x2A313C)
+    static let inkSubtle = Color(axisDark: 0xA2ABB9, light: 0x525C6B)
+    static let inkFaint = Color(axisDark: 0x8F99AB, light: 0x616B7B)
     /// Decorative only — indexes and ledger numbers hidden from assistive
     /// technology. It does not meet AA against the paper.
-    static let inkDisabled = Color(axisRGB: 0x4D5665)
+    static let inkDisabled = Color(axisDark: 0x4D5665, light: 0xB6BDC9)
 
     // MARK: Rules
 
@@ -42,21 +45,22 @@ nonisolated enum Axis {
     static let signal = Color(axisRGB: 0xCE2020)
     static let signalPressed = Color(axisRGB: 0xA31818)
     /// The signal colour at text weight; passes AA on every surface.
-    static let signalText = Color(axisRGB: 0xE64949)
+    static let signalText = Color(axisDark: axisAccentDarkRGB, light: axisAccentLightRGB)
     static let onSignal = Color.white
     static let signalWash = signal.opacity(0.12)
     static let signalLine = signal.opacity(0.55)
 
     // MARK: States
 
-    static let ok = Color(axisRGB: 0x16B37D)
+    static let ok = Color(axisDark: 0x16B37D, light: 0x0C7A54)
     static let okLine = ok.opacity(0.5)
-    static let warn = Color(axisRGB: 0xE2A81E)
+    static let warn = Color(axisDark: 0xE2A81E, light: 0x8F6600)
     static let warnLine = warn.opacity(0.5)
     static let danger = signalText
 
     /// What a Live Activity's accent falls back to when the server's
-    /// `accent_color` does not parse, or is too dark to be seen on the pitch.
+    /// `accent_color` does not parse, or sits too close to the paper it is
+    /// drawn on.
     static let accent = signalText
 
     // MARK: Geometry
@@ -83,7 +87,11 @@ nonisolated enum Axis {
     }
 }
 
-nonisolated private let axisPaperRGB: UInt32 = 0x06080D
+nonisolated private let axisPaperDarkRGB: UInt32 = 0x06080D
+nonisolated private let axisPaperLightRGB: UInt32 = 0xF4F5F8
+
+nonisolated private let axisAccentDarkRGB: UInt32 = 0xE64949
+nonisolated private let axisAccentLightRGB: UInt32 = 0xB91C1C
 
 /// The floor an accent has to clear against the paper it is drawn on: the
 /// 3:1 of WCAG's non-text contrast, since the accent carries glyphs, bars,
@@ -119,12 +127,27 @@ nonisolated private func axisContrast(_ one: Double, _ other: Double) -> Double 
     (max(one, other) + 0.05) / (min(one, other) + 0.05)
 }
 
-nonisolated private let axisPaperLuminance = axisLuminance(axisChannels(axisPaperRGB))
+nonisolated private let axisPaperDarkLuminance = axisLuminance(axisChannels(axisPaperDarkRGB))
+nonisolated private let axisPaperLightLuminance = axisLuminance(axisChannels(axisPaperLightRGB))
+
+nonisolated private extension UIColor {
+    convenience init(axisRGB value: UInt32) {
+        let channels = axisChannels(value)
+        self.init(red: channels.red, green: channels.green, blue: channels.blue, alpha: 1)
+    }
+}
 
 nonisolated extension Color {
     init(axisRGB value: UInt32) {
         let channels = axisChannels(value)
         self.init(red: channels.red, green: channels.green, blue: channels.blue)
+    }
+
+    /// A token resolved against the trait collection it draws under.
+    init(axisDark dark: UInt32, light: UInt32) {
+        self.init(uiColor: UIColor { traits in
+            UIColor(axisRGB: traits.userInterfaceStyle == .dark ? dark : light)
+        })
     }
 
     /// Parses a `#RRGGBB` string, the form the server's `accent_color` uses.
@@ -136,12 +159,19 @@ nonisolated extension Color {
 
     /// The accent color a content state names, or lacquer red when the string
     /// does not parse. A Live Activity draws its accent as text, tints, bars,
-    /// and keylines on the pitch surfaces, so an accent that cannot hold 3:1
-    /// against the paper falls back the same way an unparsable one does.
+    /// and keylines on the paper surfaces, so in each appearance an accent
+    /// that cannot hold 3:1 against that appearance's paper falls back the
+    /// same way an unparsable one does.
     static func harkAccent(_ hex: String) -> Color {
-        guard let channels = axisChannels(hex),
-              axisContrast(axisLuminance(channels), axisPaperLuminance) >= axisAccentFloor
-        else { return Axis.accent }
-        return Color(red: channels.red, green: channels.green, blue: channels.blue)
+        guard let channels = axisChannels(hex) else { return Axis.accent }
+        let luminance = axisLuminance(channels)
+        return Color(uiColor: UIColor { traits in
+            let dark = traits.userInterfaceStyle == .dark
+            let paper = dark ? axisPaperDarkLuminance : axisPaperLightLuminance
+            guard axisContrast(luminance, paper) >= axisAccentFloor else {
+                return UIColor(axisRGB: dark ? axisAccentDarkRGB : axisAccentLightRGB)
+            }
+            return UIColor(red: channels.red, green: channels.green, blue: channels.blue, alpha: 1)
+        })
     }
 }

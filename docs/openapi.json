@@ -395,7 +395,20 @@
       "get": {
         "tags": ["History"], "summary": "List unified account history", "operationId": "listHistory",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
-        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Kind" }],
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }, { "$ref": "#/components/parameters/Kind" }, { "$ref": "#/components/parameters/HistorySource" }, { "$ref": "#/components/parameters/HistoryPriority" }],
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
+      "delete": {
+        "tags": ["History"], "summary": "Bulk-delete history entries", "operationId": "deleteHistory",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "parameters": [{ "$ref": "#/components/parameters/Kind" }, { "$ref": "#/components/parameters/HistorySource" }, { "$ref": "#/components/parameters/HistoryPriority" }],
+        "responses": { "204": { "description": "Matching history entries deleted." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/history/sources": {
+      "get": {
+        "tags": ["History"], "summary": "List distinct history source names", "operationId": "listHistorySources",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
@@ -487,6 +500,8 @@
       "Cursor": { "name": "cursor", "in": "query", "required": false, "description": "Opaque next_cursor from the previous page.", "schema": { "type": "string" } },
       "Status": { "name": "status", "in": "query", "required": false, "schema": { "type": "string" } },
       "Kind": { "name": "kind", "in": "query", "required": false, "schema": { "type": "string", "enum": ["all", "notification", "response", "live_activity"], "default": "all" } },
+      "HistorySource": { "name": "source", "in": "query", "required": false, "description": "Exact source_name match.", "schema": { "type": "string" } },
+      "HistoryPriority": { "name": "priority", "in": "query", "required": false, "description": "Entries without a recorded priority never match.", "schema": { "$ref": "#/components/schemas/Priority" } },
       "IdempotencyKey": { "name": "Idempotency-Key", "in": "header", "required": false, "description": "1-200 characters. Replays the first response for the same requester and payload.", "schema": { "type": "string", "minLength": 1, "maxLength": 200 } }
     },
     "requestBodies": {

@@ -524,6 +524,8 @@ with `Retry-After`.
 | `GET` | [`/events`](#get-events) | session · token `events:read` |
 | `DELETE` | [`/events/{id}`](#delete-eventsid) | session |
 | `GET` | [`/history`](#get-history) | session |
+| `GET` | [`/history/sources`](#get-historysources) | session |
+| `DELETE` | [`/history`](#delete-history) | session |
 | `DELETE` | [`/history/{id}`](#delete-historyid) | session |
 | `POST` | [`/hooks/{token}`](#post-hookstoken) | webhook token in path |
 | `GET` | [`/hooks/{token}/events/{event_id}`](#get-hookstokeneventsevent_id) | webhook token in path |
@@ -2274,6 +2276,11 @@ changes. **Session only.** [Paged](#pagination).
 | Parameter | Default | Notes |
 | --- | --- | --- |
 | `kind` | `all` | `all`, `notification`, `response`, `live_activity`. |
+| `source` | *(absent)* | Exact `source_name` match. |
+| `priority` | *(absent)* | `normal`, `time_sensitive`, `critical`. Items with a `null` priority never match. |
+
+The filters combine. An unknown `kind` or `priority` is rejected with `422
+validation_failed` naming the field.
 
 **200 OK**
 
@@ -2309,6 +2316,33 @@ Fields that do not apply to an item's `kind` are `null`.
 * Answered interactions are ordered by `responded_at`, not by the time they
   were created. Their `result` is `approved`, `denied`, `yes`, `no` or
   `replied`. For Live Activity entries, `result` is `start`, `update` or `end`.
+
+### `GET /history/sources`
+
+The distinct `source_name` values of the entries currently in history, sorted
+case-insensitively. **Session only.** Not paged: the list is bounded by the
+account's services, tokens, and safety sources.
+
+**200 OK**
+
+```json
+{
+  "sources": ["Deploy bot", "harkctl"]
+}
+```
+
+### `DELETE /history`
+
+Removes every entry the filters match, in one transaction. **Session only.**
+Takes the same `kind`, `source`, and `priority` parameters as
+[`GET /history`](#get-history); with no parameters it clears the whole history.
+
+**204 No Content**, whether or not anything matched. An unknown `kind` or
+`priority` is rejected with `422 validation_failed` naming the field.
+
+Deleting a webhook delivery also deletes its associated interaction, as
+[`DELETE /events/{id}`](#delete-eventsid) does. Pending interactions are not
+history entries and are left alone.
 
 ### `DELETE /history/{id}`
 

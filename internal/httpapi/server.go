@@ -291,6 +291,14 @@ func (s *server) routes(rt *router) {
 	// The history is the owner's own record of what reached their phone.
 	rt.handle(http.MethodGet, "/history",
 		RequireSession(http.HandlerFunc(s.handleListHistory)))
+	rt.handle(http.MethodDelete, "/history",
+		RequireSession(http.HandlerFunc(s.handleDeleteHistory)))
+	// Mounted rather than handled: "/history/sources" is a literal sibling of
+	// "/history/{id}", and ServeMux rejects the method-less 405 fallback for it
+	// as a conflict with "DELETE /history/{id}". Other methods on this path fall
+	// through to the {id} route's handling.
+	rt.mount("GET /history/sources",
+		RequireSession(http.HandlerFunc(s.handleListHistorySources)))
 	rt.handle(http.MethodDelete, "/history/{id}",
 		RequireSession(http.HandlerFunc(s.handleDeleteHistoryItem)))
 

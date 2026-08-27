@@ -20,14 +20,29 @@ struct HistoryView: View {
         ("03", "Live Activities", "live_activity"),
     ]
 
+    private static let priorities: [(value: String, label: String)] = [
+        ("normal", "Normal"),
+        ("time_sensitive", "Time-sensitive"),
+        ("critical", "Critical"),
+    ]
+
     private static let indexSize: CGFloat = 200
 
     @State private var kind = "all"
+    @State private var source: String?
+    @State private var priority: String?
+    @State private var sources: [String] = []
     @State private var items: [HistoryItem] = []
     @State private var nextCursor: String?
     @State private var loading = false
     @State private var loadedOnce = false
     @State private var errorMessage: String?
+    @State private var confirmingClear = false
+    @State private var clearing = false
+
+    private var filtered: Bool {
+        kind != "all" || source != nil || priority != nil
+    }
 
     var body: some View {
         NavigationStack {
@@ -36,11 +51,29 @@ struct HistoryView: View {
                 Hairline()
                 tabs
                 Hairline()
+                filters
+                Hairline()
                 list
             }
             .shellInsets()
             .toolbarVisibility(.hidden, for: .navigationBar)
             .task { if !loadedOnce { await reload() } }
+            .confirmationDialog(
+                filtered ? "Delete the filtered entries?" : "Delete the entire archive?",
+                isPresented: $confirmingClear,
+                titleVisibility: .visible
+            ) {
+                Button("Delete all", role: .destructive) {
+                    Task { await clearHistory() }
+                }
+                Button("Keep", role: .cancel) {}
+            } message: {
+                Text(
+                    filtered
+                        ? "Every entry matching the active filters is deleted. Pending questions are untouched."
+                        : "Everything in history is deleted. Pending questions are untouched."
+                )
+            }
         }
     }
 
@@ -93,6 +126,53 @@ struct HistoryView: View {
         .scrollIndicators(.hidden)
     }
 
+    /// The archive's filter strip: chips per dimension on one scrolling row,
+    /// the bulk-delete control pinned past a rule at the trailing edge. A tap
+    /// on the active chip clears its dimension back to all.
+    private var filters: some View {
+        HStack(spacing: 0) {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    if sources.count > 1 {
+                        Meta("Src", size: 9)
+                        ForEach(sources, id: \.self) { name in
+                            FilterChip(label: name, selected: source == name) {
+                                setFilter { source = source == name ? nil : name }
+                            }
+                        }
+                        Hairline(vertical: true)
+                            .frame(height: 16)
+                            .padding(.horizontal, 4)
+                    }
+                    Meta("Pri", size: 9)
+                    ForEach(Self.priorities, id: \.value) { entry in
+                        FilterChip(label: entry.label, selected: priority == entry.value) {
+                            setFilter { priority = priority == entry.value ? nil : entry.value }
+                        }
+                    }
+                }
+                .padding(.leading, Axis.gutter)
+                .padding(.trailing, 12)
+                .padding(.vertical, 9)
+            }
+            .scrollIndicators(.hidden)
+            Hairline(vertical: true)
+                .frame(height: 28)
+            Button(clearing ? "Clearing…" : "Clear") {
+                confirmingClear = true
+            }
+            .buttonStyle(.instrument(.danger, compact: true, fill: false))
+            .disabled(clearing)
+            .padding(.leading, 12)
+            .padding(.trailing, Axis.gutter)
+        }
+    }
+
+    private func setFilter(_ change: () -> Void) {
+        withAnimation(reduceMotion ? nil : Axis.Motion.quick, change)
+        Task { await reload() }
+    }
+
     @ViewBuilder private var list: some View {
         if items.isEmpty {
             ScrollView {
@@ -105,7 +185,7 @@ struct HistoryView: View {
                         LoadingMark(text: "Reading the archive")
                             .padding(.vertical, 24)
                     } else if loadedOnce {
-                        EmptyNote(text: kind == "all" ? "No deliveries yet." : "No matching deliveries.")
+                        EmptyNote(text: filtered ? "No matching deliveries." : "No deliveries yet.")
                     }
                 }
                 .padding(.horizontal, Axis.gutter)
@@ -149,8 +229,15 @@ struct HistoryView: View {
             loading = false
             loadedOnce = true
         }
+        // A failed sources fetch keeps the last-known strip; the page decides.
+        if let names = try? await model.client.historySources() {
+            sources = names
+            if let active = source, !names.contains(active) {
+                source = nil
+            }
+        }
         do {
-            let page = try await model.client.history(kind: kind)
+            let page = try await model.client.history(kind: kind, source: source, priority: priority)
             items = page.items
             nextCursor = page.nextCursor
             errorMessage = nil
@@ -167,12 +254,30 @@ struct HistoryView: View {
         loading = true
         defer { loading = false }
         do {
-            let page = try await model.client.history(kind: kind, cursor: cursor)
+            let page = try await model.client.history(kind: kind, cursor: cursor, source: source, priority: priority)
             let known = Set(items.map(\.id))
             items.append(contentsOf: page.items.filter { !known.contains($0.id) })
             nextCursor = page.nextCursor
         } catch {
             // Pagination retries the next time the sentinel appears.
+        }
+    }
+
+    private func clearHistory() async {
+        clearing = true
+        defer { clearing = false }
+        do {
+            try await model.client.deleteHistory(
+                kind: kind == "all" ? nil : kind,
+                source: source,
+                priority: priority
+            )
+            await reload()
+        } catch let error as HarkClientError where error.isUnauthorized {
+            model.handleUnauthorized()
+        } catch {
+            errorMessage = (error as? HarkClientError)?.errorDescription
+                ?? (error as NSError).localizedDescription
         }
     }
 
@@ -194,6 +299,41 @@ struct HistoryView: View {
                 }
             }
         }
+    }
+}
+
+/// One chip of the filter strip, in the choice-chip visual. Selection lives
+/// with the caller; the active chip's tap is its own clear.
+private struct FilterChip: View {
+    let label: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if selected {
+                    Rectangle()
+                        .fill(Axis.signalText)
+                        .frame(width: 5, height: 5)
+                }
+                Text(label)
+                    .axisMeta(10)
+                    .textCase(.uppercase)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(selected ? Axis.signalText : Axis.inkSubtle)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 30)
+            .background(selected ? Axis.signalWash : Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous)
+                    .strokeBorder(selected ? Axis.signalLine : Axis.lineStrong, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
 
@@ -286,7 +426,7 @@ struct HistoryRow: View {
                         .clipShape(RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                                .strokeBorder(Axis.line, lineWidth: 1)
                         )
                 }
             }

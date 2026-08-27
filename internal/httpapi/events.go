@@ -145,6 +145,40 @@ type historyListResponse struct {
 	NextCursor *string          `json:"next_cursor"`
 }
 
+// parseHistoryFilters reads the `kind`, `source` and `priority` query
+// parameters the history list and its bulk delete share, writing the error
+// response itself.
+func (s *server) parseHistoryFilters(w http.ResponseWriter, r *http.Request) (db.FeedFilters, bool) {
+	q := r.URL.Query()
+	filters := db.FeedFilters{
+		Kind:     q.Get("kind"),
+		Source:   q.Get("source"),
+		Priority: q.Get("priority"),
+	}
+	if filters.Kind == "" {
+		filters.Kind = db.FeedFilterAll
+	}
+
+	var fields []FieldError
+	if !db.ValidFeedFilter(filters.Kind) {
+		fields = append(fields, FieldError{
+			Field:   "kind",
+			Message: "must be one of all, notification, response, live_activity",
+		})
+	}
+	if filters.Priority != "" && !db.ValidRecordedPriority(filters.Priority) {
+		fields = append(fields, FieldError{
+			Field:   "priority",
+			Message: "must be one of normal, time_sensitive, critical",
+		})
+	}
+	if len(fields) > 0 {
+		WriteFieldErrors(w, r, "The request query is invalid.", fields)
+		return db.FeedFilters{}, false
+	}
+	return filters, true
+}
+
 // handleListHistory pages everything that has happened to the account, newest
 // first: webhook deliveries, agent pushes, answered questions and Live Activity
 // changes, in one ordering.
@@ -156,21 +190,13 @@ func (s *server) handleListHistory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
-	kind := r.URL.Query().Get("kind")
-	if kind == "" {
-		kind = db.FeedFilterAll
-	}
-	if !db.ValidFeedFilter(kind) {
-		WriteFieldErrors(w, r, "The request query is invalid.", []FieldError{{
-			Field:   "kind",
-			Message: "must be one of all, notification, response, live_activity",
-		}})
+	filters, ok := s.parseHistoryFilters(w, r)
+	if !ok {
 		return
 	}
 
 	principal := auth.PrincipalFrom(r.Context())
-	page, err := s.store().Feed.List(r.Context(), principal.UserID(), kind, query.Cursor, query.Limit)
+	page, err := s.store().Feed.ListFiltered(r.Context(), principal.UserID(), filters, query.Cursor, query.Limit)
 	if err != nil {
 		s.writeInternal(w, r, "listing history failed", err)
 		return
@@ -181,6 +207,40 @@ func (s *server) handleListHistory(w http.ResponseWriter, r *http.Request) {
 		out = append(out, newHistoryItemDTO(item))
 	}
 	WriteJSON(w, r, http.StatusOK, historyListResponse{Items: out, NextCursor: nextCursor(page)})
+}
+
+type historySourcesResponse struct {
+	Sources []string `json:"sources"`
+}
+
+// handleListHistorySources lists the distinct sender names currently in the
+// history, for a client building a source filter. The list is bounded by the
+// account's services, tokens and safety sources, so it is not paged.
+func (s *server) handleListHistorySources(w http.ResponseWriter, r *http.Request) {
+	principal := auth.PrincipalFrom(r.Context())
+	sources, err := s.store().Feed.Sources(r.Context(), principal.UserID())
+	if err != nil {
+		s.writeInternal(w, r, "listing history sources failed", err)
+		return
+	}
+	WriteJSON(w, r, http.StatusOK, historySourcesResponse{Sources: sources})
+}
+
+// handleDeleteHistory clears the history, or the slice of it the filters name.
+// It takes the same parameters as the list, so a client deletes exactly what it
+// is looking at.
+func (s *server) handleDeleteHistory(w http.ResponseWriter, r *http.Request) {
+	filters, ok := s.parseHistoryFilters(w, r)
+	if !ok {
+		return
+	}
+
+	principal := auth.PrincipalFrom(r.Context())
+	if err := s.store().Feed.DeleteAll(r.Context(), principal.UserID(), filters); err != nil {
+		s.writeInternal(w, r, "deleting history failed", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // handleDeleteHistoryItem removes one entry from the history.

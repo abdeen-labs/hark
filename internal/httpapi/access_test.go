@@ -109,6 +109,8 @@ func TestDeliveryRoutesAreClosedByDefault(t *testing.T) {
 		{http.MethodGet, "/events"},
 		{http.MethodDelete, "/events/evt"},
 		{http.MethodGet, "/history"},
+		{http.MethodGet, "/history/sources"},
+		{http.MethodDelete, "/history"},
 		{http.MethodDelete, "/history/event:evt"},
 		{http.MethodPost, "/notifications"},
 		{http.MethodGet, "/safety-sources"},

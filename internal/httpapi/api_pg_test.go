@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -326,6 +327,133 @@ func TestWebhookDeliveryRecordsAndSurfacesTheEvent(t *testing.T) {
 	f.expect(http.MethodGet, "/events", f.session, "", http.StatusOK, &events)
 	if len(events.Events) != 0 {
 		t.Errorf("events after deleting the history entry = %+v, want none", events.Events)
+	}
+}
+
+// TestHistoryFiltersSourcesAndBulkDelete drives the whole filtered history
+// surface: one entry per sender shape, then the list narrowed by source and
+// priority, the source index, and the bulk delete taking the same slices.
+func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
+	f := newFixture(t, fixtureOptions{})
+	device := f.registerDevice(strings.Repeat("e5", 32))
+	_, deployHook := f.createService("Deploy bot")
+	_, uptimeHook := f.createService("Uptime")
+
+	f.expect(http.MethodPost, deployHook, "", `{"body":"Build 4821 succeeded"}`,
+		http.StatusCreated, nil)
+	f.expect(http.MethodPost, uptimeHook, "", `{"body":"hark.example.com is down","priority":"time_sensitive"}`,
+		http.StatusCreated, nil)
+	f.expect(http.MethodPost, "/notifications", f.token, `{"title":"Hark","body":"Agent finished"}`,
+		http.StatusCreated, nil)
+
+	src := f.createSafetySource(db.SafetyKindSmoke, "Garage")
+	f.enableCritical(src.ID)
+	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
+
+	var asked interactionResponse
+	f.expect(http.MethodPost, "/interactions", f.token,
+		`{"title":"Claude Code","prompt":"Run the migration?","kind":"approval"}`,
+		http.StatusCreated, &asked)
+	f.expect(http.MethodPost, "/interactions/"+asked.Interaction.ID+"/response", f.session,
+		`{"action":"approve","device_id":"`+device.ID+`","action_digest":"`+asked.Interaction.ActionDigest+`"}`,
+		http.StatusOK, nil)
+
+	var history historyListResponse
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 5 {
+		t.Fatalf("history = %+v, want five entries", history.Items)
+	}
+
+	// A source filter takes one sender's entries across kinds; priority drops
+	// the entries that record none.
+	f.expect(http.MethodGet, "/history?source=Deploy+bot", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 1 || history.Items[0].SourceName != "Deploy bot" ||
+		history.Items[0].Kind != db.FeedKindNotification {
+		t.Fatalf("source filter = %+v, want the one Deploy bot delivery", history.Items)
+	}
+	f.expect(http.MethodGet, "/history?source=harkctl", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 2 {
+		t.Fatalf("token source filter = %+v, want the notification and the answer", history.Items)
+	}
+	f.expect(http.MethodGet, "/history?source=harkctl&priority=normal", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 1 || history.Items[0].Kind != db.FeedKindNotification {
+		t.Fatalf("source+priority filter = %+v, want only the notification", history.Items)
+	}
+	f.expect(http.MethodGet, "/history?priority=time_sensitive", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 1 || history.Items[0].SourceName != "Uptime" {
+		t.Fatalf("time_sensitive filter = %+v, want the Uptime delivery", history.Items)
+	}
+	f.expect(http.MethodGet, "/history?priority=critical", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 1 || history.Items[0].SourceName != "Garage" {
+		t.Fatalf("critical filter = %+v, want the safety alert", history.Items)
+	}
+	f.expect(http.MethodGet, "/history?kind=response&source=harkctl", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 1 || history.Items[0].Kind != db.FeedKindResponse {
+		t.Fatalf("kind+source filter = %+v, want the answer", history.Items)
+	}
+
+	rec := f.request(http.MethodGet, "/history?priority=bogus", f.session, "")
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bad priority: status = %d, want 422: %s", rec.Code, rec.Body)
+	}
+	if got := decodeError(t, rec); len(got.Error.Fields) != 1 || got.Error.Fields[0].Field != "priority" {
+		t.Errorf("bad priority fields = %+v, want the priority field named", got.Error.Fields)
+	}
+
+	// The source index is distinct and sorted without regard to case.
+	var sources historySourcesResponse
+	f.expect(http.MethodGet, "/history/sources", f.session, "", http.StatusOK, &sources)
+	if want := []string{"Deploy bot", "Garage", "harkctl", "Uptime"}; !slices.Equal(sources.Sources, want) {
+		t.Fatalf("sources = %v, want %v", sources.Sources, want)
+	}
+
+	// Both new routes are the owner's own view, closed to API tokens.
+	for _, route := range []struct{ method, path string }{
+		{http.MethodGet, "/history/sources"},
+		{http.MethodDelete, "/history"},
+	} {
+		rec := f.request(route.method, route.path, f.token, "")
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("%s %s with a token: status = %d, want 403: %s",
+				route.method, route.path, rec.Code, rec.Body)
+		}
+	}
+
+	// The bulk delete takes the same slices the list shows.
+	rec = f.request(http.MethodDelete, "/history?priority=bogus", f.session, "")
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bulk delete with a bad priority: status = %d, want 422: %s", rec.Code, rec.Body)
+	}
+	f.expect(http.MethodDelete, "/history?source=harkctl", f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 3 {
+		t.Fatalf("history after deleting harkctl = %+v, want three entries", history.Items)
+	}
+	for _, item := range history.Items {
+		if item.SourceName == "harkctl" {
+			t.Errorf("a harkctl entry survived its bulk delete: %+v", item)
+		}
+	}
+	f.expect(http.MethodGet, "/history/sources", f.session, "", http.StatusOK, &sources)
+	if want := []string{"Deploy bot", "Garage", "Uptime"}; !slices.Equal(sources.Sources, want) {
+		t.Fatalf("sources after the delete = %v, want %v", sources.Sources, want)
+	}
+
+	f.expect(http.MethodDelete, "/history?priority=critical", f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 2 {
+		t.Fatalf("history after deleting critical = %+v, want two entries", history.Items)
+	}
+
+	// No parameters clears everything that is left.
+	f.expect(http.MethodDelete, "/history", f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 0 {
+		t.Fatalf("history after the full clear = %+v, want empty", history.Items)
+	}
+	f.expect(http.MethodGet, "/history/sources", f.session, "", http.StatusOK, &sources)
+	if sources.Sources == nil || len(sources.Sources) != 0 {
+		t.Fatalf("sources after the full clear = %v, want an empty array", sources.Sources)
 	}
 }
 

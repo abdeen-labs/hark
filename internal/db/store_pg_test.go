@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -1828,6 +1829,377 @@ func TestPendingInteractionCannotBeDeletedFromTheFeed(t *testing.T) {
 	}
 	if _, err := s.Interactions.ByID(ctx, pending.ID); err != nil {
 		t.Errorf("the pending interaction was deleted: %v", err)
+	}
+}
+
+// seedFilteredFeed builds one entry per source with distinct source names and
+// priorities, and returns the composite feed id of each alongside the rows a
+// test needs to add more.
+type filteredFeed struct {
+	deployEvent  string
+	uptimeEvent  string
+	notification string
+	response     string
+	operation    string
+	safety       string
+
+	uptime *Service
+	token  *APIToken
+}
+
+func seedFilteredFeed(ctx context.Context, t *testing.T, s *Store, userID string) filteredFeed {
+	t.Helper()
+	deploy := mustService(ctx, t, s, userID, "Deploy bot")
+	uptime := mustService(ctx, t, s, userID, "Uptime")
+	tok := mustToken(ctx, t, s, userID)
+	src := mustSafetySource(ctx, t, s, userID, SafetyKindCarbonMonoxide, "Bedroom")
+	device := mustDevice(ctx, t, s, userID, "aaaa")
+	base := time.Now().Add(-time.Hour)
+
+	deployEvent, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: deploy.ID, Title: "Deploy bot", Body: "Build 4821 succeeded",
+		Priority: PriorityNormal, Status: EventAccepted, Now: base,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uptimeEvent, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: uptime.ID, Title: "Uptime", Body: "hark.example.com is down",
+		Priority: PriorityTimeSensitive, Status: EventAccepted, Now: base.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	notification, err := s.Notifications.Create(ctx, CreateNotificationParams{
+		ID: id.New(), UserID: userID, RequesterTokenID: tok.ID, Title: "Hark",
+		Body: "Agent finished", Priority: PriorityNormal, Now: base.Add(2 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	interaction, err := s.Interactions.Create(ctx, CreateInteractionParams{
+		ID: id.New(), UserID: userID, RequesterServiceID: &deploy.ID, Title: "Deploy bot",
+		Prompt: "Deploy to production?", Kind: InteractionApproval,
+		Presentation: PresentationNotification, Choices: ChoicesFor(InteractionApproval),
+		ActionDigest: "digest", ExpiresAt: base.Add(time.Hour), Now: base.Add(3 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Interactions.Respond(ctx, RespondParams{
+		ID: interaction.ID, UserID: userID, Status: InteractionApproved,
+		Response: ptr("approve"), DeviceID: &device.ID, Now: base.Add(4 * time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	started, err := s.Activities.Start(ctx, StartActivityParams{
+		ID: id.New(), UserID: userID, RequesterTokenID: &tok.ID,
+		SchemaVersion: LiveActivitySchemaVersion, Props: props("Deploy", "Building"),
+		ExpiresAt: base.Add(time.Hour), OperationID: id.New(), Now: base.Add(5 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	title, body := SafetyAlertContent(SafetyKindCarbonMonoxide, src.Name, SafetyStateActive)
+	safety, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
+		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
+		Title: title, Body: body, Priority: PriorityCritical, Status: EventAccepted,
+		Now: base.Add(6 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return filteredFeed{
+		deployEvent:  FeedSourceEvent + ":" + deployEvent.ID,
+		uptimeEvent:  FeedSourceEvent + ":" + uptimeEvent.ID,
+		notification: FeedSourceNotification + ":" + notification.ID,
+		response:     FeedSourceResponse + ":" + interaction.ID,
+		operation:    FeedSourceLiveActivity + ":" + started.Operation.ID,
+		safety:       FeedSourceSafetyEvent + ":" + safety.ID,
+		uptime:       uptime,
+		token:        tok,
+	}
+}
+
+func TestFeedSourceAndPriorityFilters(t *testing.T) {
+	ctx, s := requireStore(t)
+	user := mustUser(ctx, t, s, "ali")
+	feed := seedFilteredFeed(ctx, t, s, user.ID)
+
+	list := func(f FeedFilters) []string {
+		t.Helper()
+		page, err := s.Feed.ListFiltered(ctx, user.ID, f, Cursor{}, 50)
+		if err != nil {
+			t.Fatalf("ListFiltered(%+v): %v", f, err)
+		}
+		ids := make([]string, 0, len(page.Items))
+		for _, item := range page.Items {
+			ids = append(ids, item.ID)
+		}
+		return ids
+	}
+
+	cases := []struct {
+		name    string
+		filters FeedFilters
+		want    []string
+	}{
+		{"no filters", FeedFilters{}, []string{
+			feed.safety, feed.operation, feed.response,
+			feed.notification, feed.uptimeEvent, feed.deployEvent,
+		}},
+		{"source", FeedFilters{Source: "Deploy bot"}, []string{feed.response, feed.deployEvent}},
+		{"source and kind", FeedFilters{Kind: FeedFilterNotification, Source: "Deploy bot"},
+			[]string{feed.deployEvent}},
+		{"token source", FeedFilters{Source: "harkctl"}, []string{feed.operation, feed.notification}},
+		{"safety source", FeedFilters{Source: "Bedroom"}, []string{feed.safety}},
+		{"source match is exact", FeedFilters{Source: "deploy bot"}, []string{}},
+		{"unknown source", FeedFilters{Source: "Nobody"}, []string{}},
+		{"priority normal", FeedFilters{Priority: PriorityNormal},
+			[]string{feed.notification, feed.deployEvent}},
+		{"priority time_sensitive", FeedFilters{Priority: PriorityTimeSensitive},
+			[]string{feed.uptimeEvent}},
+		{"priority critical", FeedFilters{Priority: PriorityCritical}, []string{feed.safety}},
+		// The operation records no priority, so it drops out of its source's
+		// entries when the priority filter is set.
+		{"source and priority", FeedFilters{Source: "harkctl", Priority: PriorityNormal},
+			[]string{feed.notification}},
+		{"kind and priority", FeedFilters{Kind: FeedFilterResponse, Priority: PriorityNormal},
+			[]string{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := list(tc.filters); !slices.Equal(got, tc.want) {
+				t.Errorf("ListFiltered(%+v) = %v, want %v", tc.filters, got, tc.want)
+			}
+		})
+	}
+
+	if _, err := s.Feed.ListFiltered(ctx, user.ID, FeedFilters{Priority: "bogus"}, Cursor{}, 50); err == nil {
+		t.Error("an unknown priority should be refused")
+	}
+	if _, err := s.Feed.ListFiltered(ctx, user.ID, FeedFilters{Kind: "bogus"}, Cursor{}, 50); err == nil {
+		t.Error("an unknown kind should be refused")
+	}
+}
+
+func TestFeedSources(t *testing.T) {
+	ctx, s := requireStore(t)
+	user := mustUser(ctx, t, s, "ali")
+	deploy := mustService(ctx, t, s, user.ID, "deploy bot")
+	uptime := mustService(ctx, t, s, user.ID, "Uptime")
+	mustService(ctx, t, s, user.ID, "Idle")
+	zed := mustService(ctx, t, s, user.ID, "Zed")
+	tok := mustToken(ctx, t, s, user.ID)
+	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindSmoke, "Bedroom")
+	now := time.Now()
+
+	// Two events from one service must yield the name once.
+	for i := range 2 {
+		if _, err := s.Events.Create(ctx, CreateEventParams{
+			ID: id.New(), ServiceID: deploy.ID, Title: "deploy bot", Body: "hello",
+			Priority: PriorityNormal, Status: EventAccepted, Now: now.Add(time.Duration(i) * time.Second),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: uptime.ID, Title: "Uptime", Body: "down",
+		Priority: PriorityNormal, Status: EventAccepted, Now: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Notifications.Create(ctx, CreateNotificationParams{
+		ID: id.New(), UserID: user.ID, RequesterTokenID: tok.ID, Title: "Hark",
+		Body: "Agent finished", Priority: PriorityNormal, Now: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	title, body := SafetyAlertContent(src.Kind, src.Name, SafetyStateActive)
+	if _, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
+		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
+		Title: title, Body: body, Priority: PriorityCritical, Status: EventAccepted, Now: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// A pending question is not a history entry, so its service must not
+	// surface as a source.
+	if _, err := s.Interactions.Create(ctx, CreateInteractionParams{
+		ID: id.New(), UserID: user.ID, RequesterServiceID: &zed.ID, Title: "Zed",
+		Prompt: "p", Kind: InteractionApproval, Presentation: PresentationNotification,
+		Choices: ChoicesFor(InteractionApproval), ActionDigest: "digest",
+		ExpiresAt: now.Add(time.Hour), Now: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	stranger := mustUser(ctx, t, s, "sam")
+	strangerSvc := mustService(ctx, t, s, stranger.ID, "Stranger bot")
+	if _, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: strangerSvc.ID, Title: "Stranger bot", Body: "hi",
+		Priority: PriorityNormal, Status: EventAccepted, Now: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Distinct, scoped to the account, and sorted without regard to case.
+	sources, err := s.Feed.Sources(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("Sources: %v", err)
+	}
+	if want := []string{"Bedroom", "deploy bot", "harkctl", "Uptime"}; !slices.Equal(sources, want) {
+		t.Errorf("Sources = %v, want %v", sources, want)
+	}
+
+	strangerSources, err := s.Feed.Sources(ctx, stranger.ID)
+	if err != nil {
+		t.Fatalf("Sources for the stranger: %v", err)
+	}
+	if want := []string{"Stranger bot"}; !slices.Equal(strangerSources, want) {
+		t.Errorf("stranger Sources = %v, want %v", strangerSources, want)
+	}
+
+	empty := mustUser(ctx, t, s, "kim")
+	if sources, err := s.Feed.Sources(ctx, empty.ID); err != nil || len(sources) != 0 {
+		t.Errorf("Sources for an empty history = (%v, %v), want none", sources, err)
+	}
+}
+
+func TestFeedDeleteAll(t *testing.T) {
+	ctx, s := requireStore(t)
+	user := mustUser(ctx, t, s, "ali")
+	feed := seedFilteredFeed(ctx, t, s, user.ID)
+	base := time.Now().Add(-time.Minute)
+
+	// A webhook question still pending, tied to its event, and a pending agent
+	// question tied to nothing.
+	askedEvent, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: feed.uptime.ID, Title: "Uptime", Body: "Restart the probe?",
+		Priority: PriorityNormal, Status: EventAccepted, Now: base,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	askedPending, err := s.Interactions.Create(ctx, CreateInteractionParams{
+		ID: id.New(), UserID: user.ID, RequesterServiceID: &feed.uptime.ID, EventID: &askedEvent.ID,
+		Title: "Uptime", Prompt: "Restart the probe?", Kind: InteractionApproval,
+		Presentation: PresentationNotification, Choices: ChoicesFor(InteractionApproval),
+		ActionDigest: "digest", ExpiresAt: base.Add(time.Hour), Now: base,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	freePending, err := s.Interactions.Create(ctx, CreateInteractionParams{
+		ID: id.New(), UserID: user.ID, RequesterTokenID: &feed.token.ID, Title: "t", Prompt: "p",
+		Kind: InteractionApproval, Presentation: PresentationNotification,
+		Choices: ChoicesFor(InteractionApproval), ActionDigest: "digest",
+		ExpiresAt: base.Add(time.Hour), Now: base,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stranger := mustUser(ctx, t, s, "sam")
+	strangerSvc := mustService(ctx, t, s, stranger.ID, "Stranger bot")
+	if _, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: strangerSvc.ID, Title: "Stranger bot", Body: "hi",
+		Priority: PriorityNormal, Status: EventAccepted, Now: base,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	remaining := func() []string {
+		t.Helper()
+		page, err := s.Feed.ListFiltered(ctx, user.ID, FeedFilters{}, Cursor{}, 50)
+		if err != nil {
+			t.Fatalf("list feed: %v", err)
+		}
+		ids := make([]string, 0, len(page.Items))
+		for _, item := range page.Items {
+			ids = append(ids, item.ID)
+		}
+		slices.Sort(ids)
+		return ids
+	}
+	sorted := func(ids ...string) []string {
+		slices.Sort(ids)
+		return ids
+	}
+	askedFeedID := FeedSourceEvent + ":" + askedEvent.ID
+
+	// Unknown filter values delete nothing.
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: "bogus"}); err == nil {
+		t.Error("an unknown priority should be refused")
+	}
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: "bogus"}); err == nil {
+		t.Error("an unknown kind should be refused")
+	}
+	if got := remaining(); len(got) != 7 {
+		t.Fatalf("feed after refused deletes has %d items, want 7: %v", len(got), got)
+	}
+
+	// Each filter takes only its slice of the history.
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: FeedFilterResponse}); err != nil {
+		t.Fatalf("DeleteAll(response): %v", err)
+	}
+	if got, want := remaining(), sorted(feed.deployEvent, feed.uptimeEvent, askedFeedID,
+		feed.notification, feed.operation, feed.safety); !slices.Equal(got, want) {
+		t.Fatalf("after deleting responses = %v, want %v", got, want)
+	}
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Source: "Deploy bot"}); err != nil {
+		t.Fatalf("DeleteAll(Deploy bot): %v", err)
+	}
+	if got, want := remaining(), sorted(feed.uptimeEvent, askedFeedID,
+		feed.notification, feed.operation, feed.safety); !slices.Equal(got, want) {
+		t.Fatalf("after deleting the Deploy bot slice = %v, want %v", got, want)
+	}
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityTimeSensitive}); err != nil {
+		t.Fatalf("DeleteAll(time_sensitive): %v", err)
+	}
+	if got, want := remaining(), sorted(askedFeedID,
+		feed.notification, feed.operation, feed.safety); !slices.Equal(got, want) {
+		t.Fatalf("after deleting time_sensitive = %v, want %v", got, want)
+	}
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityCritical}); err != nil {
+		t.Fatalf("DeleteAll(critical): %v", err)
+	}
+	if got, want := remaining(), sorted(askedFeedID,
+		feed.notification, feed.operation); !slices.Equal(got, want) {
+		t.Fatalf("after deleting critical = %v, want %v", got, want)
+	}
+
+	// Pending questions have survived every filtered pass.
+	if _, err := s.Interactions.ByID(ctx, askedPending.ID); err != nil {
+		t.Fatalf("the webhook's pending question was deleted early: %v", err)
+	}
+	if _, err := s.Interactions.ByID(ctx, freePending.ID); err != nil {
+		t.Fatalf("the agent's pending question was deleted early: %v", err)
+	}
+
+	// No filters clears the history. The webhook's pending question goes with
+	// its event through the cascade, exactly as a single delete would take it;
+	// the free-standing one is not a history entry and stays.
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
+		t.Fatalf("DeleteAll: %v", err)
+	}
+	if got := remaining(); len(got) != 0 {
+		t.Fatalf("feed after DeleteAll = %v, want none", got)
+	}
+	if _, err := s.Interactions.ByID(ctx, askedPending.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the webhook's pending question = %v, want ErrNotFound after its event went", err)
+	}
+	if _, err := s.Interactions.ByID(ctx, freePending.ID); err != nil {
+		t.Errorf("the free-standing pending question was deleted: %v", err)
+	}
+
+	// Clearing again is a no-op, and the stranger's history was never touched.
+	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
+		t.Fatalf("repeat DeleteAll: %v", err)
+	}
+	strangerFeed, err := s.Feed.List(ctx, stranger.ID, FeedFilterAll, Cursor{}, 50)
+	if err != nil || len(strangerFeed.Items) != 1 {
+		t.Fatalf("stranger's feed = (%d items, %v), want their one event", len(strangerFeed.Items), err)
 	}
 }
 

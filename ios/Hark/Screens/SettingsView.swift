@@ -9,6 +9,7 @@ import SwiftUI
 
 nonisolated enum SettingsRoute: Hashable {
     case safetySources
+    case sound
 }
 
 struct SettingsView: View {
@@ -27,7 +28,10 @@ struct SettingsView: View {
                             .padding(.top, 24)
                         account
                         connection
+                        SoundModule(index: "03", route: SettingsRoute.sound)
                         safety
+                        AppearanceModule(index: "05")
+                        AppLockModule(index: "06")
                         session
                         foot
                     }
@@ -41,6 +45,9 @@ struct SettingsView: View {
                 switch route {
                 case .safetySources:
                     SafetySourcesView()
+                        .shellInsets()
+                case .sound:
+                    SoundPickerView()
                         .shellInsets()
                 }
             }
@@ -121,7 +128,7 @@ struct SettingsView: View {
     }
 
     private var safety: some View {
-        Module(index: "03", label: "Critical Alerts", flush: true) {
+        Module(index: "04", label: "Critical Alerts", flush: true) {
             VStack(spacing: 0) {
                 AxisToggle(
                     "Critical Alerts",
@@ -198,7 +205,7 @@ struct SettingsView: View {
     }
 
     private var session: some View {
-        Module(index: "04", label: "Session", variant: .hazard) {
+        Module(index: "07", label: "Session", variant: .hazard) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Signing out does not unregister this device.")
                     .font(AxisType.copy(13))

@@ -331,6 +331,10 @@ nonisolated struct HistoryPage: Decodable, Sendable {
     }
 }
 
+nonisolated struct HistorySourcesResponse: Decodable, Sendable {
+    var sources: [String]
+}
+
 // MARK: - Live Activities (read side, for reconciliation)
 
 nonisolated struct APIActivity: Decodable, Hashable, Identifiable, Sendable {

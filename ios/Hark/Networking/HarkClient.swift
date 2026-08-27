@@ -207,14 +207,37 @@ nonisolated struct HarkClient: Sendable {
 
     // MARK: - History
 
-    func history(kind: String = "all", cursor: String? = nil) async throws -> HistoryPage {
+    func history(
+        kind: String = "all",
+        cursor: String? = nil,
+        source: String? = nil,
+        priority: String? = nil
+    ) async throws -> HistoryPage {
         var query = [URLQueryItem(name: "kind", value: kind)]
         if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        if let source { query.append(URLQueryItem(name: "source", value: source)) }
+        if let priority { query.append(URLQueryItem(name: "priority", value: priority)) }
         return try await send("GET", "/history", query: query)
+    }
+
+    /// The distinct source names present in history, sorted case-insensitively.
+    func historySources() async throws -> [String] {
+        let response: HistorySourcesResponse = try await send("GET", "/history/sources")
+        return response.sources
     }
 
     func deleteHistoryItem(id: String) async throws {
         try await sendExpectingNoContent("DELETE", "/history/\(id)")
+    }
+
+    /// Deletes every history row the filters match; no filters empties the
+    /// whole archive. Pending questions are not history rows and stay put.
+    func deleteHistory(kind: String? = nil, source: String? = nil, priority: String? = nil) async throws {
+        var query: [URLQueryItem] = []
+        if let kind { query.append(URLQueryItem(name: "kind", value: kind)) }
+        if let source { query.append(URLQueryItem(name: "source", value: source)) }
+        if let priority { query.append(URLQueryItem(name: "priority", value: priority)) }
+        try await sendExpectingNoContent("DELETE", "/history", query: query)
     }
 
     // MARK: - Live Activities (read side)
@@ -373,9 +396,10 @@ nonisolated struct HarkClient: Sendable {
     private func sendExpectingNoContent(
         _ method: String,
         _ path: String,
+        query: [URLQueryItem] = [],
         authenticated: Bool = true
     ) async throws {
-        let request = try makeRequest(method, path, query: [], bodyData: nil, authenticated: authenticated)
+        let request = try makeRequest(method, path, query: query, bodyData: nil, authenticated: authenticated)
         _ = try await perform(request)
     }
 
