@@ -2,10 +2,6 @@
 //  SoundControls.swift
 //  Hark
 //
-//  The settings module for the notification tone. The route value belongs
-//  to the caller: SettingsView owns SettingsRoute and the navigation
-//  destination that presents SoundPickerView.
-//
 
 import SwiftUI
 

@@ -2,10 +2,6 @@
 //  HarkApp.swift
 //  Hark
 //
-//  Entry point. The appearance setting decides the colour scheme; the app
-//  lock covers everything below it, so it sits at this level rather than in
-//  any screen.
-//
 
 import SwiftUI
 

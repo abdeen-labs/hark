@@ -1832,9 +1832,6 @@ func TestPendingInteractionCannotBeDeletedFromTheFeed(t *testing.T) {
 	}
 }
 
-// seedFilteredFeed builds one entry per source with distinct source names and
-// priorities, and returns the composite feed id of each alongside the rows a
-// test needs to add more.
 type filteredFeed struct {
 	deployEvent  string
 	uptimeEvent  string
@@ -1961,8 +1958,6 @@ func TestFeedSourceAndPriorityFilters(t *testing.T) {
 		{"priority time_sensitive", FeedFilters{Priority: PriorityTimeSensitive},
 			[]string{feed.uptimeEvent}},
 		{"priority critical", FeedFilters{Priority: PriorityCritical}, []string{feed.safety}},
-		// The operation records no priority, so it drops out of its source's
-		// entries when the priority filter is set.
 		{"source and priority", FeedFilters{Source: "harkctl", Priority: PriorityNormal},
 			[]string{feed.notification}},
 		{"kind and priority", FeedFilters{Kind: FeedFilterResponse, Priority: PriorityNormal},
@@ -1995,7 +1990,6 @@ func TestFeedSources(t *testing.T) {
 	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindSmoke, "Bedroom")
 	now := time.Now()
 
-	// Two events from one service must yield the name once.
 	for i := range 2 {
 		if _, err := s.Events.Create(ctx, CreateEventParams{
 			ID: id.New(), ServiceID: deploy.ID, Title: "deploy bot", Body: "hello",
@@ -2023,8 +2017,6 @@ func TestFeedSources(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// A pending question is not a history entry, so its service must not
-	// surface as a source.
 	if _, err := s.Interactions.Create(ctx, CreateInteractionParams{
 		ID: id.New(), UserID: user.ID, RequesterServiceID: &zed.ID, Title: "Zed",
 		Prompt: "p", Kind: InteractionApproval, Presentation: PresentationNotification,
@@ -2043,7 +2035,6 @@ func TestFeedSources(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Distinct, scoped to the account, and sorted without regard to case.
 	sources, err := s.Feed.Sources(ctx, user.ID)
 	if err != nil {
 		t.Fatalf("Sources: %v", err)
@@ -2072,8 +2063,6 @@ func TestFeedDeleteAll(t *testing.T) {
 	feed := seedFilteredFeed(ctx, t, s, user.ID)
 	base := time.Now().Add(-time.Minute)
 
-	// A webhook question still pending, tied to its event, and a pending agent
-	// question tied to nothing.
 	askedEvent, err := s.Events.Create(ctx, CreateEventParams{
 		ID: id.New(), ServiceID: feed.uptime.ID, Title: "Uptime", Body: "Restart the probe?",
 		Priority: PriorityNormal, Status: EventAccepted, Now: base,
@@ -2128,7 +2117,6 @@ func TestFeedDeleteAll(t *testing.T) {
 	}
 	askedFeedID := FeedSourceEvent + ":" + askedEvent.ID
 
-	// Unknown filter values delete nothing.
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: "bogus"}); err == nil {
 		t.Error("an unknown priority should be refused")
 	}
@@ -2139,7 +2127,6 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Fatalf("feed after refused deletes has %d items, want 7: %v", len(got), got)
 	}
 
-	// Each filter takes only its slice of the history.
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: FeedFilterResponse}); err != nil {
 		t.Fatalf("DeleteAll(response): %v", err)
 	}
@@ -2169,7 +2156,6 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Fatalf("after deleting critical = %v, want %v", got, want)
 	}
 
-	// Pending questions have survived every filtered pass.
 	if _, err := s.Interactions.ByID(ctx, askedPending.ID); err != nil {
 		t.Fatalf("the webhook's pending question was deleted early: %v", err)
 	}
@@ -2177,9 +2163,6 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Fatalf("the agent's pending question was deleted early: %v", err)
 	}
 
-	// No filters clears the history. The webhook's pending question goes with
-	// its event through the cascade, exactly as a single delete would take it;
-	// the free-standing one is not a history entry and stays.
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
 		t.Fatalf("DeleteAll: %v", err)
 	}
@@ -2193,7 +2176,6 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Errorf("the free-standing pending question was deleted: %v", err)
 	}
 
-	// Clearing again is a no-op, and the stranger's history was never touched.
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
 		t.Fatalf("repeat DeleteAll: %v", err)
 	}

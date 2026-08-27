@@ -9,9 +9,6 @@
 //  message from that service. Anything that fails falls back to the plain
 //  alert; a degraded notification always beats a dropped one.
 //
-//  It also re-sounds the push with the tone chosen in Settings. Critical
-//  alerts are exempt: their critical sound object is the alert.
-//
 
 import Intents
 import UserNotifications
@@ -57,11 +54,6 @@ final class NotificationService: UNNotificationServiceExtension {
 
     // MARK: - Sound
 
-    /// The content re-sounded with the chosen tone. Applied once, up front,
-    /// so every path — communication, plain, and the expiry fallback —
-    /// carries it without further work. Critical alerts pass through
-    /// untouched; so does everything when no tone is chosen or the
-    /// app-group container is missing.
     private static func applyingSelectedTone(_ content: UNNotificationContent) -> UNNotificationContent {
         guard
             content.interruptionLevel != .critical,

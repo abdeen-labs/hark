@@ -310,10 +310,6 @@
   white-space: pre;
 }
 
-/* The code surface stays pitch in both themes, so everything drawn on it —
- * plain text and chroma's tokens below — resolves the inks it borrows to
- * chalk regardless of the page's theme. The values are the dark palette's,
- * verbatim. */
 .prose pre, .prose code {
   --ink: #f4f6f9;
   --ink-muted: #d5dbe4;
@@ -357,8 +353,6 @@
   transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
 .code-copy:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-/* The copy chip lives on the pitch block: in the light theme it keeps the
- * block's own world rather than borrowing paper from the page. */
 :root[data-theme="light"] .code-copy { background: transparent; border-color: rgba(244, 246, 249, 0.26); color: #a2abb9; }
 :root[data-theme="light"] .code-copy:hover { background: #f4f6f9; border-color: #f4f6f9; color: #06080d; }
 

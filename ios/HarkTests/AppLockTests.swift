@@ -2,8 +2,6 @@
 //  AppLockTests.swift
 //  HarkTests
 //
-//  App lock state machine tests, through the injected authorization.
-//
 
 import SwiftUI
 import XCTest

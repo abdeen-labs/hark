@@ -220,7 +220,6 @@ nonisolated struct HarkClient: Sendable {
         return try await send("GET", "/history", query: query)
     }
 
-    /// The distinct source names present in history, sorted case-insensitively.
     func historySources() async throws -> [String] {
         let response: HistorySourcesResponse = try await send("GET", "/history/sources")
         return response.sources
@@ -230,8 +229,6 @@ nonisolated struct HarkClient: Sendable {
         try await sendExpectingNoContent("DELETE", "/history/\(id)")
     }
 
-    /// Deletes every history row the filters match; no filters empties the
-    /// whole archive. Pending questions are not history rows and stay put.
     func deleteHistory(kind: String? = nil, source: String? = nil, priority: String? = nil) async throws {
         var query: [URLQueryItem] = []
         if let kind { query.append(URLQueryItem(name: "kind", value: kind)) }

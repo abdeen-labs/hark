@@ -37,8 +37,7 @@ func ValidFeedFilter(f string) bool {
 	}
 }
 
-// ValidRecordedPriority reports whether p is a priority the history records.
-// Unlike [ValidPriority] it admits critical, which safety events record.
+// ValidRecordedPriority reports whether p is stored in history.
 func ValidRecordedPriority(p string) bool {
 	switch p {
 	case PriorityNormal, PriorityTimeSensitive, PriorityCritical:
@@ -48,19 +47,13 @@ func ValidRecordedPriority(p string) bool {
 	}
 }
 
-// FeedFilters narrows a history read or delete. The zero value matches every
-// entry.
+// FeedFilters narrows a history query. The zero value matches all entries.
 type FeedFilters struct {
-	// Kind is "" or FeedFilterAll for every kind, or one of the feed filters.
-	Kind string
-	// Source is an exact source-name match; "" matches every source.
-	Source string
-	// Priority matches an entry's recorded priority. Entries that record none —
-	// responses and Live Activity changes — never match a set Priority.
+	Kind     string
+	Source   string
 	Priority string
 }
 
-// validate rejects filter values the queries have no branch for.
 func (f FeedFilters) validate(op string) error {
 	if f.Kind != "" && !ValidFeedFilter(f.Kind) {
 		return fmt.Errorf("db: %s: unknown filter %q", op, f.Kind)
@@ -71,8 +64,6 @@ func (f FeedFilters) validate(op string) error {
 	return nil
 }
 
-// args expands the filters into the (kind, source, priority) parameters the
-// feed queries take, with NULL standing for "not filtered".
 func (f FeedFilters) args() (kind string, source, priority *string) {
 	kind = f.Kind
 	if kind == "" {
@@ -230,8 +221,7 @@ func (s *Feed) List(ctx context.Context, userID, filter string, cursor Cursor, l
 	return s.ListFiltered(ctx, userID, FeedFilters{Kind: filter}, cursor, limit)
 }
 
-// ListFiltered pages the history narrowed by f, under the same ordering and
-// cursor contract as [Feed.List].
+// ListFiltered pages the history matching f.
 func (s *Feed) ListFiltered(ctx context.Context, userID string, f FeedFilters, cursor Cursor, limit int) (Page[FeedItem], error) {
 	if err := f.validate("list feed"); err != nil {
 		return Page[FeedItem]{}, err
@@ -250,8 +240,6 @@ func (s *Feed) ListFiltered(ctx context.Context, userID string, f FeedFilters, c
 	}), nil
 }
 
-// feedSourcesQuery lists the distinct source names behind the feed's branches.
-// UNION rather than UNION ALL, because deduplication is the point.
 const feedSourcesQuery = `
 	SELECT source_name FROM (
 		SELECT s.title AS source_name
@@ -298,9 +286,7 @@ type feedSource struct {
 	SourceName string `db:"source_name"`
 }
 
-// Sources lists the distinct source names of the entries currently in the
-// history, sorted case-insensitively. The list is bounded by the account's
-// services, tokens and safety sources, so it is not paged.
+// Sources lists distinct source names in the account's history.
 func (s *Feed) Sources(ctx context.Context, userID string) ([]string, error) {
 	rows, err := queryAll[feedSource](ctx, s.q, "list feed sources", feedSourcesQuery, userID)
 	if err != nil {
@@ -356,10 +342,6 @@ func (s *Feed) Delete(ctx context.Context, userID, feedID string) (bool, error) 
 	}
 }
 
-// feedDeleteQueries removes matching rows from each source table. Every
-// statement mirrors its feedQuery branch, so what disappears is exactly what a
-// list under the same filters would have shown; the branches that need a LEFT
-// JOIN to name their source select ids instead of joining in the DELETE.
 var feedDeleteQueries = []string{
 	`DELETE FROM events e
 	 USING services s
@@ -409,12 +391,7 @@ var feedDeleteQueries = []string{
 	   AND ($4::text IS NULL OR se.priority = $4)`,
 }
 
-// DeleteAll removes every history entry the filters match, in one transaction
-// across the source tables.
-//
-// Deleting a webhook event takes the question it asked with it, through the
-// same foreign key as [Feed.Delete]. Pending interactions are not history
-// entries, so the interactions statement never targets them.
+// DeleteAll removes every history entry matching f.
 func (s *Feed) DeleteAll(ctx context.Context, userID string, f FeedFilters) error {
 	if err := f.validate("delete feed"); err != nil {
 		return err

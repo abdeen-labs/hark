@@ -2,8 +2,6 @@
 //  AppLockControls.swift
 //  Hark
 //
-//  The settings module for the Face ID app lock.
-//
 
 import SwiftUI
 
@@ -20,7 +18,7 @@ struct AppLockModule: View {
             VStack(alignment: .leading, spacing: 0) {
                 AxisToggle(
                     "Require Face ID",
-                    sub: "Lock Hark when it leaves the foreground. Face ID or the device passcode reopens it.",
+                    sub: "Use Face ID or your passcode each time you reopen Hark.",
                     busy: busy,
                     disabled: lock.unavailableReason != nil,
                     isOn: lock.isEnabled
@@ -32,7 +30,7 @@ struct AppLockModule: View {
                     Notice(kind: .warn, message: reason)
                         .padding(.bottom, 16)
                 } else if authFailed {
-                    Notice(kind: .error, message: "Authentication did not complete. The setting was not changed.")
+                    Notice(kind: .error, message: "Couldn't authenticate. App Lock wasn't changed.")
                         .padding(.bottom, 16)
                 }
             }
@@ -41,7 +39,7 @@ struct AppLockModule: View {
         } trailing: {
             HStack(spacing: 8) {
                 StatusLight(color: lock.isEnabled ? Axis.ok : Axis.inkFaint, size: 5)
-                Meta(lock.isEnabled ? "Armed" : "Off", color: Axis.inkSubtle)
+                Meta(lock.isEnabled ? "On" : "Off", color: Axis.inkSubtle)
             }
         }
     }

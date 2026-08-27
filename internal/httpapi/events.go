@@ -145,9 +145,6 @@ type historyListResponse struct {
 	NextCursor *string          `json:"next_cursor"`
 }
 
-// parseHistoryFilters reads the `kind`, `source` and `priority` query
-// parameters the history list and its bulk delete share, writing the error
-// response itself.
 func (s *server) parseHistoryFilters(w http.ResponseWriter, r *http.Request) (db.FeedFilters, bool) {
 	q := r.URL.Query()
 	filters := db.FeedFilters{
@@ -213,9 +210,6 @@ type historySourcesResponse struct {
 	Sources []string `json:"sources"`
 }
 
-// handleListHistorySources lists the distinct sender names currently in the
-// history, for a client building a source filter. The list is bounded by the
-// account's services, tokens and safety sources, so it is not paged.
 func (s *server) handleListHistorySources(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 	sources, err := s.store().Feed.Sources(r.Context(), principal.UserID())
@@ -226,9 +220,6 @@ func (s *server) handleListHistorySources(w http.ResponseWriter, r *http.Request
 	WriteJSON(w, r, http.StatusOK, historySourcesResponse{Sources: sources})
 }
 
-// handleDeleteHistory clears the history, or the slice of it the filters name.
-// It takes the same parameters as the list, so a client deletes exactly what it
-// is looking at.
 func (s *server) handleDeleteHistory(w http.ResponseWriter, r *http.Request) {
 	filters, ok := s.parseHistoryFilters(w, r)
 	if !ok {

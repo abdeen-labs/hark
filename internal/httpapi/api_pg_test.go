@@ -330,9 +330,6 @@ func TestWebhookDeliveryRecordsAndSurfacesTheEvent(t *testing.T) {
 	}
 }
 
-// TestHistoryFiltersSourcesAndBulkDelete drives the whole filtered history
-// surface: one entry per sender shape, then the list narrowed by source and
-// priority, the source index, and the bulk delete taking the same slices.
 func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	device := f.registerDevice(strings.Repeat("e5", 32))
@@ -364,8 +361,6 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 		t.Fatalf("history = %+v, want five entries", history.Items)
 	}
 
-	// A source filter takes one sender's entries across kinds; priority drops
-	// the entries that record none.
 	f.expect(http.MethodGet, "/history?source=Deploy+bot", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 || history.Items[0].SourceName != "Deploy bot" ||
 		history.Items[0].Kind != db.FeedKindNotification {
@@ -400,14 +395,12 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 		t.Errorf("bad priority fields = %+v, want the priority field named", got.Error.Fields)
 	}
 
-	// The source index is distinct and sorted without regard to case.
 	var sources historySourcesResponse
 	f.expect(http.MethodGet, "/history/sources", f.session, "", http.StatusOK, &sources)
 	if want := []string{"Deploy bot", "Garage", "harkctl", "Uptime"}; !slices.Equal(sources.Sources, want) {
 		t.Fatalf("sources = %v, want %v", sources.Sources, want)
 	}
 
-	// Both new routes are the owner's own view, closed to API tokens.
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/history/sources"},
 		{http.MethodDelete, "/history"},
@@ -419,7 +412,6 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 		}
 	}
 
-	// The bulk delete takes the same slices the list shows.
 	rec = f.request(http.MethodDelete, "/history?priority=bogus", f.session, "")
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("bulk delete with a bad priority: status = %d, want 422: %s", rec.Code, rec.Body)
@@ -445,7 +437,6 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 		t.Fatalf("history after deleting critical = %+v, want two entries", history.Items)
 	}
 
-	// No parameters clears everything that is left.
 	f.expect(http.MethodDelete, "/history", f.session, "", http.StatusNoContent, nil)
 	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 0 {

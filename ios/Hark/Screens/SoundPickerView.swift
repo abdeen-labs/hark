@@ -2,10 +2,6 @@
 //  SoundPickerView.swift
 //  Hark
 //
-//  The notification tone: the system default or one of the bundled chimes.
-//  Selection is immediate, stored in the app group for the notification
-//  service extension, and tapping a tone previews it aloud.
-//
 
 import AVFoundation
 import SwiftUI
@@ -26,7 +22,7 @@ struct SoundPickerView: View {
                 head
                 Hairline()
                 ledger
-                Text("Critical Alerts always sound with their own alarm.")
+                Text("Critical Alerts use their own sound.")
                     .font(AxisType.copy(12))
                     .foregroundStyle(Axis.inkFaint)
                     .fixedSize(horizontal: false, vertical: true)
@@ -98,7 +94,7 @@ struct SoundPickerView: View {
                     if selected {
                         HStack(spacing: 8) {
                             StatusLight(color: Axis.signalText, size: 6)
-                            Meta("Set", color: Axis.signalText)
+                            Meta("Selected", color: Axis.signalText)
                         }
                     }
                 }
@@ -122,7 +118,6 @@ struct SoundPickerView: View {
         if let tone {
             preview(tone)
         } else {
-            // No API plays the system default sound; Default selects silently.
             stopPreview()
         }
     }

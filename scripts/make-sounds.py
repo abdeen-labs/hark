@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesize Hark's bundled notification tones into ios/Hark/Sounds/.
-
-Each tone is modal synthesis of a struck idiophone: inharmonic partials with
-per-partial decay, a doublet detune that beats the way a real bar's paired
-modes do, a few milliseconds of filtered noise where the mallet lands, and a
-slight downward pitch settle after the strike. The mix is soft-saturated,
-low-passed, and rendered as 44.1 kHz 16-bit mono at -3 dBFS, then converted
-to CAF with afconvert. Output is deterministic: the same script produces the
-same bytes.
-
-    python3 scripts/make-sounds.py
-"""
+"""Generate Hark's bundled notification tones."""
 
 import math
 import subprocess
@@ -22,10 +11,7 @@ from pathlib import Path
 RATE = 44100
 PEAK = 10 ** (-3 / 20)
 
-# Spectra: (frequency ratio, level, decay speed relative to the fundamental's,
-# doublet detune fraction). The inharmonic ratios are what make a strike read
-# as metal rather than an organ; the detune is the slow beat of a bar's paired
-# modes and supplies the shimmer.
+# (frequency ratio, amplitude, decay multiplier, detune)
 BAR = [
     (1.0, 1.00, 1.0, 0.0018),
     (2.76, 0.42, 1.8, 0.0026),
@@ -33,8 +19,7 @@ BAR = [
     (8.93, 0.05, 3.4, 0.0),
 ]
 
-# A bell: hum below the strike tone, the minor-third tierce, near-harmonic
-# partials above.
+# Bell spectrum.
 BELL = [
     (0.5, 0.28, 0.7, 0.0009),
     (1.0, 1.00, 1.0, 0.0013),
@@ -46,7 +31,7 @@ BELL = [
     (5.4, 0.07, 3.8, 0.0),
 ]
 
-# Glass: sparse, widely spaced partials.
+# Glass spectrum.
 GLASS = [
     (1.0, 1.00, 1.0, 0.0022),
     (3.01, 0.30, 2.0, 0.0034),
@@ -55,7 +40,6 @@ GLASS = [
 
 
 def noise(seed):
-    """A deterministic unit-range noise stream."""
     state = seed & 0xFFFFFFFF
     while True:
         state = (state * 1664525 + 1013904223) & 0xFFFFFFFF
@@ -63,16 +47,10 @@ def noise(seed):
 
 
 def strike(buf, at, freq, tau, level=1.0, partials=BAR, tick=0.12, tick_hz=4200.0):
-    """Add one strike at `at` seconds.
-
-    Partials rise over 3 ms and decay with time constant tau over their decay
-    speed, beating at their doublet detune. The fundamental starts a hair
-    sharp and settles over 25 ms. A tick of low-passed noise marks the mallet.
-    """
     attack = 0.003
     bend, bend_tau = 0.004, 0.025
     start = int(at * RATE)
-    # exp(-9.2) < 1e-4: past that the strike is inaudible.
+    # Stop below -80 dB.
     end = min(len(buf), start + int(9.2 * tau * RATE))
     for i in range(start, end):
         t = (i - start) / RATE
@@ -106,7 +84,6 @@ def buffer(seconds):
 
 
 def relay():
-    """Two strikes a perfect fifth apart."""
     buf = buffer(1.4)
     strike(buf, 0.00, 880.00, 0.32, level=0.85, tick=0.10)
     strike(buf, 0.16, 1318.51, 0.42, tick=0.10)
@@ -114,7 +91,6 @@ def relay():
 
 
 def semaphore():
-    """Three ascending strikes."""
     buf = buffer(1.5)
     strike(buf, 0.00, 1046.50, 0.26, level=0.85, tick=0.09)
     strike(buf, 0.13, 1318.51, 0.26, level=0.9, tick=0.09)
@@ -123,14 +99,12 @@ def semaphore():
 
 
 def beacon():
-    """One deep bell, long decay."""
     buf = buffer(2.2)
     strike(buf, 0.00, 329.63, 0.95, partials=BELL, tick=0.06, tick_hz=1800.0)
     return buf
 
 
 def lattice():
-    """A small up-down arpeggio."""
     buf = buffer(1.6)
     strike(buf, 0.00, 1046.50, 0.20, level=0.85, tick=0.08)
     strike(buf, 0.10, 1318.51, 0.20, level=0.85, tick=0.08)
@@ -140,7 +114,6 @@ def lattice():
 
 
 def meridian():
-    """A low bell answered two octaves up."""
     buf = buffer(1.8)
     strike(buf, 0.00, 293.66, 0.70, partials=BELL, tick=0.05, tick_hz=1800.0)
     strike(buf, 0.18, 1174.66, 0.45, level=0.65, tick=0.08)
@@ -148,7 +121,6 @@ def meridian():
 
 
 def pulse():
-    """A short, higher double tick."""
     buf = buffer(1.1)
     strike(buf, 0.00, 1760.00, 0.08, tick=0.20)
     strike(buf, 0.09, 1760.00, 0.26, tick=0.20)
@@ -156,7 +128,6 @@ def pulse():
 
 
 def aperture():
-    """A glassy tick-tock, a major third down."""
     buf = buffer(1.1)
     strike(buf, 0.00, 1975.53, 0.10, level=0.8, partials=GLASS, tick=0.14, tick_hz=6000.0)
     strike(buf, 0.12, 1567.98, 0.32, partials=GLASS, tick=0.14, tick_hz=6000.0)
@@ -164,7 +135,6 @@ def aperture():
 
 
 def filament():
-    """Three fast grazes on one high glass note."""
     buf = buffer(1.3)
     strike(buf, 0.000, 2093.00, 0.05, level=0.5, partials=GLASS, tick=0.06, tick_hz=7000.0)
     strike(buf, 0.055, 2093.00, 0.07, level=0.7, partials=GLASS, tick=0.06, tick_hz=7000.0)
@@ -173,7 +143,6 @@ def filament():
 
 
 def gantry():
-    """A deep dyad, a fourth apart — the heaviest tone in the set."""
     buf = buffer(2.2)
     strike(buf, 0.00, 220.00, 1.00, partials=BELL, tick=0.05, tick_hz=1500.0)
     strike(buf, 0.22, 293.66, 0.80, level=0.8, partials=BELL, tick=0.05, tick_hz=1500.0)
@@ -181,7 +150,6 @@ def gantry():
 
 
 def sonar():
-    """One ping and its returns."""
     buf = buffer(2.0)
     strike(buf, 0.00, 1244.51, 0.50, tick=0.08)
     strike(buf, 0.42, 1244.51, 0.45, level=0.28, tick=0.0)
@@ -204,8 +172,6 @@ TONES = [
 
 
 def finish(buf):
-    """Normalize, round through a soft clip, and take the digital edge off
-    with a gentle low-pass."""
     peak = max(abs(s) for s in buf)
     drive = 1.2
     knee = math.tanh(drive)
@@ -221,7 +187,7 @@ def finish(buf):
 
 
 def write_wav(path, buf):
-    # A 30 ms fade at the tail so the file never ends on a click.
+    # Fade the tail to avoid a click.
     fade = int(0.030 * RATE)
     frames = bytearray()
     for i, s in enumerate(buf):

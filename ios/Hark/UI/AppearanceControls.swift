@@ -2,19 +2,14 @@
 //  AppearanceControls.swift
 //  Hark
 //
-//  The appearance setting: system, dark, or light. Stored in standard
-//  defaults; the app root reads it and applies the colour scheme.
-//
 
 import SwiftUI
 
 nonisolated enum Appearance: String, CaseIterable {
     case system, dark, light
 
-    /// The standard-defaults key the setting is stored under.
     static let storageKey = "appearance"
 
-    /// The scheme to force, or nil to follow the system.
     var colorScheme: ColorScheme? {
         switch self {
         case .system: nil

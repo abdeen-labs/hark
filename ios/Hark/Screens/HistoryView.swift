@@ -59,19 +59,19 @@ struct HistoryView: View {
             .toolbarVisibility(.hidden, for: .navigationBar)
             .task { if !loadedOnce { await reload() } }
             .confirmationDialog(
-                filtered ? "Delete the filtered entries?" : "Delete the entire archive?",
+                filtered ? "Delete filtered history?" : "Delete all history?",
                 isPresented: $confirmingClear,
                 titleVisibility: .visible
             ) {
                 Button("Delete all", role: .destructive) {
                     Task { await clearHistory() }
                 }
-                Button("Keep", role: .cancel) {}
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text(
                     filtered
-                        ? "Every entry matching the active filters is deleted. Pending questions are untouched."
-                        : "Everything in history is deleted. Pending questions are untouched."
+                        ? "This deletes all history matching the selected filters. Pending questions won't be deleted."
+                        : "This deletes all history. Pending questions won't be deleted."
                 )
             }
         }
@@ -126,9 +126,6 @@ struct HistoryView: View {
         .scrollIndicators(.hidden)
     }
 
-    /// The archive's filter strip: chips per dimension on one scrolling row,
-    /// the bulk-delete control pinned past a rule at the trailing edge. A tap
-    /// on the active chip clears its dimension back to all.
     private var filters: some View {
         HStack(spacing: 0) {
             ScrollView(.horizontal) {
@@ -182,10 +179,10 @@ struct HistoryView: View {
                             .padding(.top, 16)
                     }
                     if loading {
-                        LoadingMark(text: "Reading the archive")
+                        LoadingMark(text: "Loading history")
                             .padding(.vertical, 24)
                     } else if loadedOnce {
-                        EmptyNote(text: filtered ? "No matching deliveries." : "No deliveries yet.")
+                        EmptyNote(text: filtered ? "No matching history." : "No history yet.")
                     }
                 }
                 .padding(.horizontal, Axis.gutter)
@@ -229,7 +226,6 @@ struct HistoryView: View {
             loading = false
             loadedOnce = true
         }
-        // A failed sources fetch keeps the last-known strip; the page decides.
         if let names = try? await model.client.historySources() {
             sources = names
             if let active = source, !names.contains(active) {
@@ -302,8 +298,6 @@ struct HistoryView: View {
     }
 }
 
-/// One chip of the filter strip, in the choice-chip visual. Selection lives
-/// with the caller; the active chip's tap is its own clear.
 private struct FilterChip: View {
     let label: String
     let selected: Bool

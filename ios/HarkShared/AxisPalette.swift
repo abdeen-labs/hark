@@ -2,14 +2,6 @@
 //  AxisPalette.swift
 //  Hark
 //
-//  The design tokens every Hark surface draws from: the app, the notification
-//  service extension, and the widget extension. Each token resolves per
-//  appearance. In dark they are the dashboard's tokens
-//  (internal/dashboard/assets/app.css) spelled in Swift — pitch surfaces,
-//  chalk ink, lacquer red as the single signal colour, jade for success. In
-//  light the same instrument reads on industrial paper-white. Red never
-//  means delivered.
-//
 
 import SwiftUI
 import UIKit
@@ -58,9 +50,7 @@ nonisolated enum Axis {
     static let warnLine = warn.opacity(0.5)
     static let danger = signalText
 
-    /// What a Live Activity's accent falls back to when the server's
-    /// `accent_color` does not parse, or sits too close to the paper it is
-    /// drawn on.
+    /// Fallback for invalid or low-contrast Live Activity accents.
     static let accent = signalText
 
     // MARK: Geometry
@@ -143,7 +133,6 @@ nonisolated extension Color {
         self.init(red: channels.red, green: channels.green, blue: channels.blue)
     }
 
-    /// A token resolved against the trait collection it draws under.
     init(axisDark dark: UInt32, light: UInt32) {
         self.init(uiColor: UIColor { traits in
             UIColor(axisRGB: traits.userInterfaceStyle == .dark ? dark : light)
@@ -157,11 +146,7 @@ nonisolated extension Color {
         self.init(red: channels.red, green: channels.green, blue: channels.blue)
     }
 
-    /// The accent color a content state names, or lacquer red when the string
-    /// does not parse. A Live Activity draws its accent as text, tints, bars,
-    /// and keylines on the paper surfaces, so in each appearance an accent
-    /// that cannot hold 3:1 against that appearance's paper falls back the
-    /// same way an unparsable one does.
+    /// Returns a dynamic accent with a 3:1 contrast fallback.
     static func harkAccent(_ hex: String) -> Color {
         guard let channels = axisChannels(hex) else { return Axis.accent }
         let luminance = axisLuminance(channels)

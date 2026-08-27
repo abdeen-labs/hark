@@ -1,9 +1,3 @@
-// The theme, applied before first paint — which is why this file loads
-// blocking in the head rather than deferred with the rest. The stored mode is
-// "dark" or "light"; anything else means follow the system. The applied theme
-// lands on <html data-theme>, the mode on <html data-theme-mode> where the
-// toggle's CSS label reads it. Storage can be refused; every miss falls back
-// to the system scheme.
 "use strict";
 
 (() => {
@@ -24,7 +18,6 @@
   apply();
   system.addEventListener("change", apply);
 
-  // Delegated, so the button survives every body swap htmx performs.
   document.addEventListener("click", (event) => {
     if (!event.target.closest("[data-theme-toggle]")) return;
     const order = ["system", "dark", "light"];

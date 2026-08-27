@@ -2,10 +2,6 @@
 //  LockScreenView.swift
 //  Hark
 //
-//  The lock veil and the app-switcher shield. The veil is the gate drawn
-//  over the whole app while it is locked; the shield is the same paper with
-//  nothing on it but the name, for the snapshot the system keeps.
-//
 
 import SwiftUI
 
@@ -37,7 +33,7 @@ struct LockScreenView: View {
                         .font(.system(size: 26, weight: .medium))
                         .foregroundStyle(Axis.signalText)
                         .accessibilityHidden(true)
-                    Text("Hark is locked. Face ID or your passcode opens it.")
+                    Text("Use Face ID or your passcode to unlock Hark.")
                         .font(AxisType.copy(14))
                         .lineSpacing(3)
                         .foregroundStyle(Axis.inkSubtle)
@@ -52,15 +48,12 @@ struct LockScreenView: View {
         } trailing: {
             HStack(spacing: 8) {
                 StatusLight(color: Axis.signal, size: 5)
-                Meta("Secured", color: Axis.inkSubtle)
+                Meta("Locked", color: Axis.inkSubtle)
             }
         }
     }
 }
 
-/// What the app switcher keeps while Hark is in the background: the ledger
-/// with its contents redacted. Every bar is a fixed decoration — the real
-/// rows never reach this snapshot.
 struct PrivacyShieldView: View {
     private static let rows: [(title: CGFloat, detail: CGFloat, opacity: Double)] = [
         (0.34, 0.62, 1),
@@ -85,11 +78,11 @@ struct PrivacyShieldView: View {
             .padding(.horizontal, Axis.gutter)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Hark is shielded")
+        .accessibilityLabel("Hark content is hidden")
     }
 
     private var ledger: some View {
-        Module(label: "Contents sealed", variant: .marked, flush: true) {
+        Module(label: "Content hidden", variant: .marked, flush: true) {
             VStack(spacing: 0) {
                 ForEach(Array(Self.rows.enumerated()), id: \.offset) { index, row in
                     RedactionRow(number: index + 1, title: row.title, detail: row.detail)
@@ -102,15 +95,13 @@ struct PrivacyShieldView: View {
         } trailing: {
             HStack(spacing: 8) {
                 StatusLight(color: Axis.signal, size: 5)
-                Meta("Standby", color: Axis.inkSubtle)
+                Meta("Private", color: Axis.inkSubtle)
             }
         }
         .accessibilityHidden(true)
     }
 }
 
-/// One redacted entry: the running index and two bars where a source line
-/// and its message would be.
 private struct RedactionRow: View {
     let number: Int
     let title: CGFloat
