@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//go:embed assets/app.css assets/app.js assets/docs.css assets/docs.js assets/htmx.min.js assets/htmx.provenance.json assets/idiomorph.min.js assets/idiomorph.provenance.json
+//go:embed assets/app.css assets/app.js assets/theme.js assets/docs.css assets/docs.js assets/htmx.min.js assets/htmx.provenance.json assets/idiomorph.min.js assets/idiomorph.provenance.json
 var assetFS embed.FS
 
 // asset is one embedded static file, served from a URL that contains a digest
@@ -35,6 +35,7 @@ type asset struct {
 type assetLinks struct {
 	CSS    string
 	JS     string
+	Theme  string
 	Docs   string
 	DocsJS string
 	HTMX   string
@@ -48,6 +49,7 @@ var (
 	assets = assetLinks{
 		CSS:    mustLoadAsset("app.css", "text/css; charset=utf-8"),
 		JS:     mustLoadAsset("app.js", "text/javascript; charset=utf-8"),
+		Theme:  mustLoadAsset("theme.js", "text/javascript; charset=utf-8"),
 		Docs:   mustLoadAsset("docs.css", "text/css; charset=utf-8"),
 		DocsJS: mustLoadAsset("docs.js", "text/javascript; charset=utf-8"),
 		HTMX:   mustLoadAsset("htmx.min.js", "text/javascript; charset=utf-8"),

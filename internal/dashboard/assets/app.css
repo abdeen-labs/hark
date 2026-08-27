@@ -1,10 +1,12 @@
 /* Hark dashboard.
  *
- * One palette, dark. Pitch surfaces, chalk ink, lacquer red as the single
- * signal colour, jade for success — red never means delivered. Every page
- * sits on the same twelve-column grid behind a shared gutter; rules run edge
- * to edge and the type carries the hierarchy. Nothing here is inline: the
- * content security policy allows stylesheets from this origin only. */
+ * Dark-first. Pitch surfaces, chalk ink, lacquer red as the single signal
+ * colour, jade for success — red never means delivered. The light palette is
+ * the same instrument on paper-white stock; theme.js resolves the stored mode
+ * to <html data-theme> before first paint, and code stays pitch in both. Every
+ * page sits on the same twelve-column grid behind a shared gutter; rules run
+ * edge to edge and the type carries the hierarchy. Nothing here is inline:
+ * the content security policy allows stylesheets from this origin only. */
 
 :root {
   color-scheme: dark;
@@ -43,6 +45,13 @@
 
   --code: #090c11;
   --code-ink: #eef1f6;
+  /* Edges on the pitch code surface. In the light theme these stay chalk:
+   * the block they border does not change with the theme. */
+  --code-line: var(--line);
+  --code-line-strong: var(--line-strong);
+
+  --dot: rgba(244, 246, 249, 0.085);
+  --row-hover: rgba(244, 246, 249, 0.05);
 
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -60,6 +69,46 @@
   --t-fast: 150ms;
   --t-base: 220ms;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The light palette mirrors the iOS app's: industrial paper-white, graphite
+ * ink, the same lacquer identity with its text weight darkened to hold AA on
+ * paper. Code keeps the pitch surface — the terminal does not change with
+ * the weather. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --paper: #f4f5f8;
+  --surface: #ffffff;
+  --surface-2: #edeff3;
+  --surface-3: #e2e5eb;
+  --field: #eceef2;
+
+  --ink: #10141b;
+  --ink-muted: #2a313c;
+  --ink-subtle: #525c6b;
+  --ink-faint: #616b7b;
+  --ink-disabled: #b6bdc9;
+
+  --line: rgba(16, 20, 27, 0.12);
+  --line-strong: rgba(16, 20, 27, 0.24);
+  --line-faint: rgba(16, 20, 27, 0.06);
+  --line-control: rgba(16, 20, 27, 0.46);
+
+  --signal-text: #b91c1c;
+  --signal-wash: rgba(206, 32, 32, 0.12);
+
+  --ok: #0c7a54;
+  --ok-line: rgba(12, 122, 84, 0.5);
+  --warn: #8f6600;
+  --warn-line: rgba(143, 102, 0, 0.5);
+  --danger: #b91c1c;
+
+  --code-line: rgba(244, 246, 249, 0.14);
+  --code-line-strong: rgba(244, 246, 249, 0.26);
+
+  --dot: rgba(16, 20, 27, 0.1);
+  --row-hover: rgba(16, 20, 27, 0.045);
 }
 
 @media (max-width: 1024px) {
@@ -98,13 +147,13 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(244, 246, 249, 0.085) 1px, transparent 1.3px);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.3px);
   background-size: 24px 24px;
   background-position: 12px 12px;
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
 }
 
-::selection { background: var(--signal); color: #ffffff; }
+::selection { background: var(--signal); color: var(--on-signal); }
 
 :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
@@ -346,6 +395,17 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   border-left: 1px solid var(--line);
 }
 .mast__user { color: var(--ink-faint); }
+
+/* The theme control cycles Auto → Dark → Light. theme.js stamps the mode on
+ * <html>, and the square and word read it from there — a body swap never
+ * strands the label. */
+.theme-toggle { gap: 7px; font-family: var(--mono); font-weight: 500; letter-spacing: 0.08em; }
+.theme-toggle::before { content: ""; width: 5px; height: 5px; background: var(--ink-faint); }
+:root[data-theme-mode="dark"] .theme-toggle::before,
+:root[data-theme-mode="light"] .theme-toggle::before { background: var(--signal-text); }
+.theme-toggle::after { content: "Auto"; }
+:root[data-theme-mode="dark"] .theme-toggle::after { content: "Dark"; }
+:root[data-theme-mode="light"] .theme-toggle::after { content: "Light"; }
 
 /* The request line: a signal stroke along the top edge while a navigation or
  * a submission is in flight. It waits 120 ms before it shows, so a response
@@ -713,7 +773,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .table tbody tr { counter-increment: row; }
 .table tbody tr:last-child td,
 .table tbody tr:last-child th { border-bottom: 0; }
-.table tbody tr:hover { background: rgba(244, 246, 249, 0.05); }
+.table tbody tr:hover { background: var(--row-hover); }
 .table th.cell--right, .table td.cell--right { text-align: right; }
 .table td.cell--strong { color: var(--ink); font-weight: 500; }
 .table td.cell--index {
@@ -742,7 +802,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   height: 20px;
   margin-right: 10px;
   border-radius: var(--r-xs);
-  outline: 1px solid rgba(255, 255, 255, 0.1);
+  outline: 1px solid var(--line);
   outline-offset: -1px;
   object-fit: cover;
   vertical-align: -5px;
@@ -911,7 +971,7 @@ select.input {
 }
 .check input:hover { border-color: var(--ink-faint); }
 .check input:checked { border-color: var(--signal); background: var(--signal); }
-.check input:checked::before { content: ""; width: 6px; height: 6px; background: #ffffff; }
+.check input:checked::before { content: ""; width: 6px; height: 6px; background: var(--on-signal); }
 .check__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .check__name { color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; }
 .check__description { color: var(--ink-faint); font-size: 12px; line-height: 1.4; text-wrap: pretty; }
@@ -1015,7 +1075,7 @@ select.input {
   flex: 1 1 24rem;
   min-width: 0;
   padding: 11px 14px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--code-line-strong);
   border-radius: var(--r-sm);
   background: var(--code);
   color: var(--code-ink);

@@ -31,6 +31,10 @@ nonisolated enum HarkSoundCatalog {
         Tone(id: "lattice", name: "Lattice"),
         Tone(id: "meridian", name: "Meridian"),
         Tone(id: "pulse", name: "Pulse"),
+        Tone(id: "aperture", name: "Aperture"),
+        Tone(id: "filament", name: "Filament"),
+        Tone(id: "gantry", name: "Gantry"),
+        Tone(id: "sonar", name: "Sonar"),
     ]
 
     static func tone(id: String) -> Tone? {

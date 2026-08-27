@@ -281,7 +281,7 @@
 
 .prose code {
   padding: 1px 5px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--code-line);
   border-radius: var(--r-xs);
   background: var(--code);
   color: var(--code-ink);
@@ -294,7 +294,7 @@
   position: relative;
   margin: 0 0 20px;
   padding: 16px 88px 16px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--code-line);
   background: var(--code);
   /* A payload is read by structure, not by line: it scrolls rather than
    * wraps, so the indentation still means something. */
@@ -309,6 +309,21 @@
   overflow-wrap: normal;
   white-space: pre;
 }
+
+/* The code surface stays pitch in both themes, so everything drawn on it —
+ * plain text and chroma's tokens below — resolves the inks it borrows to
+ * chalk regardless of the page's theme. The values are the dark palette's,
+ * verbatim. */
+.prose pre, .prose code {
+  --ink: #f4f6f9;
+  --ink-muted: #d5dbe4;
+  --ink-subtle: #a2abb9;
+  --ink-faint: #8f99ab;
+  --ok: #16b37d;
+  --warn: #e2a81e;
+  --signal-text: #e64949;
+}
+.prose pre { color: var(--ink-muted); }
 
 /* Syntax colors, on chroma's classes. Only tokens the contract's three fence
  * languages — json, http, sh — produce. Strings borrow jade and
@@ -342,6 +357,10 @@
   transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
 .code-copy:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+/* The copy chip lives on the pitch block: in the light theme it keeps the
+ * block's own world rather than borrowing paper from the page. */
+:root[data-theme="light"] .code-copy { background: transparent; border-color: rgba(244, 246, 249, 0.26); color: #a2abb9; }
+:root[data-theme="light"] .code-copy:hover { background: #f4f6f9; border-color: #f4f6f9; color: #06080d; }
 
 .docs-empty {
   margin: 32px 0;
@@ -392,7 +411,7 @@
 .prose td code {
   overflow-wrap: normal;
 }
-.prose tbody tr:hover { background: rgba(244, 246, 249, 0.05); }
+.prose tbody tr:hover { background: var(--row-hover); }
 
 /* Narrow viewports ---------------------------------------------------------
  *

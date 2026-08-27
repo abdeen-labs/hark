@@ -58,9 +58,17 @@ struct LockScreenView: View {
     }
 }
 
-/// The paper with nothing on it but the name — what the app switcher keeps
-/// while Hark is in the background.
+/// What the app switcher keeps while Hark is in the background: the ledger
+/// with its contents redacted. Every bar is a fixed decoration — the real
+/// rows never reach this snapshot.
 struct PrivacyShieldView: View {
+    private static let rows: [(title: CGFloat, detail: CGFloat, opacity: Double)] = [
+        (0.34, 0.62, 1),
+        (0.28, 0.78, 0.72),
+        (0.42, 0.55, 0.48),
+        (0.30, 0.70, 0.26),
+    ]
+
     var body: some View {
         ZStack {
             Axis.paper.ignoresSafeArea()
@@ -68,12 +76,70 @@ struct PrivacyShieldView: View {
             VStack(alignment: .leading, spacing: 0) {
                 LockBrand()
                     .padding(.top, 24)
-                Spacer()
+                Spacer(minLength: 32)
+                ledger
+                Spacer(minLength: 32)
                 LockFooter()
                     .padding(.bottom, 24)
             }
             .padding(.horizontal, Axis.gutter)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Hark is shielded")
+    }
+
+    private var ledger: some View {
+        Module(label: "Contents sealed", variant: .marked, flush: true) {
+            VStack(spacing: 0) {
+                ForEach(Array(Self.rows.enumerated()), id: \.offset) { index, row in
+                    RedactionRow(number: index + 1, title: row.title, detail: row.detail)
+                        .opacity(row.opacity)
+                    if index < Self.rows.count - 1 {
+                        Hairline(color: Axis.lineFaint)
+                    }
+                }
+            }
+        } trailing: {
+            HStack(spacing: 8) {
+                StatusLight(color: Axis.signal, size: 5)
+                Meta("Standby", color: Axis.inkSubtle)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// One redacted entry: the running index and two bars where a source line
+/// and its message would be.
+private struct RedactionRow: View {
+    let number: Int
+    let title: CGFloat
+    let detail: CGFloat
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            LedgerIndex(number: number)
+                .padding(.top, 1)
+            GeometryReader { proxy in
+                VStack(alignment: .leading, spacing: 9) {
+                    bar(width: proxy.size.width * title, color: Axis.surface3)
+                    bar(width: proxy.size.width * detail, color: Axis.surface2)
+                }
+            }
+            .frame(height: 27)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+
+    private func bar(width: CGFloat, color: Color) -> some View {
+        RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous)
+            .fill(color)
+            .overlay(
+                RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous)
+                    .strokeBorder(Axis.lineFaint, lineWidth: 1)
+            )
+            .frame(width: width, height: 9)
     }
 }
 

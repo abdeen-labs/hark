@@ -16,6 +16,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
 <link rel="stylesheet" href="{{.Assets.CSS}}">
+{{/* The theme script is the one blocking script: it stamps data-theme on
+     <html> before anything paints, so a stored light theme never flashes
+     dark. */}}
+<script src="{{.Assets.Theme}}"></script>
 {{/* The scripts live in the head: htmx drops a response's head before it
      swaps the body in, so these run once for the life of the document rather
      than again on every navigation. */}}
@@ -48,6 +52,7 @@
     </nav>
     <form class="mast__out" method="post" action="{{.Paths.Logout}}" hx-disabled-elt="find button[type=submit]">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <button class="btn btn--ghost btn--sm theme-toggle" type="button" data-theme-toggle aria-label="Theme"></button>
       <span class="mast__user meta">{{.Username}}</span>
       <button class="btn btn--ghost btn--sm" type="submit">Sign out</button>
     </form>
