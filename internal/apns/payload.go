@@ -87,9 +87,10 @@ type alertText struct {
 	Body  string `json:"body"`
 }
 
-// criticalSound is what bypasses a silent switch — when the app carries the
-// critical-alert entitlement and the owner has granted it. Without both, iOS
-// quietly downgrades it, which is the right failure.
+// criticalSound is what bypasses a silent switch when the app carries the
+// critical-alert entitlement and the owner has granted it. The server's two
+// switches control whether this payload is emitted; they do not infer the
+// entitlement or permission state of an individual device.
 type criticalSound struct {
 	Critical int     `json:"critical"`
 	Name     string  `json:"name"`

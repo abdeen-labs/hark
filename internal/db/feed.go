@@ -84,7 +84,6 @@ const (
 	FeedSourceNotification = "notification"
 	FeedSourceResponse     = "response"
 	FeedSourceLiveActivity = "live_activity"
-	FeedSourceSafetyEvent  = "safety_event"
 )
 
 // FeedItem is one entry in the account's unified history.
@@ -192,17 +191,6 @@ const feedQuery = `
 		  AND a.interaction_id IS NULL
 		  AND ($3::text IS NULL OR coalesce(sv.title, t.name, 'Hark') = $3)
 		  AND $4::text IS NULL
-
-		UNION ALL
-
-		SELECT 'safety_event:' || se.id, 'notification'::text, ss.name, ss.image_url,
-		       se.title, se.body, ss.url, NULL::text,
-		       se.status, se.delivered_count, se.error, se.priority, se.created_at
-		FROM safety_events se
-		JOIN safety_sources ss ON ss.id = se.source_id
-		WHERE ss.user_id = $1 AND $2::text IN ('all', 'notification')
-		  AND ($3::text IS NULL OR ss.name = $3)
-		  AND ($4::text IS NULL OR se.priority = $4)
 	)
 	SELECT id, kind, source_name, source_image_url, title, detail, url, result,
 	       status, delivered_count, error, priority, created_at
@@ -272,13 +260,6 @@ const feedSourcesQuery = `
 		LEFT JOIN services sv  ON sv.id = o.requester_service_id
 		LEFT JOIN api_tokens t ON t.id  = o.requester_token_id
 		WHERE a.user_id = $1 AND a.interaction_id IS NULL
-
-		UNION
-
-		SELECT ss.name
-		FROM safety_events se
-		JOIN safety_sources ss ON ss.id = se.source_id
-		WHERE ss.user_id = $1
 	) sources
 	ORDER BY lower(source_name), source_name`
 
@@ -308,7 +289,7 @@ func ParseFeedID(feedID string) (source, rowID string, ok bool) {
 	}
 	switch source {
 	case FeedSourceEvent, FeedSourceNotification, FeedSourceResponse,
-		FeedSourceLiveActivity, FeedSourceSafetyEvent:
+		FeedSourceLiveActivity:
 		return source, rowID, true
 	default:
 		return "", "", false
@@ -335,8 +316,6 @@ func (s *Feed) Delete(ctx context.Context, userID, feedID string) (bool, error) 
 		return s.store.Interactions.Delete(ctx, rowID, userID)
 	case FeedSourceLiveActivity:
 		return s.store.Operations.Delete(ctx, rowID, userID)
-	case FeedSourceSafetyEvent:
-		return s.store.SafetyEvents.Delete(ctx, rowID, userID)
 	default:
 		return false, nil
 	}
@@ -382,13 +361,6 @@ var feedDeleteQueries = []string{
 	 	  AND ($3::text IS NULL OR coalesce(sv.title, t.name, 'Hark') = $3)
 	 	  AND $4::text IS NULL
 	 )`,
-
-	`DELETE FROM safety_events se
-	 USING safety_sources ss
-	 WHERE se.source_id = ss.id AND ss.user_id = $1
-	   AND $2::text IN ('all', 'notification')
-	   AND ($3::text IS NULL OR ss.name = $3)
-	   AND ($4::text IS NULL OR se.priority = $4)`,
 }
 
 // DeleteAll removes every history entry matching f.

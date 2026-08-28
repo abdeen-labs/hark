@@ -51,7 +51,7 @@ var (
 const apiTables = `users, sessions, services, devices, api_tokens,
 	device_authorization_requests, events, agent_notifications, interactions,
 	live_activities, live_activity_deliveries, live_activity_operations,
-	live_activity_delivery_attempts, safety_sources, safety_events`
+	live_activity_delivery_attempts`
 
 // fixture is one server, one account, and the two credentials a test drives it
 // with.
@@ -343,9 +343,8 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 	f.expect(http.MethodPost, "/notifications", f.token, `{"title":"Hark","body":"Agent finished"}`,
 		http.StatusCreated, nil)
 
-	src := f.createSafetySource("Garage")
-	f.enableCritical(src.ID)
-	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
+	_, criticalHook := f.createCriticalService("Garage", db.PriorityCritical)
+	f.expect(http.MethodPost, criticalHook, "", `{"body":"Garage alert"}`, http.StatusCreated, nil)
 
 	var asked interactionResponse
 	f.expect(http.MethodPost, "/interactions", f.token,
@@ -380,7 +379,7 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 	}
 	f.expect(http.MethodGet, "/history?priority=critical", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 || history.Items[0].SourceName != "Garage" {
-		t.Fatalf("critical filter = %+v, want the safety alert", history.Items)
+		t.Fatalf("critical filter = %+v, want the critical service delivery", history.Items)
 	}
 	f.expect(http.MethodGet, "/history?kind=response&source=harkctl", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 1 || history.Items[0].Kind != db.FeedKindResponse {

@@ -170,7 +170,7 @@ func TestSignedOutPagesRedirectToSignIn(t *testing.T) {
 	for _, path := range []string{
 		pathHome, pathHistory, pathLiveOverview,
 		pathServices, pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-		pathSafety, pathDevices, pathTokens, pathTest, pathAuthorize,
+		pathCriticalServices, pathDevices, pathTokens, pathTest, pathAuthorize,
 	} {
 		rec := send(d, request(http.MethodGet, path, ""))
 		if rec.Code != http.StatusSeeOther {
@@ -262,11 +262,10 @@ func TestFormsRequireACSRFToken(t *testing.T) {
 		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
 		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/rotate",
 		pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
-		pathSafety,
-		pathSafety + "/settings",
-		pathSafety + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-		pathSafety + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/test",
-		pathSafety + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
+		pathCriticalServices,
+		pathCriticalServices + "/settings",
+		pathCriticalServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+		pathCriticalServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathDevices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathTokens,
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/revoke",
@@ -645,6 +644,8 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			},
 			WebhookURL: ptr("https://hark.example.com/hooks/harkhook_notarealtoken"),
 			Priorities: db.Priorities,
+			BasePath:   pathServices,
+			BackLabel:  "All services",
 			Form:       serviceForm{Title: "CI", ImageURL: "https://example.com/logo.png", Priority: db.PriorityTimeSensitive},
 			Deliveries: []db.EventListItem{
 				{Event: db.Event{
@@ -663,27 +664,33 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			Service:    db.Service{ID: "svc-2", Title: "ci", Priority: db.PriorityNormal, CreatedAt: now, UpdatedAt: now},
 			Priorities: db.Priorities,
 			Form:       serviceForm{Title: "ci", Priority: db.PriorityNormal},
+			BasePath:   pathServices,
+			BackLabel:  "All services",
 		}},
-		"safety": {tmplSafety, safetyPage{
+		"critical-services": {tmplCriticalServices, criticalServicesPage{
 			view:                  frame,
 			CriticalAlertsEnabled: true,
-			Form: safetyForm{
-				Name: "<script>alert(1)</script>", ImageURL: "https://example.com/logo.png",
+			Priorities:            db.CriticalPriorities,
+			Form: serviceForm{
+				Title: "<script>alert(1)</script>", ImageURL: "https://example.com/logo.png",
 				URL: "hark-test://home", CriticalEnabled: true,
 			},
-			Sources: []db.SafetySource{
-				{
-					ID: "safe-1", Name: "<script>alert(1)</script>",
+			Services: []serviceRow{
+				{Service: db.Service{
+					ID: "critical-1", Title: "<script>alert(1)</script>", Priority: db.PriorityCritical,
 					ImageURL: ptr("https://example.com/logo.png"), URL: ptr("hark-test://home"),
 					CriticalEnabled: true, CreatedAt: now, UpdatedAt: now,
-				},
-				{
-					ID: "safe-2", Name: "Home Assistant",
+				}, WebhookURL: ptr("https://hark.example.com/hooks/harkhook_notarealtoken")},
+				{Service: db.Service{
+					ID: "critical-2", Title: "Home Assistant", Priority: db.PriorityNormal,
 					CriticalEnabled: false, CreatedAt: now, UpdatedAt: now,
-				},
+				}},
 			},
 		}},
-		"safety/empty": {tmplSafety, safetyPage{view: frame}},
+		"critical-services/empty": {tmplCriticalServices, criticalServicesPage{
+			view: frame, Priorities: db.CriticalPriorities,
+			Form: serviceForm{Priority: db.PriorityNormal, CriticalEnabled: true},
+		}},
 		"test": {tmplTest, testPage{
 			view:       frame,
 			Devices:    []db.Device{{ID: "dev-1", Name: ptr("iPhone"), Active: true}, {ID: "dev-2"}},

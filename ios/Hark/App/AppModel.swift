@@ -53,8 +53,8 @@ final class AppModel {
     private(set) var inboxRefreshedAt: Date?
 
     private(set) var criticalAlertState: CriticalAlertState = .unknown
-    private(set) var safetySettings: APISafetySettings?
-    private(set) var safetySettingsError: String?
+    private(set) var criticalSettings: APICriticalSettings?
+    private(set) var criticalSettingsError: String?
 
     private var activityTokenTasks: [String: Task<Void, Never>] = [:]
     private var pushToStartTask: Task<Void, Never>?
@@ -125,7 +125,7 @@ final class AppModel {
         await refreshNotificationPermission()
         await registerDeviceIfPossible()
         await refreshInbox()
-        await refreshSafetySettings()
+        await refreshCriticalSettings()
         await reconcileLiveActivities()
         do {
             let session = try await client.session()
@@ -166,8 +166,8 @@ final class AppModel {
         clearCredentials()
         stopLiveActivityObservers()
         inbox = []
-        safetySettings = nil
-        safetySettingsError = nil
+        criticalSettings = nil
+        criticalSettingsError = nil
         phase = .signedOut
         try? await UNUserNotificationCenter.current().setBadgeCount(0)
     }
@@ -178,8 +178,8 @@ final class AppModel {
         clearCredentials()
         stopLiveActivityObservers()
         inbox = []
-        safetySettings = nil
-        safetySettingsError = nil
+        criticalSettings = nil
+        criticalSettingsError = nil
         phase = .signedOut
     }
 
@@ -198,7 +198,7 @@ final class AppModel {
         startLiveActivityObservers()
         await registerDeviceIfPossible()
         await refreshInbox()
-        await refreshSafetySettings()
+        await refreshCriticalSettings()
         await reconcileLiveActivities()
     }
 
@@ -243,33 +243,33 @@ final class AppModel {
         await refreshNotificationPermission()
     }
 
-    // MARK: - Safety settings
+    // MARK: - Critical Alert settings
 
-    func refreshSafetySettings() async {
+    func refreshCriticalSettings() async {
         guard phase == .signedIn else { return }
         do {
-            safetySettings = try await client.safetySettings()
-            safetySettingsError = nil
+            criticalSettings = try await client.criticalSettings()
+            criticalSettingsError = nil
         } catch let error as HarkClientError where error.isUnauthorized {
             handleUnauthorized()
         } catch {
-            safetySettingsError = (error as? HarkClientError)?.errorDescription
+            criticalSettingsError = (error as? HarkClientError)?.errorDescription
                 ?? (error as NSError).localizedDescription
         }
     }
 
     func setCriticalAlertsEnabled(_ enabled: Bool) async {
         guard phase == .signedIn else { return }
-        let previous = safetySettings
-        safetySettings = APISafetySettings(criticalAlertsEnabled: enabled)
+        let previous = criticalSettings
+        criticalSettings = APICriticalSettings(criticalAlertsEnabled: enabled)
         do {
-            safetySettings = try await client.setSafetySettings(criticalAlertsEnabled: enabled)
-            safetySettingsError = nil
+            criticalSettings = try await client.setCriticalSettings(criticalAlertsEnabled: enabled)
+            criticalSettingsError = nil
         } catch let error as HarkClientError where error.isUnauthorized {
             handleUnauthorized()
         } catch {
-            safetySettings = previous
-            safetySettingsError = (error as? HarkClientError)?.errorDescription
+            criticalSettings = previous
+            criticalSettingsError = (error as? HarkClientError)?.errorDescription
                 ?? (error as NSError).localizedDescription
         }
     }

@@ -274,11 +274,6 @@ so Hark refreshes the token and sends that push again once. See
 [Push payloads](docs/api.md#push-payloads) in the API contract for what the
 phone receives and what a client can rely on.
 
-The iOS target declares Apple's Critical Alerts entitlement. Apple must also
-approve that entitlement for `dev.abdeen.hark`, and the signing profile used for
-a device or release build must contain it; otherwise iOS reports Critical Alerts
-as unavailable and Hark falls back to Time Sensitive delivery.
-
 ### Limits
 
 | Variable | Default | Notes |

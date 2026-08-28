@@ -17,7 +17,6 @@ const (
 	ScopeInteractionsRead = "interactions:read"
 	ScopeInteractionsNew  = "interactions:create"
 	ScopeNotificationsNew = "notifications:send"
-	ScopeSafetyReport     = "safety:report"
 	ScopeServicesRead     = "services:read"
 	ScopeServicesWrite    = "services:write"
 )
@@ -27,7 +26,7 @@ const (
 var Scopes = []string{
 	ScopeActivitiesRead, ScopeActivitiesWrite, ScopeDevicesRead, ScopeEventsRead,
 	ScopeInteractionsNew, ScopeInteractionsRead, ScopeNotificationsNew,
-	ScopeSafetyReport, ScopeServicesRead, ScopeServicesWrite,
+	ScopeServicesRead, ScopeServicesWrite,
 }
 
 // ScopeDescription explains a scope in the language shown to the person
@@ -51,8 +50,6 @@ func ScopeDescription(scope string) string {
 		return "View questions, their status, and their answers."
 	case ScopeNotificationsNew:
 		return "Send one-shot push notifications."
-	case ScopeSafetyReport:
-		return "Report active or resolved safety events for configured sources."
 	case ScopeServicesRead:
 		return "View configured webhook services and their defaults; webhook credentials stay hidden."
 	case ScopeServicesWrite:

@@ -1,5 +1,5 @@
 //
-//  SafetySourcesView.swift
+//  CriticalServicesView.swift
 //  Hark
 //
 //  Critical services and Critical Alert permission.
@@ -8,26 +8,27 @@
 import SwiftUI
 import UIKit
 
-struct SafetySourcesView: View {
+struct CriticalServicesView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     private static let permissionAnchor = "critical-permission"
+    private static let priorities = ["normal", "time_sensitive", "critical"]
 
-    @State private var sources: [APISafetySource] = []
+    @State private var services: [APICriticalService] = []
     @State private var loaded = false
     @State private var errorMessage: String?
-    @State private var testNotice: (kind: Notice.Kind, message: String)?
-    @State private var name = ""
+    @State private var actionNotice: (kind: Notice.Kind, message: String)?
+    @State private var title = ""
     @State private var imageUrl = ""
     @State private var destinationUrl = ""
+    @State private var newServicePriority = "normal"
     @State private var newServiceCritical = true
-    @State private var editingSource: APISafetySource?
+    @State private var editingService: APICriticalService?
     @State private var creating = false
     @State private var requesting = false
-    @State private var busySourceIDs: Set<String> = []
-    @State private var testedAt: [String: Date] = [:]
-    @FocusState private var nameFocused: Bool
+    @State private var busyServiceIDs: Set<String> = []
+    @FocusState private var titleFocused: Bool
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -42,7 +43,7 @@ struct SafetySourcesView: View {
                         .id(Self.permissionAnchor)
                         .padding(.horizontal, Axis.gutter)
                         .padding(.top, 20)
-                    if let notice = testNotice {
+                    if let notice = actionNotice {
                         Notice(kind: notice.kind, message: notice.message)
                             .padding(.horizontal, Axis.gutter)
                             .padding(.top, 16)
@@ -58,22 +59,21 @@ struct SafetySourcesView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
-                ForEach(Array(sources.enumerated()), id: \.element.id) { index, source in
-                    SafetySourceRow(
+                ForEach(Array(services.enumerated()), id: \.element.id) { index, service in
+                    CriticalServiceRow(
                         number: index + 1,
-                        source: source,
-                        busy: busySourceIDs.contains(source.id),
-                        sentAt: testedAt[source.id],
-                        onEdit: { editingSource = source },
-                        onToggle: { enabled in Task { await setCritical(source, enabled: enabled) } },
-                        onTest: { Task { await sendTest(source) } }
+                        service: service,
+                        busy: busyServiceIDs.contains(service.id),
+                        onEdit: { editingService = service },
+                        onToggle: { enabled in Task { await setCritical(service, enabled: enabled) } },
+                        onRotate: { Task { await rotateWebhook(service) } }
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button("Delete", role: .destructive) {
-                            Task { await delete(source) }
+                            Task { await delete(service) }
                         }
                         .tint(Axis.signal)
                     }
@@ -93,10 +93,10 @@ struct SafetySourcesView: View {
             .refreshable { await reload() }
             .toolbarVisibility(.hidden, for: .navigationBar)
             .task { await reload() }
-            .sheet(item: $editingSource) { source in
-                CriticalServiceEditor(source: source) { updated in
-                    if let index = sources.firstIndex(where: { $0.id == updated.id }) {
-                        sources[index] = updated
+            .sheet(item: $editingService) { service in
+                CriticalServiceEditor(service: service) { updated in
+                    if let index = services.firstIndex(where: { $0.id == updated.id }) {
+                        services[index] = updated
                     }
                 }
                 .presentationDetents([.large])
@@ -123,12 +123,12 @@ struct SafetySourcesView: View {
                 DisplayTitle(text: "Critical services", size: 40)
                 Spacer(minLength: 0)
                 Metric(
-                    value: String(format: "%02d", sources.count),
-                    label: sources.count == 1 ? "Service" : "Services",
+                    value: String(format: "%02d", services.count),
+                    label: services.count == 1 ? "Service" : "Services",
                     size: 40,
                     alignment: .trailing
                 )
-                .animation(Axis.Motion.ease, value: sources.count)
+                .animation(Axis.Motion.ease, value: services.count)
             }
             .padding(.top, 24)
             .padding(.bottom, 18)
@@ -149,10 +149,10 @@ struct SafetySourcesView: View {
                     explanation
                     permissionState
                 }
-                if model.safetySettings?.criticalAlertsEnabled == false {
+                if model.criticalSettings?.criticalAlertsEnabled == false {
                     Notice(
                         kind: .warn,
-                        message: "Critical Alerts are off for this account. These services arrive as Time Sensitive notifications."
+                        message: "Critical requests fall back to Time Sensitive while the account switch is off. Normal and Time Sensitive requests are unchanged."
                     )
                 }
             }
@@ -160,7 +160,7 @@ struct SafetySourcesView: View {
     }
 
     private var explanation: some View {
-        Text("Critical services work like regular services. They can use an avatar and tap destination, and each one has its own Critical Alert switch.")
+        Text("Critical services use the same webhook and options as regular services. They add Critical as a priority, gated by the account and service switches.")
             .font(AxisType.copy(14))
             .lineSpacing(2)
             .foregroundStyle(Axis.inkMuted)
@@ -185,7 +185,7 @@ struct SafetySourcesView: View {
         case .unavailable:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 StatusLight(color: Axis.warn, size: 5)
-                Text("Critical Alerts aren't available. Critical services arrive as Time Sensitive notifications.")
+                Text("Critical Alerts aren't available on this build. Normal and Time Sensitive still work. Turn either Critical switch off if you want Critical selections to fall back to Time Sensitive.")
                     .font(AxisType.copy(13))
                     .foregroundStyle(Axis.inkSubtle)
                     .fixedSize(horizontal: false, vertical: true)
@@ -193,7 +193,7 @@ struct SafetySourcesView: View {
         case .notificationsDenied:
             deniedState("Notifications are off for Hark. Turn them on to receive alerts.")
         case .criticalDenied:
-            deniedState("Critical Alerts are off for Hark. Critical services arrive as Time Sensitive notifications.")
+            deniedState("Critical Alerts are off for Hark on this phone. Turn off either Critical switch to fall back to Time Sensitive.")
         case .granted, .unknown:
             EmptyView()
         }
@@ -218,7 +218,7 @@ struct SafetySourcesView: View {
     }
 
     @ViewBuilder private var states: some View {
-        if sources.isEmpty {
+        if services.isEmpty {
             if loaded {
                 EmptyNote(
                     text: "No critical services yet.",
@@ -236,10 +236,19 @@ struct SafetySourcesView: View {
     private func createModule(proxy: ScrollViewProxy) -> some View {
         Module(index: "01", label: "New critical service") {
             VStack(alignment: .leading, spacing: 18) {
-                FieldFrame(label: "Name", focused: nameFocused) {
-                    TextField("Home Assistant", text: $name)
-                        .focused($nameFocused)
+                FieldFrame(label: "Title", focused: titleFocused) {
+                    TextField("Home Assistant", text: $title)
+                        .focused($titleFocused)
                         .submitLabel(.done)
+                }
+                FieldFrame(label: "Default priority") {
+                    Picker("Default priority", selection: $newServicePriority) {
+                        ForEach(Self.priorities, id: \.self) { value in
+                            Text(value.replacingOccurrences(of: "_", with: " ").capitalized).tag(value)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
                 }
                 FieldFrame(label: "Avatar image URL", hint: "Optional · use a public HTTPS image.") {
                     TextField("https://example.com/logo.png", text: $imageUrl)
@@ -257,7 +266,7 @@ struct SafetySourcesView: View {
                 }
                 AxisToggle(
                     "Critical delivery",
-                    sub: "Falls back to Time Sensitive when Critical Alerts are off.",
+                    sub: "Only gates Critical. Normal and Time Sensitive are unchanged.",
                     isOn: newServiceCritical
                 ) { newServiceCritical = $0 }
                 Button(creating ? "Creating…" : "Create critical service") {
@@ -270,14 +279,14 @@ struct SafetySourcesView: View {
     }
 
     private var createValid: Bool {
-        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // MARK: Network
 
     private func reload() async {
         do {
-            sources = try await model.client.safetySources()
+            services = try await model.client.criticalServices()
             errorMessage = nil
         } catch let error as HarkClientError where error.isUnauthorized {
             model.handleUnauthorized()
@@ -286,7 +295,7 @@ struct SafetySourcesView: View {
                 ?? (error as NSError).localizedDescription
         }
         loaded = true
-        await model.refreshSafetySettings()
+        await model.refreshCriticalSettings()
         await model.refreshNotificationPermission()
     }
 
@@ -295,19 +304,21 @@ struct SafetySourcesView: View {
         creating = true
         defer { creating = false }
         do {
-            let source = try await model.client.createSafetySource(
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            let service = try await model.client.createCriticalService(
+                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                 imageUrl: optionalValue(imageUrl),
                 url: optionalValue(destinationUrl),
+                priority: newServicePriority,
                 criticalEnabled: newServiceCritical
             )
-            let wasEmpty = sources.isEmpty
-            withAnimation(Axis.Motion.ease) { sources.append(source) }
-            name = ""
+            let wasEmpty = services.isEmpty
+            withAnimation(Axis.Motion.ease) { services.append(service) }
+            title = ""
             imageUrl = ""
             destinationUrl = ""
+            newServicePriority = "normal"
             newServiceCritical = true
-            nameFocused = false
+            titleFocused = false
             errorMessage = nil
             if wasEmpty, model.criticalAlertState == .notRequested {
                 withAnimation(Axis.Motion.ease) {
@@ -322,58 +333,55 @@ struct SafetySourcesView: View {
         }
     }
 
-    private func setCritical(_ source: APISafetySource, enabled: Bool) async {
-        guard !busySourceIDs.contains(source.id) else { return }
-        busySourceIDs.insert(source.id)
-        defer { busySourceIDs.remove(source.id) }
-        guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
-        let previous = sources[index]
+    private func setCritical(_ service: APICriticalService, enabled: Bool) async {
+        guard !busyServiceIDs.contains(service.id) else { return }
+        busyServiceIDs.insert(service.id)
+        defer { busyServiceIDs.remove(service.id) }
+        guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
+        let previous = services[index]
         var changed = previous
         changed.criticalEnabled = enabled
-        sources[index] = changed
+        services[index] = changed
         do {
-            let updated = try await model.client.updateSafetySource(changed)
-            if let index = sources.firstIndex(where: { $0.id == updated.id }) {
-                sources[index] = updated
+            let updated = try await model.client.updateCriticalService(changed)
+            if let index = services.firstIndex(where: { $0.id == updated.id }) {
+                services[index] = updated
             }
             errorMessage = nil
         } catch let error as HarkClientError where error.isUnauthorized {
             model.handleUnauthorized()
         } catch {
-            if let index = sources.firstIndex(where: { $0.id == source.id }) {
-                sources[index] = previous
+            if let index = services.firstIndex(where: { $0.id == service.id }) {
+                services[index] = previous
             }
             errorMessage = (error as? HarkClientError)?.errorDescription
                 ?? (error as NSError).localizedDescription
         }
     }
 
-    private func sendTest(_ source: APISafetySource) async {
-        guard !busySourceIDs.contains(source.id) else { return }
-        busySourceIDs.insert(source.id)
-        defer { busySourceIDs.remove(source.id) }
+    private func rotateWebhook(_ service: APICriticalService) async {
+        guard !busyServiceIDs.contains(service.id) else { return }
+        busyServiceIDs.insert(service.id)
+        defer { busyServiceIDs.remove(service.id) }
         do {
-            let event = try await model.client.sendSafetyTest(sourceId: source.id)
-            testedAt[source.id] = .now
-            if event.priority == "critical" {
-                testNotice = (.ok, "Test sent as a Critical Alert.")
-            } else {
-                testNotice = (.warn, "Test sent as a Time Sensitive notification because Critical Alerts are off.")
+            let updated = try await model.client.rotateCriticalServiceWebhook(id: service.id)
+            if let index = services.firstIndex(where: { $0.id == updated.id }) {
+                services[index] = updated
             }
+            actionNotice = (.ok, "Webhook URL rotated. The previous URL no longer works.")
         } catch let error as HarkClientError where error.isUnauthorized {
             model.handleUnauthorized()
-        } catch let error as HarkClientError {
-            testNotice = (error.isRateLimited ? .warn : .error, SafetyTestFeedback.message(for: error))
         } catch {
-            testNotice = (.error, (error as NSError).localizedDescription)
+            errorMessage = (error as? HarkClientError)?.errorDescription
+                ?? (error as NSError).localizedDescription
         }
     }
 
-    private func delete(_ source: APISafetySource) async {
+    private func delete(_ service: APICriticalService) async {
         do {
-            try await model.client.deleteSafetySource(id: source.id)
+            try await model.client.deleteCriticalService(id: service.id)
             withAnimation(Axis.Motion.ease) {
-                sources.removeAll { $0.id == source.id }
+                services.removeAll { $0.id == service.id }
             }
         } catch let error as HarkClientError where error.isUnauthorized {
             model.handleUnauthorized()
@@ -389,14 +397,13 @@ struct SafetySourcesView: View {
     }
 }
 
-struct SafetySourceRow: View {
+struct CriticalServiceRow: View {
     let number: Int
-    let source: APISafetySource
+    let service: APICriticalService
     let busy: Bool
-    let sentAt: Date?
     let onEdit: () -> Void
     let onToggle: (Bool) -> Void
-    let onTest: () -> Void
+    let onRotate: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -406,26 +413,36 @@ struct SafetySourceRow: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         avatar
-                        Text(source.name)
+                        Text(service.title)
                             .font(AxisType.copy(15, weight: .medium))
                             .foregroundStyle(Axis.ink)
                             .lineLimit(1)
                         Spacer(minLength: 8)
                     }
-                    if let destination = source.url {
+                    if let destination = service.url {
                         Text(destination)
                             .font(AxisType.mono(11))
                             .foregroundStyle(Axis.inkFaint)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    HStack(spacing: 10) {
+                        Meta("Default: \(service.priority.replacingOccurrences(of: "_", with: " ").capitalized)")
+                        if let webhookUrl = service.webhookUrl {
+                            Button("Copy webhook") {
+                                UIPasteboard.general.string = webhookUrl
+                            }
+                            .buttonStyle(.instrument(.ghost, compact: true, fill: false))
+                            .padding(.leading, -10)
+                        }
+                    }
 
                     AxisToggle(
                         "Critical delivery",
-                        sub: "Time Sensitive when switched off.",
+                        sub: "Only gates Critical priority.",
                         compact: true,
                         busy: busy,
-                        isOn: source.criticalEnabled
+                        isOn: service.criticalEnabled
                     ) {
                         onToggle($0)
                     }
@@ -433,13 +450,10 @@ struct SafetySourceRow: View {
                         Button("Manage") { onEdit() }
                             .buttonStyle(.instrument(.secondary, compact: true, fill: false))
                             .disabled(busy)
-                        Button("Send test") { onTest() }
+                        Button("Rotate URL") { onRotate() }
                             .buttonStyle(.instrument(.ghost, compact: true, fill: false))
                             .padding(.leading, -10)
                             .disabled(busy)
-                        if let sentAt {
-                            Meta("Sent \(AxisClock.short(sentAt))")
-                        }
                     }
                 }
             }
@@ -453,10 +467,10 @@ struct SafetySourceRow: View {
         ZStack {
             RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous)
                 .fill(Axis.field)
-            Text(String(source.name.prefix(1)).uppercased())
+            Text(String(service.title.prefix(1)).uppercased())
                 .font(AxisType.meta(12))
                 .foregroundStyle(Axis.inkFaint)
-            if let url = source.imageUrl.flatMap(URL.init(string:)) {
+            if let url = service.imageUrl.flatMap(URL.init(string:)) {
                 AsyncImage(url: url) { phase in
                     if case .success(let image) = phase {
                         image.resizable().scaledToFill()
@@ -477,28 +491,30 @@ private struct CriticalServiceEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
-    let source: APISafetySource
-    let onSaved: (APISafetySource) -> Void
+    let service: APICriticalService
+    let onSaved: (APICriticalService) -> Void
 
-    @State private var name: String
+    @State private var title: String
     @State private var imageUrl: String
     @State private var destinationUrl: String
+    @State private var priority: String
     @State private var criticalEnabled: Bool
     @State private var saving = false
     @State private var errorMessage: String?
     @FocusState private var focused: Field?
 
     private enum Field {
-        case name, image, destination
+        case title, image, destination
     }
 
-    init(source: APISafetySource, onSaved: @escaping (APISafetySource) -> Void) {
-        self.source = source
+    init(service: APICriticalService, onSaved: @escaping (APICriticalService) -> Void) {
+        self.service = service
         self.onSaved = onSaved
-        _name = State(initialValue: source.name)
-        _imageUrl = State(initialValue: source.imageUrl ?? "")
-        _destinationUrl = State(initialValue: source.url ?? "")
-        _criticalEnabled = State(initialValue: source.criticalEnabled)
+        _title = State(initialValue: service.title)
+        _imageUrl = State(initialValue: service.imageUrl ?? "")
+        _destinationUrl = State(initialValue: service.url ?? "")
+        _priority = State(initialValue: service.priority)
+        _criticalEnabled = State(initialValue: service.criticalEnabled)
     }
 
     var body: some View {
@@ -515,9 +531,18 @@ private struct CriticalServiceEditor: View {
                     DisplayTitle(text: "Manage service", size: 40)
                     Module(index: "01", label: "Defaults", variant: .marked) {
                         VStack(alignment: .leading, spacing: 18) {
-                            FieldFrame(label: "Name", focused: focused == .name) {
-                                TextField("Home Assistant", text: $name)
-                                    .focused($focused, equals: .name)
+                            FieldFrame(label: "Title", focused: focused == .title) {
+                                TextField("Home Assistant", text: $title)
+                                    .focused($focused, equals: .title)
+                            }
+                            FieldFrame(label: "Default priority") {
+                                Picker("Default priority", selection: $priority) {
+                                    Text("Normal").tag("normal")
+                                    Text("Time Sensitive").tag("time_sensitive")
+                                    Text("Critical").tag("critical")
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.menu)
                             }
                             FieldFrame(label: "Avatar image URL", hint: "Optional · use a public HTTPS image.", focused: focused == .image) {
                                 TextField("https://example.com/logo.png", text: $imageUrl)
@@ -537,7 +562,7 @@ private struct CriticalServiceEditor: View {
                             }
                             AxisToggle(
                                 "Critical delivery",
-                                sub: "Falls back to Time Sensitive when switched off.",
+                                sub: "Only gates Critical. Normal and Time Sensitive are unchanged.",
                                 busy: saving,
                                 isOn: criticalEnabled
                             ) { criticalEnabled = $0 }
@@ -548,7 +573,7 @@ private struct CriticalServiceEditor: View {
                                 Task { await save() }
                             }
                             .buttonStyle(.instrument(.primary))
-                            .disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(saving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
                 }
@@ -564,13 +589,14 @@ private struct CriticalServiceEditor: View {
         guard !saving else { return }
         saving = true
         defer { saving = false }
-        var changed = source
-        changed.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var changed = service
+        changed.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         changed.imageUrl = optionalValue(imageUrl)
         changed.url = optionalValue(destinationUrl)
+        changed.priority = priority
         changed.criticalEnabled = criticalEnabled
         do {
-            let updated = try await model.client.updateSafetySource(changed)
+            let updated = try await model.client.updateCriticalService(changed)
             onSaved(updated)
             dismiss()
         } catch let error as HarkClientError where error.isUnauthorized {

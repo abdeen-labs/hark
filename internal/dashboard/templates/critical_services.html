@@ -1,0 +1,117 @@
+{{define "content"}}
+<header class="page-head">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">03·A</span> Critical-capable webhooks</span>
+  </p>
+  <h1 class="page-head__title display">Critical Services</h1>
+  <p class="page-head__lede lede">The full service webhook, with Critical added as a third priority.</p>
+</header>
+
+<div class="grid">
+  <section class="module module--signal span-12">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">01</span>Account switch</h2>
+      {{if .CriticalAlertsEnabled}}<span class="tag tag--state tag--ok">On</span>
+      {{else}}<span class="tag tag--state tag--expired">Off</span>{{end}}
+    </div>
+    <div class="module__body">
+      <form method="post" action="{{.Paths.CriticalServices}}/settings" class="stack" hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <label class="check">
+          <input type="checkbox" name="critical_alerts_enabled"{{if .CriticalAlertsEnabled}} checked{{end}}>
+          <span class="check__copy">
+            <span class="check__name">Allow Critical delivery for this account</span>
+            <span class="check__description">This only gates requests that select Critical. Normal and Time Sensitive notifications keep their selected priority.</span>
+          </span>
+        </label>
+        <button class="btn btn--primary" type="submit">Save</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="module module--marked span-4">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">02</span>New critical service</h2>
+    </div>
+    <div class="module__body">
+      <form method="post" action="{{.Paths.CriticalServices}}" class="stack" hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+
+        <label class="field">
+          <span class="field__label">Title</span>
+          <input class="input" type="text" name="title" value="{{.Form.Title}}"
+                 placeholder="Home Assistant" maxlength="80" required>
+        </label>
+        <label class="field">
+          <span class="field__label">Default priority</span>
+          <select class="input" name="priority">
+            {{$form := .Form}}
+            {{range .Priorities}}
+            <option value="{{.}}"{{if eq $form.Priority .}} selected{{end}}>{{title .}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Avatar image URL <span class="muted">optional</span></span>
+          <input class="input" type="url" name="image_url" value="{{.Form.ImageURL}}"
+                 placeholder="https://example.com/logo.png" maxlength="2048">
+        </label>
+        <label class="field">
+          <span class="field__label">Tap destination <span class="muted">optional</span></span>
+          <input class="input" type="text" name="url" value="{{.Form.URL}}"
+                 placeholder="https://example.com or an app deep link" maxlength="2048">
+        </label>
+        <label class="check">
+          <input type="checkbox" name="critical_enabled"{{if .Form.CriticalEnabled}} checked{{end}}>
+          <span class="check__copy">
+            <span class="check__name">Allow Critical delivery</span>
+            <span class="check__description">The service switch. Both this and the account switch must be on for Critical priority.</span>
+          </span>
+        </label>
+
+        <button class="btn btn--primary" type="submit">Create critical service <span class="arrow">→</span></button>
+      </form>
+    </div>
+  </section>
+
+  <section class="module span-8">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">03</span>Critical services</h2>
+      {{if not .CriticalAlertsEnabled}}<span class="meta meta--signal">Critical delivery is off account-wide</span>{{end}}
+    </div>
+    {{if .Services}}
+    <div class="scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="cell--index"><span class="visually-hidden">Row</span></th>
+            <th>Service</th><th>Default priority</th><th>Critical switch</th><th>Tap destination</th><th>Created</th>
+            <th class="cell--right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Services}}
+          <tr data-critical-service="{{.ID}}">
+            <td class="cell--index"></td>
+            <td class="cell--strong">
+              {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}{{.Title}}
+            </td>
+            <td><span class="tag tag--kind">{{title .Priority}}</span></td>
+            <td>{{if .CriticalEnabled}}<span class="tag tag--state tag--ok">On</span>{{else}}<span class="tag tag--state tag--expired">Off</span>{{end}}</td>
+            <td class="cell--clamp">{{with text .URL}}<span class="mono muted" title="{{.}}">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
+            <td class="cell--right cell--actions">
+              {{with .WebhookURL}}<button class="btn btn--ghost btn--sm" type="button" data-copy="{{.}}">Copy URL</button>{{end}}
+              <a class="btn btn--sm" href="{{$.Paths.CriticalServices}}/{{.ID}}">Manage <span class="arrow">→</span></a>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <p class="empty">No critical services yet.</p>
+    {{end}}
+  </section>
+</div>
+{{end}}

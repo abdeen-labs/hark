@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
@@ -160,7 +161,11 @@ func (s *server) handleWebhookNotify(w http.ResponseWriter, r *http.Request) {
 		payload.URL = v.linkURL("url", body.URL)
 	}
 	if body.Priority != nil {
-		payload.Priority = v.enum("priority", body.Priority, db.Priorities, db.PriorityNormal)
+		priorities := db.Priorities
+		if svc.CriticalCapable {
+			priorities = db.CriticalPriorities
+		}
+		payload.Priority = v.enum("priority", body.Priority, priorities, db.PriorityNormal)
 	}
 
 	var callbackToken string
@@ -177,6 +182,12 @@ func (s *server) handleWebhookNotify(w http.ResponseWriter, r *http.Request) {
 	if !v.done(w, r) {
 		return
 	}
+	resolvedPriority, err := s.resolveServicePriority(r.Context(), svc, payload.Priority)
+	if err != nil {
+		s.writeInternal(w, r, "loading the Critical Alert settings failed", err)
+		return
+	}
+	payload.Priority = resolvedPriority
 
 	key, ok := idempotencyKey(w, r)
 	if !ok {
@@ -264,6 +275,24 @@ func (s *server) handleWebhookNotify(w http.ResponseWriter, r *http.Request) {
 		out.Message = ptr(messageNoneAccepted)
 	}
 	WriteJSON(w, r, http.StatusCreated, out)
+}
+
+// resolveServicePriority applies the only delivery rule that differs between
+// regular and critical services. Normal and Time Sensitive pass through. A
+// requested Critical Alert requires both the account and service switches;
+// otherwise it safely falls back to Time Sensitive.
+func (s *server) resolveServicePriority(ctx context.Context, svc *db.Service, requested string) (string, error) {
+	if requested != db.PriorityCritical {
+		return requested, nil
+	}
+	user, err := s.store().Users.ByID(ctx, svc.UserID)
+	if err != nil {
+		return "", err
+	}
+	if svc.CriticalCapable && svc.CriticalEnabled && user.CriticalAlertsEnabled {
+		return db.PriorityCritical, nil
+	}
+	return db.PriorityTimeSensitive, nil
 }
 
 // createWebhookQuestion creates the interaction a webhook asked for, if it asked

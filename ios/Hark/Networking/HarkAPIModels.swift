@@ -357,94 +357,87 @@ nonisolated struct ActivitiesPage: Decodable, Sendable {
     }
 }
 
-// MARK: - Safety
+// MARK: - Critical services
 
-nonisolated struct APISafetySource: Decodable, Hashable, Identifiable, Sendable {
+nonisolated struct APICriticalService: Decodable, Hashable, Identifiable, Sendable {
     var id: String
-    var name: String
+    var title: String
     var imageUrl: String?
     var url: String?
+    var priority: String
     var criticalEnabled: Bool
+    var webhookUrl: String?
     var createdAt: Date
     var updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id
-        case name
+        case title
         case imageUrl = "image_url"
         case url
+        case priority
         case criticalEnabled = "critical_enabled"
+        case webhookUrl = "webhook_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
 }
 
-nonisolated struct SafetySourceResponse: Decodable, Sendable {
-    var source: APISafetySource
+nonisolated struct CriticalServiceResponse: Decodable, Sendable {
+    var service: APICriticalService
 }
 
-nonisolated struct SafetySourceListResponse: Decodable, Sendable {
-    var sources: [APISafetySource]
+nonisolated struct CriticalServiceListResponse: Decodable, Sendable {
+    var services: [APICriticalService]
 }
 
-nonisolated struct CreateSafetySourceRequest: Encodable, Sendable {
-    var name: String
+nonisolated struct CreateCriticalServiceRequest: Encodable, Sendable {
+    var title: String
     var imageUrl: String?
     var url: String?
+    var priority: String
     var criticalEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
-        case name
+        case title
         case imageUrl = "image_url"
         case url
+        case priority
         case criticalEnabled = "critical_enabled"
     }
 }
 
-nonisolated struct UpdateSafetySourceRequest: Encodable, Sendable {
-    var name: String
+nonisolated struct UpdateCriticalServiceRequest: Encodable, Sendable {
+    var title: String
     var imageUrl: String?
     var url: String?
+    var priority: String
     var criticalEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
-        case name
+        case title
         case imageUrl = "image_url"
         case url
+        case priority
         case criticalEnabled = "critical_enabled"
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
+        try container.encode(title, forKey: .title)
         try container.encode(imageUrl, forKey: .imageUrl)
         try container.encode(url, forKey: .url)
+        try container.encode(priority, forKey: .priority)
         try container.encode(criticalEnabled, forKey: .criticalEnabled)
     }
 }
 
-nonisolated struct APISafetySettings: Codable, Hashable, Sendable {
+nonisolated struct APICriticalSettings: Codable, Hashable, Sendable {
     var criticalAlertsEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case criticalAlertsEnabled = "critical_alerts_enabled"
     }
-}
-
-nonisolated struct APISafetyTestEvent: Decodable, Hashable, Sendable {
-    var id: String
-    var priority: String
-    var status: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case priority
-        case status
-    }
-}
-
-nonisolated struct SafetyTestResponse: Decodable, Sendable {
-    var event: APISafetyTestEvent
 }
 
 // MARK: - Errors

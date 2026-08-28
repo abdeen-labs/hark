@@ -174,18 +174,16 @@ shown below; unknown values are rejected.
 
 | Set | Members |
 | --- | --- |
-| Priority | `normal`, `time_sensitive`, `critical`. Only [safety alerts](#safety) can be `critical`; request fields accept the first two values. |
+| Priority | `normal`, `time_sensitive`, `critical`. Regular service and API-token request fields accept the first two; [critical service](#critical-services) webhooks accept all three. |
 | Interaction kind | `approval`, `yes_no`, `reply` |
 | Interaction status | `pending`, `approved`, `denied`, `yes`, `no`, `replied`, `canceled`, `expired` |
 | Interaction presentation | `notification`, `live_activity` |
 | Notification delivery status | `processing`, `no_devices`, `accepted`, `partial`, `failed` |
-| Safety event state | `active`, `resolved` (reported by tokens) · `test` (session-only [setup test](#post-safety-sourcesidtest)) |
-| Safety event status | the notification delivery statuses plus `coalesced`, `rate_limited` |
 | Live Activity status | `starting`, `active`, `partial` (live) · `failed`, `ended`, `expired` (terminal) |
 | Live Activity operation | `start`, `update`, `end` |
 | APNs environment | `sandbox`, `production` |
 | History feed kind | `notification`, `response`, `live_activity` |
-| API token scope | `activities:read`, `activities:write`, `devices:read`, `events:read`, `interactions:create`, `interactions:read`, `notifications:send`, `safety:report`, `services:read`, `services:write` |
+| API token scope | `activities:read`, `activities:write`, `devices:read`, `events:read`, `interactions:create`, `interactions:read`, `notifications:send`, `services:read`, `services:write` |
 
 An interaction's `choices` follow from its kind: `approval` →
 `["approve","deny"]`, `yes_no` → `["yes","no"]`, `reply` → `["reply"]`.
@@ -315,7 +313,7 @@ authorization approval require a session. An API token can revoke itself through
 
 #### Scopes
 
-A token carries a subset of these ten scopes. Anything else is rejected.
+A token carries a subset of these nine scopes. Anything else is rejected.
 
 | Scope | Allows the token to |
 | --- | --- |
@@ -326,7 +324,6 @@ A token carries a subset of these ten scopes. Anything else is rejected.
 | `interactions:create` | Ask questions and cancel pending questions. Asking also requires `notifications:send`, because the question is pushed to a device. |
 | `interactions:read` | View questions, their status, and their answers. |
 | `notifications:send` | Send one-shot push notifications. |
-| `safety:report` | Report active or resolved [safety events](#safety) for configured sources. Reports contain no notification text or priority. |
 | `services:read` | View configured webhook services and their defaults. Webhook credentials are redacted for API tokens. |
 | `services:write` | Change and delete webhook services and their related history. Deleting one also deletes its deliveries, questions, and Live Activities. Creating a service also creates its webhook credential, so that operation is [session-only](#post-services). |
 
@@ -384,7 +381,7 @@ should set it.
 ## Delivery
 
 The following rules apply to notifications, questions, Live Activities, and
-[safety alerts](#safety).
+service webhooks, including [critical services](#critical-services).
 
 ### Who may send
 
@@ -393,12 +390,12 @@ credentials and devices, and answer questions.
 
 An **API token** represents software. It can perform operations allowed by its
 scopes, and it is the only bearer credential that may send. Notifications,
-questions, safety events, and Live Activities are attributed to the token that
-created them. As a result,
+questions, and Live Activities are attributed to the token that created them.
+As a result,
 [`POST /notifications`](#post-notifications),
 [`POST /interactions`](#post-interactions),
-[`POST /safety-events`](#post-safety-events) and the Live Activity writes
-return `403 api_token_required` when called with a session.
+and the Live Activity writes return `403 api_token_required` when called with a
+session.
 
 A **webhook token** represents a service that sends through
 [`/hooks/{token}`](#post-hookstoken) and manages its own Live Activities
@@ -440,7 +437,6 @@ it.
 These endpoints honour an `Idempotency-Key` request header:
 
 * [`POST /notifications`](#post-notifications)
-* [`POST /safety-events`](#post-safety-events)
 * [`POST /interactions`](#post-interactions)
 * [`POST /activities`](#post-activities), [`PATCH`](#patch-activitiesidentifier) and [`POST …/end`](#post-activitiesidentifierend)
 * [`POST /hooks/{token}`](#post-hookstoken) and the webhook Live Activity routes
@@ -501,15 +497,14 @@ with `Retry-After`.
 | `PUT` | [`/devices/{id}/activity-update-token`](#put-devicesidactivity-update-token) | session |
 | `PUT` | [`/activity-deliveries/{id}/update-token`](#put-activity-deliveriesidupdate-token) | single-use credential in body |
 | `POST` | [`/notifications`](#post-notifications) | token `notifications:send` |
-| `GET` | [`/safety-sources`](#get-safety-sources) | session |
-| `POST` | [`/safety-sources`](#post-safety-sources) | session |
-| `GET` | [`/safety-sources/{id}`](#get-safety-sourcesid) | session |
-| `PATCH` | [`/safety-sources/{id}`](#patch-safety-sourcesid) | session |
-| `DELETE` | [`/safety-sources/{id}`](#delete-safety-sourcesid) | session |
-| `POST` | [`/safety-sources/{id}/test`](#post-safety-sourcesidtest) | session |
-| `GET` | [`/safety-settings`](#get-safety-settings) | session |
-| `PATCH` | [`/safety-settings`](#patch-safety-settings) | session |
-| `POST` | [`/safety-events`](#post-safety-events) | token `safety:report` |
+| `GET` | [`/critical-services`](#get-critical-services) | session · token `services:read` |
+| `POST` | [`/critical-services`](#post-critical-services) | session |
+| `GET` | [`/critical-services/{id}`](#get-critical-servicesid) | session · token `services:read` |
+| `PATCH` | [`/critical-services/{id}`](#patch-critical-servicesid) | session · token `services:write` |
+| `DELETE` | [`/critical-services/{id}`](#delete-critical-servicesid) | session · token `services:write` |
+| `POST` | [`/critical-services/{id}/webhook-token`](#post-critical-servicesidwebhook-token) | session |
+| `GET` | [`/critical-settings`](#get-critical-settings) | session |
+| `PATCH` | [`/critical-settings`](#patch-critical-settings) | session |
 | `POST` | [`/interactions`](#post-interactions) | token `interactions:create` + `notifications:send` |
 | `GET` | [`/interactions`](#get-interactions) | session · token `interactions:read` |
 | `GET` | [`/interactions/{id}`](#get-interactionsid) | session · token `interactions:read` |
@@ -1100,7 +1095,7 @@ create webhook credentials.
 | `title` | string | yes | 1–80 characters. The default sender name. |
 | `image_url` | string \| null | no | Public HTTPS URL, ≤2048 characters. |
 | `url` | string \| null | no | Tap destination: any scheme except `about:`, `blob:`, `data:`, `file:` and `javascript:`. |
-| `priority` | enum | no | `normal` (default) or `time_sensitive`. Only [safety alerts](#safety) can be `critical`. |
+| `priority` | enum | no | `normal` (default) or `time_sensitive`. Critical is available only through a [critical service](#critical-services) webhook. |
 
 **201 Created**
 
@@ -1318,7 +1313,7 @@ Sends a one-shot push. **API token with `notifications:send`.** Supports
 | `title` | string | no | 1–80 characters. Defaults to `"Hark"`; it is shown as the sender. |
 | `image_url` | string | no | Public HTTPS URL. |
 | `url` | string | no | Tap destination. |
-| `priority` | enum | no | `normal` (default) or `time_sensitive`. Only [safety alerts](#safety) can be `critical`. |
+| `priority` | enum | no | `normal` (default) or `time_sensitive`. Critical is available only through a [critical service](#critical-services) webhook. |
 | `device_ids` | array of id | no | 1–50 entries. Absent means every reachable device. |
 
 **201 Created**
@@ -1348,66 +1343,51 @@ idempotency key, `422 validation_failed`, `429 rate_limited`.
 
 ---
 
-## Safety
+## Critical services
 
-Critical services give trusted integrations a small endpoint for reporting
-active and resolved events. They use the same editable identity defaults as a
-regular service: a name, optional avatar, and optional tap destination. Each
-service also has its own Critical Alert switch.
+Critical services are ordinary webhook services in a separate management flow.
+They have the same title, avatar, tap destination, webhook URL, token rotation,
+device targeting, questions and callbacks, Live Activity routes, idempotency,
+delivery limits, and history as services created through `/services`.
 
-* Reports contain a source id and an `active` or `resolved` state. The server
-  supplies the title, body, and priority.
-* A session is required to create sources, change safety settings, and send a
-  setup test. API tokens can only report events, using the `safety:report`
-  scope.
-* New critical services start with critical delivery on. A Critical Alert
-  requires both the per-service and account settings.
-* Disabled services and disabled accounts send active events and setup tests as
-  `time_sensitive`. Resolved events are always `normal`.
+The one capability difference is priority:
 
-### How an alert is composed
+| Service kind | Allowed default and webhook priorities |
+| --- | --- |
+| Regular service | `normal`, `time_sensitive` |
+| Critical service | `normal`, `time_sensitive`, `critical` |
 
-Each safety event creates one notification. Its priority is:
+New critical services default to `normal`. Normal and Time Sensitive are always
+delivered as requested. A request that resolves to `critical` is delivered as
+Critical only when both `critical_alerts_enabled` for the account and
+`critical_enabled` for the service are true. If either switch is off, that
+request falls back to `time_sensitive`; neither switch changes Normal or Time
+Sensitive requests.
 
-| Event | Critical settings on | Otherwise |
-| --- | --- | --- |
-| `active`, `test` | `critical` | `time_sensitive` |
-| `resolved` | `normal` | `normal` |
+The app does not declare Apple's Critical Alerts entitlement before Apple grants
+it. On a build where iOS reports Critical Alerts as unavailable, Normal and
+Time Sensitive continue to work. Turn either Critical switch off to make
+Critical selections fall back to Time Sensitive until the entitlement is
+available.
 
-Safety alerts target every reachable device and cannot be narrowed with
-`device_ids`. Alerts from one source use the `safety-<source id>` push thread.
-Events appear in [history](#get-history) with the `safety_event:` id prefix
-and count toward the [delivery limits](#delivery-limits).
+### `GET /critical-services`
 
-Delivery is bounded per source:
-
-* Repeated `active` reports within 5 minutes are recorded as `coalesced` and
-  are not pushed.
-* After 10 pushes from one source in a rolling hour, further reports are
-  recorded as `rate_limited` and are not pushed. Suppressed reports do not
-  count toward the cap.
-* Setup tests are limited to one per source every 10 minutes.
-
-A suppressed report still returns `201` with the recorded event and a `message`
-explaining why no push was sent. Retrying it with the same idempotency key
-returns the stored result.
-
-### `GET /safety-sources`
-
-The account's configured critical services, newest first. **Session only.** Not
-paged.
+Lists the account's critical services, newest first. **Session, or a token with
+`services:read`.** Not paged.
 
 **200 OK**
 
 ```json
 {
-  "sources": [
+  "services": [
     {
       "id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-      "name": "Home Assistant",
+      "title": "Home Assistant",
       "image_url": "https://home.example.com/avatar.png",
       "url": "homeassistant://dashboard-security",
+      "priority": "normal",
       "critical_enabled": true,
+      "webhook_url": "https://hark.example.com/hooks/harkhook_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv",
       "created_at": "2026-08-20T08:00:00.000Z",
       "updated_at": "2026-08-21T09:30:00.000Z"
     }
@@ -1415,176 +1395,86 @@ paged.
 }
 ```
 
-| Field | Notes |
-| --- | --- |
-| `image_url` | Default sender avatar, or `null`. |
-| `url` | Default destination opened when the notification is tapped, or `null`. |
-| `critical_enabled` | Whether this service may use Critical Alerts. `true` on a new source unless explicitly disabled. |
+`webhook_url` contains the service's send credential. Sessions receive it; API
+tokens receive `null`, matching regular service reads.
 
-### `POST /safety-sources`
+### `POST /critical-services`
 
-Creates a critical service. **Session only.**
-
-**Request**
+Creates a critical service and its webhook credential. **Session only.**
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `name` | string | yes | 1–80 characters. Appears in every alert the source produces. For example, `Home Assistant`. |
+| `title` | string | yes | 1–80 characters. Default sender title. |
 | `image_url` | string or null | no | Public HTTPS avatar URL. |
-| `url` | string or null | no | Web URL or app deep link opened when the notification is tapped. |
-| `critical_enabled` | boolean | no | Defaults to `true`. Set `false` to create the service with Time Sensitive delivery. |
-
-**201 Created** — `{ "source": { … } }`.
-
-**422 `validation_failed`** names the offending field.
-
-### `GET /safety-sources/{id}`
-
-One critical service. **Session only.** **200 OK** — `{ "source": { … } }`;
-`404 not_found` when it does not exist.
-
-### `PATCH /safety-sources/{id}`
-
-Changes a critical service's defaults or critical setting. **Session only.** At
-least one field is required. Send `null` to clear an optional URL.
-
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `name` | string | no | 1–80 characters. |
-| `image_url` | string or null | no | Public HTTPS avatar URL; `null` clears it. |
-| `url` | string or null | no | Web URL or app deep link; `null` clears it. |
-| `critical_enabled` | boolean | no | Whether this service may use Critical Alerts. |
-
-**200 OK** — `{ "source": { … } }`.
-
-### `DELETE /safety-sources/{id}`
-
-**Session only.** **204 No Content**, `404 not_found` for an unknown id.
-
-Deleting a source also deletes its safety events, including their history
-entries.
-
-### `POST /safety-sources/{id}/test`
-
-Sends one setup test for a source. **Session only.** No request body. The test
-is composed, delivered, and recorded like a reported event, including the
-source avatar and tap destination. Its returned `priority` is `critical` when
-both settings are on, and `time_sensitive` otherwise.
+| `url` | string or null | no | Web URL or app deep link opened when tapped. |
+| `priority` | enum | no | `normal` (default), `time_sensitive`, or `critical`. |
+| `critical_enabled` | boolean | no | Per-service Critical switch; defaults to `true`. It gates only Critical priority. |
 
 **201 Created**
 
 ```json
 {
-  "event": {
-    "id": "0198f3f5-1e33-7174-c2d9-7f0a1b2c3d4e",
-    "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-    "source_name": "Home Assistant",
-    "state": "test",
-    "title": "Home Assistant test",
-    "body": "This is a test Critical Alert.",
-    "priority": "critical",
-    "status": "accepted",
-    "delivered_count": 1,
-    "created_at": "2026-08-21T09:30:00.000Z"
-  }
+  "service": { "…as above…" },
+  "webhook_url": "https://hark.example.com/hooks/harkhook_kQ2mZ8bR1tXyLp0aNfCd7eJhSu4WgO7xY2bWv"
 }
 ```
 
-**Errors**
+Use the returned URL exactly like a regular service's
+[`/hooks/{token}`](#post-hookstoken) URL.
 
-| Status | `code` | When |
-| --- | --- | --- |
-| 404 | `not_found` | The source does not exist. |
-| 429 | `rate_limited` | A test was sent for this source in the last 10 minutes. `Retry-After` gives the wait in seconds. |
+### `GET /critical-services/{id}`
 
-`test` is not accepted by
-[`POST /safety-events`](#post-safety-events).
+Returns one critical service. **Session, or a token with `services:read`.**
+**200 OK** —
+`{ "service": { … } }`; `404 not_found` when it does not exist. Critical
+services are intentionally absent from the regular `/services` management
+endpoints, and regular services are absent here.
 
-### `GET /safety-settings`
+### `PATCH /critical-services/{id}`
 
-The account-wide critical delivery toggle. **Session only.**
+Changes a critical service's defaults or per-service switch. **Session, or a
+token with `services:write`.** At least one field is required. Send `null` to
+clear `image_url` or `url`.
 
-**200 OK**
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `title` | string | no | 1–80 characters. |
+| `image_url` | string or null | no | Public HTTPS avatar URL; `null` clears it. |
+| `url` | string or null | no | Web URL or app deep link; `null` clears it. |
+| `priority` | enum | no | `normal`, `time_sensitive`, or `critical`. |
+| `critical_enabled` | boolean | no | Gates only requests that resolve to Critical. |
+
+**200 OK** — `{ "service": { … } }`.
+
+### `DELETE /critical-services/{id}`
+
+Deletes the service and the same dependent delivery records deleted for a
+regular service. **Session, or a token with `services:write`.** **204 No
+Content**; `404 not_found` for an unknown id.
+
+### `POST /critical-services/{id}/webhook-token`
+
+Rotates the service's webhook credential. **Session only.** The previous URL
+stops working immediately. **201 Created** returns the service and new
+`webhook_url`, in the same shape as creation.
+
+### `GET /critical-settings`
+
+Returns the account-wide Critical switch. **Session only.**
 
 ```json
 { "critical_alerts_enabled": true }
 ```
 
-The setting starts as `true`. A source must also have `critical_enabled` set to
-`true` before it can send a Critical Alert.
+### `PATCH /critical-settings`
 
-### `PATCH /safety-settings`
-
-Writes the toggle. **Session only.**
+Writes the account-wide switch. **Session only.**
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `critical_alerts_enabled` | boolean | yes | When `false`, active events and setup tests are `time_sensitive`. Per-source settings are unchanged. |
+| `critical_alerts_enabled` | boolean | yes | Gates only Critical priority. Normal and Time Sensitive are unchanged. |
 
 **200 OK** — the same object as the `GET`, with the new value.
-
-### `POST /safety-events`
-
-Reports a change in a source's state and delivers the alert. **API token with
-`safety:report`.** Supports [`Idempotency-Key`](#idempotency).
-
-**Request**
-
-```http
-POST /safety-events
-Content-Type: application/json
-Idempotency-Key: home-alert-4821
-
-{ "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd", "state": "active" }
-```
-
-| Field | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `source_id` | id | yes | An alert source configured on this account. |
-| `state` | enum | yes | `active` or `resolved`. The [setup test](#post-safety-sourcesidtest) is session-only. |
-
-The server [composes the title, body, and priority](#how-an-alert-is-composed).
-
-**201 Created**
-
-```json
-{
-  "event": {
-    "id": "0198f3f5-1e33-7174-c2d9-7f0a1b2c3d4e",
-    "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-    "source_name": "Home Assistant",
-    "state": "active",
-    "title": "Home Assistant",
-    "body": "Attention needed.",
-    "priority": "critical",
-    "status": "accepted",
-    "delivered_count": 2,
-    "created_at": "2026-08-21T09:30:00.000Z"
-  },
-  "replayed": false,
-  "message": null
-}
-```
-
-| Field | Notes |
-| --- | --- |
-| `state` | What was reported. `resolved` composes a "cleared" alert at `normal` priority. |
-| `priority` | `critical` when both settings are on. Disabled sources are `time_sensitive`. Resolved events are `normal`. |
-| `status` | The [delivery statuses](#get-events), plus `coalesced` and `rate_limited` for reports recorded without a push. |
-| `delivered_count` | APNs acceptances. See [what `accepted` means](#what-accepted-means). |
-| `message` | Non-null when no push was sent or accepted. |
-
-There is no `error` field: detailed APNs failure text is owner-only, in
-[history](#get-history).
-
-A replayed idempotency key returns `200` with the stored outcome — including a
-stored `coalesced` or `rate_limited` status.
-
-**Errors** — `403 api_token_required` for a session, `403 insufficient_scope`
-without `safety:report`, `409 conflict` for a reused idempotency key with a
-different body, `422 validation_failed` when `state` is unusable or
-`source_id` does not name a source on this account, `429 rate_limited` at the
-[delivery limits](#delivery-limits).
 
 ---
 
@@ -1619,7 +1509,7 @@ the sender can read. Supports [`Idempotency-Key`](#idempotency).
 | `secondary_label` | string | no | Same. |
 | `image_url` | string | no | Public HTTPS URL. Not available on a Lock Screen card. |
 | `url` | string | no | Tap destination. Not available on a Lock Screen card. |
-| `priority` | enum | no | `normal` (default) or `time_sensitive`. Only [safety alerts](#safety) can be `critical`. |
+| `priority` | enum | no | `normal` (default) or `time_sensitive`. Critical is available only through a [critical service](#critical-services) webhook. |
 | `device_ids` | array of id | no | 1–50 entries. |
 | `expires_in_seconds` | integer | no | 30 – 86400, default 900. A Lock Screen card is additionally capped at 28800, the eight hours iOS allows. |
 
@@ -1967,8 +1857,8 @@ clients must ignore unknown response fields.
 
 ### Notification payload
 
-Used for webhook events, API notifications, safety alerts, and welcome
-notifications. Hark sends one payload per device.
+Used for webhook events, API notifications, and welcome notifications. Hark
+sends one payload per device.
 
 ```json
 {
@@ -2013,9 +1903,11 @@ Priority maps as follows. The `apns-priority` header is always `10`:
 | `time_sensitive` | `"default"` | `"time-sensitive"` |
 | `critical` | `{"critical": 1, "name": "default", "volume": 1}` | `"critical"` |
 
-Only the [safety endpoints](#safety) produce `critical`; no request field
-accepts it. iOS requires the critical-alert entitlement and the user's
-permission to deliver at that level.
+[Critical service](#critical-services) webhooks can produce `critical`. iOS
+requires Apple's Critical Alerts entitlement and the user's permission to
+deliver at that level. Hark does not declare that entitlement before Apple
+grants it. Until it is available, turn off either Critical switch to make
+Critical requests fall back to Time Sensitive.
 
 **`hark`**
 
@@ -2026,7 +1918,7 @@ permission to deliver at that level.
 | `record_id` | always | The related event, notification, or interaction id used to open the history entry. Welcome notifications use a synthetic id. |
 | `thread_key` | always | The conversation. Group the inbox by it the way `aps.thread-id` groups the Lock Screen. |
 | `url` | omitted when absent | The tap destination. See below. |
-| `source.id` / `source.name` | always | The sender: a service, the API token that sent it, or the [alert source](#safety) that reported the event. |
+| `source.id` / `source.name` | always | The sender: a regular or critical service, or the API token that sent it. |
 | `source.image_url` | omitted when absent | A public HTTPS avatar. |
 | `question` | only on a question | Below. |
 
@@ -2269,8 +2161,8 @@ Deleting a delivery also deletes its associated interaction.
 ### `GET /history`
 
 Returns account history in one newest-first list: webhook deliveries, API
-notifications, safety events, answered interactions, and Live Activity
-changes. **Session only.** [Paged](#pagination).
+notifications, answered interactions, and Live Activity changes. **Session
+only.** [Paged](#pagination).
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
@@ -2308,10 +2200,8 @@ validation_failed` naming the field.
 
 Fields that do not apply to an item's `kind` are `null`.
 
-* `id` is `"<source>:<row id>"`. The sources are `event`,
-  `notification`, `safety_event`, `response` and `live_activity`.
-* [Safety events](#safety) use kind `notification`. `coalesced` and
-  `rate_limited` mean the event was recorded without sending a push.
+* `id` is `"<source>:<row id>"`. The sources are `event`, `notification`,
+  `response` and `live_activity`.
 * Answered interactions are ordered by `responded_at`, not by the time they
   were created. Their `result` is `approved`, `denied`, `yes`, `no` or
   `replied`. For Live Activity entries, `result` is `start`, `update` or `end`.
@@ -2320,7 +2210,7 @@ Fields that do not apply to an item's `kind` are `null`.
 
 The distinct `source_name` values of the entries currently in history, sorted
 case-insensitively. **Session only.** Not paged: the list is bounded by the
-account's services, tokens, and safety sources.
+account's services and tokens.
 
 **200 OK**
 
@@ -2375,7 +2265,7 @@ Sends a notification, optionally as a question. Supports
 | `title` | string | no | 1–80 characters. Defaults to the service's title. |
 | `image_url` | string | no | Public HTTPS URL. Defaults to the service's. |
 | `url` | string | no | Tap destination. Defaults to the service's. |
-| `priority` | enum | no | `normal` or `time_sensitive`; defaults to the service's. Only [safety alerts](#safety) can be `critical`. |
+| `priority` | enum | no | Defaults to the service's. Regular service webhooks accept `normal` or `time_sensitive`; [critical service](#critical-services) webhooks also accept `critical`. |
 | `device_ids` | array of id | no | 1–50 entries. |
 | `response` | object | no | Turns the notification into a question. |
 
@@ -2549,12 +2439,13 @@ separate from the JSON API:
 | `POST` | `/dashboard/services/{id}` | Saves the defaults. |
 | `POST` | `/dashboard/services/{id}/rotate` | Replaces the webhook credential immediately. |
 | `POST` | `/dashboard/services/{id}/delete` | Deletes the service and its associated deliveries. |
-| `GET` | `/dashboard/safety` | Critical Alert settings, critical services, and the form that creates one. |
-| `POST` | `/dashboard/safety` | Creates a critical service. |
-| `POST` | `/dashboard/safety/settings` | Saves the account-wide critical toggle. |
-| `POST` | `/dashboard/safety/{id}` | Saves a critical service's name, avatar, tap destination, and critical toggle. |
-| `POST` | `/dashboard/safety/{id}/test` | Sends the [setup test](#post-safety-sourcesidtest) for one source. |
-| `POST` | `/dashboard/safety/{id}/delete` | Deletes the source and its safety events. |
+| `GET` | `/dashboard/critical-services` | Critical Alert settings, critical services, and the form that creates one. |
+| `POST` | `/dashboard/critical-services` | Creates a critical service. |
+| `POST` | `/dashboard/critical-services/settings` | Saves the account-wide Critical switch. |
+| `GET` | `/dashboard/critical-services/{id}` | One critical service: its webhook URL, defaults, switches, and recent deliveries. |
+| `POST` | `/dashboard/critical-services/{id}` | Saves a critical service's title, avatar, tap destination, default priority, and switch. |
+| `POST` | `/dashboard/critical-services/{id}/rotate` | Replaces the webhook credential immediately. |
+| `POST` | `/dashboard/critical-services/{id}/delete` | Deletes the service and its delivery history. |
 | `GET` | `/dashboard/devices` | Registered phones. |
 | `POST` | `/dashboard/devices/{id}/delete` | Unregisters one. |
 | `GET` | `/dashboard/tokens` | API tokens and the token creation form. |

@@ -2,7 +2,7 @@
 <header class="page-head">
   <p class="page-head__eyebrow meta">
     <span><span class="idx">03</span> Service</span>
-    <a href="{{.Paths.Services}}"><span class="arrow arrow--back">←</span> All services</a>
+    <a href="{{.BasePath}}"><span class="arrow arrow--back">←</span> {{.BackLabel}}</a>
     <span>{{.Service.ID}}</span>
   </p>
   <h1 class="page-head__title headline">{{.Service.Title}}</h1>
@@ -30,7 +30,7 @@
         <code class="secret__value">{{.}}</code>
         <div class="secret__actions">
           <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
-          <form method="post" action="{{$.Paths.Services}}/{{$.Service.ID}}/rotate"
+          <form method="post" action="{{$.BasePath}}/{{$.Service.ID}}/rotate"
                 data-confirm="Rotate this webhook URL? The current one stops working immediately."
                 hx-disabled-elt="find button[type=submit]">
             <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
@@ -40,7 +40,7 @@
       </div>
       {{else}}
       <p class="module__note">This webhook URL is unavailable. Rotate it to create a new one.</p>
-      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/rotate"
+      <form method="post" action="{{.BasePath}}/{{.Service.ID}}/rotate"
             data-confirm="Rotate this webhook URL? The current one stops working immediately."
             hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
@@ -55,7 +55,7 @@
       <h2 class="module__label"><span class="module__index">02</span>Defaults</h2>
     </div>
     <div class="module__body">
-      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}" class="stack" hx-disabled-elt="find button[type=submit]">
+      <form method="post" action="{{.BasePath}}/{{.Service.ID}}" class="stack" hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <div class="row">
@@ -85,6 +85,16 @@
           <input class="input" type="text" name="url" value="{{.Form.URL}}"
                  placeholder="https://ci.example.com or an app deep link" maxlength="2048">
         </label>
+
+        {{if .Critical}}
+        <label class="check">
+          <input type="checkbox" name="critical_enabled"{{if .Form.CriticalEnabled}} checked{{end}}>
+          <span class="check__copy">
+            <span class="check__name">Allow Critical delivery</span>
+            <span class="check__description">Only gates notifications sent with Critical priority. Normal and Time Sensitive notifications are unchanged.</span>
+          </span>
+        </label>
+        {{end}}
 
         <button class="btn btn--primary" type="submit">Save defaults</button>
       </form>
@@ -125,7 +135,7 @@
     </div>
     <div class="module__body hazard">
       <p class="module__note">Deleting this service also deletes its delivery history.</p>
-      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/delete"
+      <form method="post" action="{{.BasePath}}/{{.Service.ID}}/delete"
             data-confirm="Delete {{.Service.Title}} and its delivery history?"
             hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">

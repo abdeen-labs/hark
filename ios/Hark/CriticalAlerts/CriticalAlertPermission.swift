@@ -1,8 +1,8 @@
 //
-//  SafetyPermission.swift
+//  CriticalAlertPermission.swift
 //  Hark
 //
-//  Critical Alert permission and setup-test display helpers.
+//  Critical Alert permission state.
 //
 
 import Foundation
@@ -43,14 +43,5 @@ nonisolated enum CriticalAlertState {
         @unknown default:
             return .unknown
         }
-    }
-}
-
-nonisolated enum SafetyTestFeedback {
-    static func message(for error: HarkClientError) -> String {
-        if error.isRateLimited {
-            return "A test was sent recently. Try again in a few minutes."
-        }
-        return error.errorDescription ?? "The test could not be sent."
     }
 }

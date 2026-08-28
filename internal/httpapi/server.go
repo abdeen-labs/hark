@@ -303,25 +303,24 @@ func (s *server) routes(rt *router) {
 	rt.handle(http.MethodPost, "/notifications",
 		RequireAPIToken(RequireScopes(db.ScopeNotificationsNew)(http.HandlerFunc(s.handleSendNotification))))
 
-	// Safety configuration requires a session; reporting requires a scoped token.
-	rt.handle(http.MethodGet, "/safety-sources",
-		RequireSession(http.HandlerFunc(s.handleListSafetySources)))
-	rt.handle(http.MethodPost, "/safety-sources",
-		RequireSession(http.HandlerFunc(s.handleCreateSafetySource)))
-	rt.handle(http.MethodGet, "/safety-sources/{id}",
-		RequireSession(http.HandlerFunc(s.handleGetSafetySource)))
-	rt.handle(http.MethodPatch, "/safety-sources/{id}",
-		RequireSession(http.HandlerFunc(s.handleUpdateSafetySource)))
-	rt.handle(http.MethodDelete, "/safety-sources/{id}",
-		RequireSession(http.HandlerFunc(s.handleDeleteSafetySource)))
-	rt.handle(http.MethodPost, "/safety-sources/{id}/test",
-		RequireSession(http.HandlerFunc(s.handleSafetySourceTest)))
-	rt.handle(http.MethodGet, "/safety-settings",
-		RequireSession(http.HandlerFunc(s.handleGetSafetySettings)))
-	rt.handle(http.MethodPatch, "/safety-settings",
-		RequireSession(http.HandlerFunc(s.handleUpdateSafetySettings)))
-	rt.handle(http.MethodPost, "/safety-events",
-		RequireAPIToken(RequireScopes(db.ScopeSafetyReport)(http.HandlerFunc(s.handleReportSafetyEvent))))
+	// Critical services are managed separately but use the same /hooks/{token}
+	// contract and delivery pipeline as regular services.
+	rt.handle(http.MethodGet, "/critical-services",
+		s.scoped(db.ScopeServicesRead, s.handleListCriticalServices))
+	rt.handle(http.MethodPost, "/critical-services",
+		RequireSession(http.HandlerFunc(s.handleCreateCriticalService)))
+	rt.handle(http.MethodGet, "/critical-services/{id}",
+		s.scoped(db.ScopeServicesRead, s.handleGetCriticalService))
+	rt.handle(http.MethodPatch, "/critical-services/{id}",
+		s.scoped(db.ScopeServicesWrite, s.handleUpdateCriticalService))
+	rt.handle(http.MethodDelete, "/critical-services/{id}",
+		s.scoped(db.ScopeServicesWrite, s.handleDeleteCriticalService))
+	rt.handle(http.MethodPost, "/critical-services/{id}/webhook-token",
+		RequireSession(http.HandlerFunc(s.handleRotateCriticalWebhookToken)))
+	rt.handle(http.MethodGet, "/critical-settings",
+		RequireSession(http.HandlerFunc(s.handleGetCriticalSettings)))
+	rt.handle(http.MethodPatch, "/critical-settings",
+		RequireSession(http.HandlerFunc(s.handleUpdateCriticalSettings)))
 
 	rt.handle(http.MethodPost, "/interactions",
 		RequireAPIToken(RequireScopes(db.ScopeInteractionsNew, db.ScopeNotificationsNew)(

@@ -1,15 +1,15 @@
 //
-//  SafetyPermissionTests.swift
+//  CriticalAlertPermissionTests.swift
 //  HarkTests
 //
-//  Safety helper tests.
+//  Critical Alert helper tests.
 //
 
 import UserNotifications
 import XCTest
 @testable import Hark
 
-final class SafetyPermissionTests: XCTestCase {
+final class CriticalAlertPermissionTests: XCTestCase {
 
     // MARK: - CriticalAlertState.classify
 
@@ -54,27 +54,6 @@ final class SafetyPermissionTests: XCTestCase {
         XCTAssertEqual(classify(.provisional, .notSupported, requestedBefore: true), .unavailable)
     }
 
-    // MARK: - SafetyTestFeedback
-
-    func testRateLimitedTestGetsFriendlyCopy() {
-        let error = HarkClientError.api(status: 429, code: "rate_limited", message: "Too many requests.", fields: [])
-        XCTAssertTrue(error.isRateLimited)
-        let message = SafetyTestFeedback.message(for: error)
-        XCTAssertFalse(message.isEmpty)
-        XCTAssertNotEqual(message, error.errorDescription)
-    }
-
-    func testOtherErrorsSurfaceTheirOwnDescription() {
-        let error = HarkClientError.api(status: 422, code: "validation_failed", message: "Name is required.", fields: [])
-        XCTAssertFalse(error.isRateLimited)
-        XCTAssertEqual(SafetyTestFeedback.message(for: error), error.errorDescription)
-    }
-
-    func testNonAPIErrorsAreNotRateLimited() {
-        XCTAssertFalse(HarkClientError.invalidResponse.isRateLimited)
-        XCTAssertFalse(HarkClientError.badURL.isRateLimited)
-    }
-
     // MARK: - AxisState priorities
 
     func testPriorityTones() {
@@ -89,39 +68,44 @@ final class SafetyPermissionTests: XCTestCase {
         }
     }
 
-    // MARK: - Safety source request encoding
+    // MARK: - Critical service request encoding
 
-    func testCreateSourceIncludesCriticalSwitch() throws {
-        let data = try JSONEncoder().encode(CreateSafetySourceRequest(
-            name: "Home Assistant",
+    func testCreateServiceIncludesAllDefaultsAndCriticalSwitch() throws {
+        let data = try JSONEncoder().encode(CreateCriticalServiceRequest(
+            title: "Home Assistant",
             imageUrl: nil,
             url: nil,
+            priority: "normal",
             criticalEnabled: true
         ))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object.keys.sorted(), ["critical_enabled", "name"])
-        XCTAssertEqual(object["name"] as? String, "Home Assistant")
+        XCTAssertEqual(object.keys.sorted(), ["critical_enabled", "priority", "title"])
+        XCTAssertEqual(object["title"] as? String, "Home Assistant")
+        XCTAssertEqual(object["priority"] as? String, "normal")
         XCTAssertEqual(object["critical_enabled"] as? Bool, true)
     }
 
     func testUpdateCarriesTheSameDefaultsAsAService() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(
-            name: "Front door",
+        let data = try JSONEncoder().encode(UpdateCriticalServiceRequest(
+            title: "Front door",
             imageUrl: "https://example.com/front-door.png",
             url: "hark-test://front-door",
+            priority: "critical",
             criticalEnabled: true
         ))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object.keys.sorted(), ["critical_enabled", "image_url", "name", "url"])
+        XCTAssertEqual(object.keys.sorted(), ["critical_enabled", "image_url", "priority", "title", "url"])
         XCTAssertEqual(object["image_url"] as? String, "https://example.com/front-door.png")
         XCTAssertEqual(object["url"] as? String, "hark-test://front-door")
+        XCTAssertEqual(object["priority"] as? String, "critical")
     }
 
     func testUpdateCanClearOptionalDefaults() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(
-            name: "Front door",
+        let data = try JSONEncoder().encode(UpdateCriticalServiceRequest(
+            title: "Front door",
             imageUrl: nil,
             url: nil,
+            priority: "time_sensitive",
             criticalEnabled: false
         ))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])

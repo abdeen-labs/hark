@@ -2,13 +2,13 @@
 //  SettingsView.swift
 //  Hark
 //
-//  Account, connection, safety, and session settings.
+//  Account, connection, Critical Alerts, and session settings.
 //
 
 import SwiftUI
 
 nonisolated enum SettingsRoute: Hashable {
-    case safetySources
+    case criticalServices
     case sound
 }
 
@@ -29,7 +29,7 @@ struct SettingsView: View {
                         account
                         connection
                         SoundModule(index: "03", route: SettingsRoute.sound)
-                        safety
+                        criticalAlerts
                         AppearanceModule(index: "05")
                         AppLockModule(index: "06")
                         session
@@ -43,8 +43,8 @@ struct SettingsView: View {
             .toolbarVisibility(.hidden, for: .navigationBar)
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
-                case .safetySources:
-                    SafetySourcesView()
+                case .criticalServices:
+                    CriticalServicesView()
                         .shellInsets()
                 case .sound:
                     SoundPickerView()
@@ -52,7 +52,7 @@ struct SettingsView: View {
                 }
             }
             .task {
-                await model.refreshSafetySettings()
+                await model.refreshCriticalSettings()
                 await model.refreshNotificationPermission()
             }
         }
@@ -127,14 +127,14 @@ struct SettingsView: View {
         }
     }
 
-    private var safety: some View {
+    private var criticalAlerts: some View {
         Module(index: "04", label: "Critical Alerts", flush: true) {
             VStack(spacing: 0) {
                 AxisToggle(
                     "Critical Alerts",
-                    sub: "Allow enabled critical services to sound through Focus and Silent mode.",
-                    busy: model.safetySettings == nil,
-                    isOn: model.safetySettings?.criticalAlertsEnabled ?? false
+                    sub: "Allow Critical priority when each service's switch is also on. Other priorities are unchanged.",
+                    busy: model.criticalSettings == nil,
+                    isOn: model.criticalSettings?.criticalAlertsEnabled ?? false
                 ) { enabled in
                     Task { await model.setCriticalAlertsEnabled(enabled) }
                 }
@@ -142,9 +142,9 @@ struct SettingsView: View {
                 Hairline(color: Axis.lineFaint)
                 SpecRow(label: "This phone", value: permissionWord, mono: false)
                 Hairline(color: Axis.lineFaint)
-                NavigationLink(value: SettingsRoute.safetySources) {
+                NavigationLink(value: SettingsRoute.criticalServices) {
                     HStack(spacing: 16) {
-                        Meta("Sources")
+                        Meta("Services")
                             .frame(width: 100, alignment: .leading)
                         Text("Manage critical services")
                             .font(AxisType.copy(14))
@@ -163,8 +163,8 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } trailing: {
             HStack(spacing: 8) {
-                StatusLight(color: safetyLight, size: 5)
-                Meta(safetyWord, color: Axis.inkSubtle)
+                StatusLight(color: criticalAlertsLight, size: 5)
+                Meta(criticalAlertsWord, color: Axis.inkSubtle)
             }
         }
     }
@@ -180,10 +180,10 @@ struct SettingsView: View {
         }
     }
 
-    private var safetyLight: Color {
+    private var criticalAlertsLight: Color {
         switch model.criticalAlertState {
         case .granted:
-            model.safetySettings?.criticalAlertsEnabled == true ? Axis.ok : Axis.warn
+            model.criticalSettings?.criticalAlertsEnabled == true ? Axis.ok : Axis.warn
         case .criticalDenied, .notificationsDenied:
             Axis.danger
         default:
@@ -191,10 +191,10 @@ struct SettingsView: View {
         }
     }
 
-    private var safetyWord: String {
+    private var criticalAlertsWord: String {
         switch model.criticalAlertState {
         case .granted:
-            model.safetySettings?.criticalAlertsEnabled == true ? "Ready" : "Off"
+            model.criticalSettings?.criticalAlertsEnabled == true ? "Ready" : "Off"
         case .criticalDenied, .notificationsDenied:
             "Denied"
         case .unavailable:

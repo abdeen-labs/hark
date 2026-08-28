@@ -227,69 +227,59 @@
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/safety-sources": {
+    "/critical-services": {
       "get": {
-        "tags": ["Critical Alerts"], "summary": "List critical services", "operationId": "listSafetySources",
-        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "tags": ["Critical Alerts"], "summary": "List critical-capable webhook services", "operationId": "listCriticalServices",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:read"],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "post": {
-        "tags": ["Critical Alerts"], "summary": "Create a critical service", "operationId": "createSafetySource",
-        "description": "Critical services use the same name, avatar, and tap-destination defaults as regular services. Critical delivery starts enabled and has its own switch.",
+        "tags": ["Critical Alerts"], "summary": "Create a critical-capable webhook service", "operationId": "createCriticalService",
+        "description": "Creates the same webhook service as /services, with Critical added to its allowed priorities and a per-service Critical switch. The default priority is Normal.",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
-        "requestBody": { "$ref": "#/components/requestBodies/CreateSafetySource" },
+        "requestBody": { "$ref": "#/components/requestBodies/CreateCriticalService" },
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/safety-sources/{id}": {
+    "/critical-services/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "get": {
-        "tags": ["Critical Alerts"], "summary": "Get a critical service", "operationId": "getSafetySource",
-        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "tags": ["Critical Alerts"], "summary": "Get a critical-capable webhook service", "operationId": "getCriticalService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:read"],
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "patch": {
-        "tags": ["Critical Alerts"], "summary": "Update a critical service", "operationId": "updateSafetySource",
-        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
-        "requestBody": { "$ref": "#/components/requestBodies/UpdateSafetySource" },
+        "tags": ["Critical Alerts"], "summary": "Update a critical-capable webhook service", "operationId": "updateCriticalService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:write"],
+        "requestBody": { "$ref": "#/components/requestBodies/UpdateCriticalService" },
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "delete": {
-        "tags": ["Critical Alerts"], "summary": "Delete a critical service", "operationId": "deleteSafetySource",
-        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
-        "responses": { "204": { "description": "Source deleted, along with its safety events." }, "default": { "$ref": "#/components/responses/Error" } }
+        "tags": ["Critical Alerts"], "summary": "Delete a critical-capable webhook service", "operationId": "deleteCriticalService",
+        "security": [{ "bearerAuth": [] }, { "sessionCookie": [] }], "x-hark-auth": "session_or_api_token", "x-hark-scopes": ["services:write"],
+        "responses": { "204": { "description": "Service and its delivery history deleted." }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/safety-sources/{id}/test": {
+    "/critical-services/{id}/webhook-token": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
       "post": {
-        "tags": ["Critical Alerts"], "summary": "Send an alert-source setup test", "operationId": "testSafetySource",
-        "description": "Uses the same composition and delivery path as a reported event. Limited to one test per source every 10 minutes.",
+        "tags": ["Critical Alerts"], "summary": "Rotate a critical service webhook token", "operationId": "rotateCriticalServiceWebhookToken",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
-    "/safety-settings": {
+    "/critical-settings": {
       "get": {
-        "tags": ["Critical Alerts"], "summary": "Get the account-wide Critical Alert setting", "operationId": "getSafetySettings",
+        "tags": ["Critical Alerts"], "summary": "Get the account-wide Critical Alert switch", "operationId": "getCriticalSettings",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       },
       "patch": {
-        "tags": ["Critical Alerts"], "summary": "Update the account-wide Critical Alert setting", "operationId": "updateSafetySettings",
+        "tags": ["Critical Alerts"], "summary": "Update the account-wide Critical Alert switch", "operationId": "updateCriticalSettings",
+        "description": "This switch gates only Critical priority. Normal and Time Sensitive delivery are unaffected.",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
-        "requestBody": { "$ref": "#/components/requestBodies/UpdateSafetySettings" },
+        "requestBody": { "$ref": "#/components/requestBodies/UpdateCriticalSettings" },
         "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
-      }
-    },
-    "/safety-events": {
-      "post": {
-        "tags": ["Critical Alerts"], "summary": "Report an alert-source event", "operationId": "reportSafetyEvent",
-        "description": "The request contains a source and state; the server supplies the alert text and priority. Suppressed reports are recorded and return 201 without sending a push.",
-        "security": [{ "apiToken": [] }], "x-hark-auth": "api_token", "x-hark-scopes": ["safety:report"],
-        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
-        "requestBody": { "$ref": "#/components/requestBodies/SafetyEvent" },
-        "responses": { "201": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
     "/interactions": {
@@ -517,10 +507,9 @@
       "ActivityUpdateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActivityUpdateTokenRequest" } } } },
       "DeliveryUpdateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeliveryUpdateTokenRequest" } } } },
       "Notification": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NotificationRequest" } } } },
-      "CreateSafetySource": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSafetySourceRequest" } } } },
-      "UpdateSafetySource": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateSafetySourceRequest" } } } },
-      "UpdateSafetySettings": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateSafetySettingsRequest" } } } },
-      "SafetyEvent": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SafetyEventRequest" } } } },
+      "CreateCriticalService": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateCriticalServiceRequest" } } } },
+      "UpdateCriticalService": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateCriticalServiceRequest" } } } },
+      "UpdateCriticalSettings": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateCriticalSettingsRequest" } } } },
       "Interaction": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InteractionRequest" } } } },
       "InteractionResponse": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InteractionResponseRequest" } } } },
       "StartActivity": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StartActivityRequest" } } } },
@@ -536,9 +525,10 @@
     "schemas": {
       "UUID": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "examples": ["0198f3a1-2b4c-7d8e-9f01-23456789abcd"] },
       "Timestamp": { "type": "string", "format": "date-time", "examples": ["2026-08-09T12:34:56.789Z"] },
-      "Priority": { "type": "string", "description": "Recorded delivery priority. Only safety events can be `critical`.", "enum": ["normal", "time_sensitive", "critical"] },
+      "Priority": { "type": "string", "description": "Recorded delivery priority. Critical-capable service webhooks may select all three values.", "enum": ["normal", "time_sensitive", "critical"] },
       "RequestPriority": { "type": "string", "description": "Caller-selectable delivery priority.", "enum": ["normal", "time_sensitive"] },
-      "Scope": { "type": "string", "description": "API token permission. Meanings:\n- `activities:read`: view Live Activities and delivery state\n- `activities:write`: start, update, and end Live Activities\n- `devices:read`: view registered devices and their supported features\n- `events:read`: view webhook notification delivery history and errors\n- `interactions:create`: ask questions and cancel pending questions; asking also needs `notifications:send`\n- `interactions:read`: view questions, status, and answers\n- `notifications:send`: send one-shot push notifications\n- `safety:report`: report active or resolved safety events for configured sources\n- `services:read`: view configured webhook services and defaults; webhook credentials stay hidden\n- `services:write`: change and delete webhook services and their related history", "enum": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "safety:report", "services:read", "services:write"] },
+      "CriticalServicePriority": { "type": "string", "description": "Priority accepted by critical-capable service defaults and webhook overrides.", "enum": ["normal", "time_sensitive", "critical"] },
+      "Scope": { "type": "string", "description": "API token permission. Meanings:\n- `activities:read`: view Live Activities and delivery state\n- `activities:write`: start, update, and end Live Activities\n- `devices:read`: view registered devices and their supported features\n- `events:read`: view webhook notification delivery history and errors\n- `interactions:create`: ask questions and cancel pending questions; asking also needs `notifications:send`\n- `interactions:read`: view questions, status, and answers\n- `notifications:send`: send one-shot push notifications\n- `services:read`: view configured webhook services and defaults; webhook credentials stay hidden\n- `services:write`: change and delete webhook services and their related history", "enum": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "services:read", "services:write"] },
       "InteractionKind": { "type": "string", "enum": ["approval", "yes_no", "reply"] },
       "JSONDocument": { "type": "object", "description": "A JSON response documented field by field in /docs.md.", "additionalProperties": true },
       "Health": {
@@ -659,34 +649,29 @@
           "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }
         }
       },
-      "CreateSafetySourceRequest": {
-        "type": "object", "additionalProperties": false, "required": ["name"],
+      "CreateCriticalServiceRequest": {
+        "type": "object", "additionalProperties": false, "required": ["title"],
         "properties": {
-          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
           "image_url": { "type": ["string", "null"], "format": "uri" },
           "url": { "type": ["string", "null"], "format": "uri" },
+          "priority": { "$ref": "#/components/schemas/CriticalServicePriority" },
           "critical_enabled": { "type": "boolean", "default": true }
         }
       },
-      "UpdateSafetySourceRequest": {
+      "UpdateCriticalServiceRequest": {
         "type": "object", "additionalProperties": false, "minProperties": 1,
         "properties": {
-          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
           "image_url": { "type": ["string", "null"], "format": "uri" },
           "url": { "type": ["string", "null"], "format": "uri" },
+          "priority": { "$ref": "#/components/schemas/CriticalServicePriority" },
           "critical_enabled": { "type": "boolean" }
         }
       },
-      "UpdateSafetySettingsRequest": {
+      "UpdateCriticalSettingsRequest": {
         "type": "object", "additionalProperties": false, "required": ["critical_alerts_enabled"],
         "properties": { "critical_alerts_enabled": { "type": "boolean" } }
-      },
-      "SafetyEventRequest": {
-        "type": "object", "additionalProperties": false, "required": ["source_id", "state"],
-        "properties": {
-          "source_id": { "$ref": "#/components/schemas/UUID" },
-          "state": { "type": "string", "description": "Reported state. Setup tests use the session-only test endpoint.", "enum": ["active", "resolved"] }
-        }
       },
       "Callback": {
         "type": "object", "additionalProperties": false, "required": ["url", "token"],
@@ -744,7 +729,7 @@
         "type": "object", "additionalProperties": false, "required": ["body"],
         "properties": {
           "body": { "type": "string", "minLength": 1, "maxLength": 2000 }, "title": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "image_url": { "type": "string", "format": "uri" }, "url": { "type": "string", "format": "uri" }, "priority": { "$ref": "#/components/schemas/RequestPriority" },
+          "image_url": { "type": "string", "format": "uri" }, "url": { "type": "string", "format": "uri" }, "priority": { "$ref": "#/components/schemas/Priority", "description": "Regular service webhooks accept Normal or Time Sensitive. Critical-capable service webhooks also accept Critical." },
           "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }, "response": { "$ref": "#/components/schemas/WebhookResponseOptions" }
         }
       }

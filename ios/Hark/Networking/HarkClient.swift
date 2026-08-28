@@ -25,11 +25,6 @@ nonisolated enum HarkClientError: Error, LocalizedError {
         return false
     }
 
-    var isRateLimited: Bool {
-        if case .api(let status, _, _, _) = self { return status == 429 }
-        return false
-    }
-
     var errorDescription: String? {
         switch self {
         case .api(_, _, let message, let fields):
@@ -245,61 +240,66 @@ nonisolated struct HarkClient: Sendable {
         return try await send("GET", "/activities", query: query)
     }
 
-    // MARK: - Safety
+    // MARK: - Critical services
 
-    func safetySources() async throws -> [APISafetySource] {
-        let response: SafetySourceListResponse = try await send("GET", "/safety-sources")
-        return response.sources
+    func criticalServices() async throws -> [APICriticalService] {
+        let response: CriticalServiceListResponse = try await send("GET", "/critical-services")
+        return response.services
     }
 
-    func createSafetySource(
-        name: String,
+    func createCriticalService(
+        title: String,
         imageUrl: String?,
         url: String?,
+        priority: String,
         criticalEnabled: Bool
-    ) async throws -> APISafetySource {
-        let response: SafetySourceResponse = try await send(
-            "POST", "/safety-sources",
-            body: CreateSafetySourceRequest(
-                name: name,
+    ) async throws -> APICriticalService {
+        let response: CriticalServiceResponse = try await send(
+            "POST", "/critical-services",
+            body: CreateCriticalServiceRequest(
+                title: title,
                 imageUrl: imageUrl,
                 url: url,
+                priority: priority,
                 criticalEnabled: criticalEnabled
             )
         )
-        return response.source
+        return response.service
     }
 
-    func updateSafetySource(_ source: APISafetySource) async throws -> APISafetySource {
-        let response: SafetySourceResponse = try await send(
-            "PATCH", "/safety-sources/\(source.id)",
-            body: UpdateSafetySourceRequest(
-                name: source.name,
-                imageUrl: source.imageUrl,
-                url: source.url,
-                criticalEnabled: source.criticalEnabled
+    func updateCriticalService(_ service: APICriticalService) async throws -> APICriticalService {
+        let response: CriticalServiceResponse = try await send(
+            "PATCH", "/critical-services/\(service.id)",
+            body: UpdateCriticalServiceRequest(
+                title: service.title,
+                imageUrl: service.imageUrl,
+                url: service.url,
+                priority: service.priority,
+                criticalEnabled: service.criticalEnabled
             )
         )
-        return response.source
+        return response.service
     }
 
-    func deleteSafetySource(id: String) async throws {
-        try await sendExpectingNoContent("DELETE", "/safety-sources/\(id)")
+    func deleteCriticalService(id: String) async throws {
+        try await sendExpectingNoContent("DELETE", "/critical-services/\(id)")
     }
 
-    func sendSafetyTest(sourceId: String) async throws -> APISafetyTestEvent {
-        let response: SafetyTestResponse = try await send("POST", "/safety-sources/\(sourceId)/test")
-        return response.event
+    func rotateCriticalServiceWebhook(id: String) async throws -> APICriticalService {
+        let response: CriticalServiceResponse = try await send(
+            "POST", "/critical-services/\(id)/webhook-token"
+        )
+        return response.service
     }
 
-    func safetySettings() async throws -> APISafetySettings {
-        try await send("GET", "/safety-settings")
+    func criticalSettings() async throws -> APICriticalSettings {
+        try await send("GET", "/critical-settings")
     }
 
-    func setSafetySettings(criticalAlertsEnabled: Bool) async throws -> APISafetySettings {
+    func setCriticalSettings(criticalAlertsEnabled: Bool) async throws -> APICriticalSettings {
         try await send(
-            "PATCH", "/safety-settings",
-            body: APISafetySettings(criticalAlertsEnabled: criticalAlertsEnabled)
+            "PATCH", "/critical-settings",
+            body: APICriticalSettings(criticalAlertsEnabled: criticalAlertsEnabled)
         )
     }
 

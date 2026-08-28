@@ -119,7 +119,7 @@ func TestInitialMigrationChecksum(t *testing.T) {
 		t.Fatalf("load embedded migrations: %v", err)
 	}
 
-	const checksum = "c7e9bb7e79c7d36c5991b196dd6e4a26323d0f1479c80edad1b110cc0bb0c212"
+	const checksum = "8964572d41e23c83fa8f1314e42a5bd2f933200b39c78c01bb370a75d09d88df"
 	for _, migration := range migrations {
 		if migration.Version == 1 {
 			if migration.Checksum != checksum {

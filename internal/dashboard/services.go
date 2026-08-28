@@ -37,6 +37,9 @@ type servicePage struct {
 	Priorities []string
 	Form       serviceForm
 	Deliveries []db.EventListItem
+	BasePath   string
+	BackLabel  string
+	Critical   bool
 }
 
 // serviceDeliveries is how much of the service's log its own page shows: proof
@@ -48,20 +51,26 @@ const serviceDeliveries = 15
 // "absent": an empty optional URL clears the column, which is what a form —
 // unlike a PATCH body — can honestly express.
 type serviceForm struct {
-	Title    string
-	ImageURL string
-	URL      string
-	Priority string
+	Title           string
+	ImageURL        string
+	URL             string
+	Priority        string
+	CriticalEnabled bool
 }
 
-func serviceFormFrom(r *http.Request) serviceForm {
+func serviceFormFrom(r *http.Request, critical bool) serviceForm {
 	form := serviceForm{
-		Title:    strings.TrimSpace(r.PostFormValue("title")),
-		ImageURL: strings.TrimSpace(r.PostFormValue("image_url")),
-		URL:      strings.TrimSpace(r.PostFormValue("url")),
-		Priority: r.PostFormValue("priority"),
+		Title:           strings.TrimSpace(r.PostFormValue("title")),
+		ImageURL:        strings.TrimSpace(r.PostFormValue("image_url")),
+		URL:             strings.TrimSpace(r.PostFormValue("url")),
+		Priority:        r.PostFormValue("priority"),
+		CriticalEnabled: critical && r.PostFormValue("critical_enabled") != "",
 	}
-	if !db.ValidPriority(form.Priority) {
+	validPriority := db.ValidPriority
+	if critical {
+		validPriority = db.ValidCriticalPriority
+	}
+	if !validPriority(form.Priority) {
 		// The form renders a closed select, so an unknown member is tampering
 		// rather than a typo worth reporting.
 		form.Priority = db.PriorityNormal
@@ -104,7 +113,9 @@ func (f serviceForm) linkURL() *string {
 
 // formFor pre-fills the edit form with a service's stored defaults.
 func formFor(svc db.Service) serviceForm {
-	form := serviceForm{Title: svc.Title, Priority: svc.Priority}
+	form := serviceForm{
+		Title: svc.Title, Priority: svc.Priority, CriticalEnabled: svc.CriticalEnabled,
+	}
 	if svc.ImageURL != nil {
 		form.ImageURL = *svc.ImageURL
 	}
@@ -173,7 +184,7 @@ func (d *Dashboard) renderServices(
 // createService mints a webhook source and its credential, then lands on the
 // service's own page, where the fresh URL is waiting to be copied.
 func (d *Dashboard) createService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	form := serviceFormFrom(r)
+	form := serviceFormFrom(r, false)
 	if n := form.validate(); n != nil {
 		d.renderServices(w, r, p, http.StatusUnprocessableEntity, form, n)
 		return
@@ -234,6 +245,8 @@ func (d *Dashboard) renderService(
 		Priorities: db.Priorities,
 		Form:       form,
 		Deliveries: deliveries.Items,
+		BasePath:   pathServices,
+		BackLabel:  "All services",
 	}
 	if n != nil {
 		page.Notice = n
@@ -247,7 +260,7 @@ func (d *Dashboard) renderService(
 // what comes back is the whole truth as the owner last saw it, and an emptied
 // optional field means "clear it".
 func (d *Dashboard) updateService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	form := serviceFormFrom(r)
+	form := serviceFormFrom(r, false)
 	if n := form.validate(); n != nil {
 		svc, err := d.opts.Store.Services.ByID(r.Context(), r.PathValue("id"), p.UserID())
 		switch {

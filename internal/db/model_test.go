@@ -253,69 +253,14 @@ func TestValidPriority(t *testing.T) {
 			t.Errorf("ValidPriority(%q) = true", p)
 		}
 	}
-}
-
-func TestValidSafetyState(t *testing.T) {
-	for _, s := range SafetyStates {
-		if !ValidSafetyState(s) {
-			t.Errorf("ValidSafetyState(%q) = false", s)
+	for _, p := range CriticalPriorities {
+		if !ValidCriticalPriority(p) {
+			t.Errorf("ValidCriticalPriority(%q) = false", p)
 		}
 	}
-	for _, s := range []string{"", "cleared", "ACTIVE"} {
-		if ValidSafetyState(s) {
-			t.Errorf("ValidSafetyState(%q) = true", s)
-		}
-	}
-	// Setup tests use a session-only endpoint.
-	if slices.Contains(SafetyReportStates, SafetyStateTest) {
-		t.Error("SafetyReportStates offers the test state")
-	}
-	for _, s := range SafetyReportStates {
-		if !ValidSafetyState(s) {
-			t.Errorf("SafetyReportStates carries the unknown state %q", s)
-		}
-	}
-}
-
-func TestSafetyAlertContent(t *testing.T) {
-	const name = "Kitchen"
-
-	titles := map[string]string{}
-	for _, state := range SafetyStates {
-		title, body := SafetyAlertContent(name, state)
-		if title == "" || body == "" {
-			t.Fatalf("SafetyAlertContent(%q, %q) composed an empty alert", name, state)
-		}
-		if prev, ok := titles[title]; ok {
-			t.Errorf("states %q and %q share the title %q", prev, state, title)
-		}
-		titles[title] = state
-	}
-}
-
-func TestSafetyAlertPriority(t *testing.T) {
-	cases := []struct {
-		state                   string
-		userEnabled, srcEnabled bool
-		want                    string
-	}{
-		{SafetyStateActive, true, true, PriorityCritical},
-		{SafetyStateActive, true, false, PriorityTimeSensitive},
-		{SafetyStateActive, false, true, PriorityTimeSensitive},
-		{SafetyStateActive, false, false, PriorityTimeSensitive},
-		{SafetyStateTest, true, true, PriorityCritical},
-		{SafetyStateTest, true, false, PriorityTimeSensitive},
-		{SafetyStateTest, false, true, PriorityTimeSensitive},
-		{SafetyStateTest, false, false, PriorityTimeSensitive},
-		{SafetyStateResolved, true, true, PriorityNormal},
-		{SafetyStateResolved, true, false, PriorityNormal},
-		{SafetyStateResolved, false, true, PriorityNormal},
-		{SafetyStateResolved, false, false, PriorityNormal},
-	}
-	for _, tc := range cases {
-		if got := SafetyAlertPriority(tc.state, tc.userEnabled, tc.srcEnabled); got != tc.want {
-			t.Errorf("SafetyAlertPriority(%q, %v, %v) = %q, want %q",
-				tc.state, tc.userEnabled, tc.srcEnabled, got, tc.want)
+	for _, p := range []string{"", "urgent", "time-sensitive", "NORMAL"} {
+		if ValidCriticalPriority(p) {
+			t.Errorf("ValidCriticalPriority(%q) = true", p)
 		}
 	}
 }
@@ -364,7 +309,7 @@ func TestParseFeedID(t *testing.T) {
 	id := "0198f3a1-2b4c-7d8e-9f01-23456789abcd"
 	for _, source := range []string{
 		FeedSourceEvent, FeedSourceNotification, FeedSourceResponse,
-		FeedSourceLiveActivity, FeedSourceSafetyEvent,
+		FeedSourceLiveActivity,
 	} {
 		gotSource, gotID, ok := ParseFeedID(source + ":" + id)
 		if !ok || gotSource != source || gotID != id {

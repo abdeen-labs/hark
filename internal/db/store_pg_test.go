@@ -43,7 +43,7 @@ var (
 const allTables = `users, sessions, services, devices, api_tokens,
 	device_authorization_requests, events, agent_notifications, interactions,
 	live_activities, live_activity_deliveries, live_activity_operations,
-	live_activity_delivery_attempts, safety_sources, safety_events`
+	live_activity_delivery_attempts`
 
 // requireStore returns a Store against a freshly emptied schema.
 func requireStore(t *testing.T) (context.Context, *Store) {
@@ -109,6 +109,19 @@ func mustService(ctx context.Context, t *testing.T, s *Store, userID, title stri
 	})
 	if err != nil {
 		t.Fatalf("create service: %v", err)
+	}
+	return svc
+}
+
+func mustCriticalService(ctx context.Context, t *testing.T, s *Store, userID, title string) *Service {
+	t.Helper()
+	svc, err := s.Services.Create(ctx, CreateServiceParams{
+		ID: id.New(), UserID: userID, Title: title, Priority: PriorityNormal,
+		CriticalCapable: true, CriticalEnabled: true,
+		TokenHash: id.New(), TokenCiphertext: "v1.iv.tag.ct", Now: time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("create critical service: %v", err)
 	}
 	return svc
 }
@@ -1838,7 +1851,7 @@ type filteredFeed struct {
 	notification string
 	response     string
 	operation    string
-	safety       string
+	critical     string
 
 	uptime *Service
 	token  *APIToken
@@ -1849,7 +1862,7 @@ func seedFilteredFeed(ctx context.Context, t *testing.T, s *Store, userID string
 	deploy := mustService(ctx, t, s, userID, "Deploy bot")
 	uptime := mustService(ctx, t, s, userID, "Uptime")
 	tok := mustToken(ctx, t, s, userID)
-	src := mustSafetySource(ctx, t, s, userID, "Bedroom")
+	criticalSvc := mustCriticalService(ctx, t, s, userID, "Bedroom")
 	device := mustDevice(ctx, t, s, userID, "aaaa")
 	base := time.Now().Add(-time.Hour)
 
@@ -1897,11 +1910,9 @@ func seedFilteredFeed(ctx context.Context, t *testing.T, s *Store, userID string
 	if err != nil {
 		t.Fatal(err)
 	}
-	title, body := SafetyAlertContent(src.Name, SafetyStateActive)
-	safety, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
-		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
-		Title: title, Body: body, Priority: PriorityCritical, Status: EventAccepted,
-		Now: base.Add(6 * time.Minute),
+	critical, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: criticalSvc.ID, Title: "Bedroom", Body: "Attention needed.",
+		Priority: PriorityCritical, Status: EventAccepted, Now: base.Add(6 * time.Minute),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1913,7 +1924,7 @@ func seedFilteredFeed(ctx context.Context, t *testing.T, s *Store, userID string
 		notification: FeedSourceNotification + ":" + notification.ID,
 		response:     FeedSourceResponse + ":" + interaction.ID,
 		operation:    FeedSourceLiveActivity + ":" + started.Operation.ID,
-		safety:       FeedSourceSafetyEvent + ":" + safety.ID,
+		critical:     FeedSourceEvent + ":" + critical.ID,
 		uptime:       uptime,
 		token:        tok,
 	}
@@ -1943,21 +1954,21 @@ func TestFeedSourceAndPriorityFilters(t *testing.T) {
 		want    []string
 	}{
 		{"no filters", FeedFilters{}, []string{
-			feed.safety, feed.operation, feed.response,
+			feed.critical, feed.operation, feed.response,
 			feed.notification, feed.uptimeEvent, feed.deployEvent,
 		}},
 		{"source", FeedFilters{Source: "Deploy bot"}, []string{feed.response, feed.deployEvent}},
 		{"source and kind", FeedFilters{Kind: FeedFilterNotification, Source: "Deploy bot"},
 			[]string{feed.deployEvent}},
 		{"token source", FeedFilters{Source: "harkctl"}, []string{feed.operation, feed.notification}},
-		{"safety source", FeedFilters{Source: "Bedroom"}, []string{feed.safety}},
+		{"critical service", FeedFilters{Source: "Bedroom"}, []string{feed.critical}},
 		{"source match is exact", FeedFilters{Source: "deploy bot"}, []string{}},
 		{"unknown source", FeedFilters{Source: "Nobody"}, []string{}},
 		{"priority normal", FeedFilters{Priority: PriorityNormal},
 			[]string{feed.notification, feed.deployEvent}},
 		{"priority time_sensitive", FeedFilters{Priority: PriorityTimeSensitive},
 			[]string{feed.uptimeEvent}},
-		{"priority critical", FeedFilters{Priority: PriorityCritical}, []string{feed.safety}},
+		{"priority critical", FeedFilters{Priority: PriorityCritical}, []string{feed.critical}},
 		{"source and priority", FeedFilters{Source: "harkctl", Priority: PriorityNormal},
 			[]string{feed.notification}},
 		{"kind and priority", FeedFilters{Kind: FeedFilterResponse, Priority: PriorityNormal},
@@ -1987,7 +1998,7 @@ func TestFeedSources(t *testing.T) {
 	mustService(ctx, t, s, user.ID, "Idle")
 	zed := mustService(ctx, t, s, user.ID, "Zed")
 	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, "Bedroom")
+	criticalSvc := mustCriticalService(ctx, t, s, user.ID, "Bedroom")
 	now := time.Now()
 
 	for i := range 2 {
@@ -2010,10 +2021,9 @@ func TestFeedSources(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	title, body := SafetyAlertContent(src.Name, SafetyStateActive)
-	if _, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
-		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
-		Title: title, Body: body, Priority: PriorityCritical, Status: EventAccepted, Now: now,
+	if _, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: criticalSvc.ID, Title: "Bedroom", Body: "Attention needed.",
+		Priority: PriorityCritical, Status: EventAccepted, Now: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -2131,21 +2141,21 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Fatalf("DeleteAll(response): %v", err)
 	}
 	if got, want := remaining(), sorted(feed.deployEvent, feed.uptimeEvent, askedFeedID,
-		feed.notification, feed.operation, feed.safety); !slices.Equal(got, want) {
+		feed.notification, feed.operation, feed.critical); !slices.Equal(got, want) {
 		t.Fatalf("after deleting responses = %v, want %v", got, want)
 	}
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Source: "Deploy bot"}); err != nil {
 		t.Fatalf("DeleteAll(Deploy bot): %v", err)
 	}
 	if got, want := remaining(), sorted(feed.uptimeEvent, askedFeedID,
-		feed.notification, feed.operation, feed.safety); !slices.Equal(got, want) {
+		feed.notification, feed.operation, feed.critical); !slices.Equal(got, want) {
 		t.Fatalf("after deleting the Deploy bot slice = %v, want %v", got, want)
 	}
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityTimeSensitive}); err != nil {
 		t.Fatalf("DeleteAll(time_sensitive): %v", err)
 	}
 	if got, want := remaining(), sorted(askedFeedID,
-		feed.notification, feed.operation, feed.safety); !slices.Equal(got, want) {
+		feed.notification, feed.operation, feed.critical); !slices.Equal(got, want) {
 		t.Fatalf("after deleting time_sensitive = %v, want %v", got, want)
 	}
 	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityCritical}); err != nil {
@@ -2566,22 +2576,11 @@ func TestRemainingMutations(t *testing.T) {
 	}
 }
 
-func mustSafetySource(ctx context.Context, t *testing.T, s *Store, userID, name string) *SafetySource {
-	t.Helper()
-	src, err := s.SafetySources.Create(ctx, CreateSafetySourceParams{
-		ID: id.New(), UserID: userID, Name: name, CriticalEnabled: true, Now: time.Now(),
-	})
-	if err != nil {
-		t.Fatalf("create safety source: %v", err)
-	}
-	return src
-}
-
-func TestSafetySourceLifecycle(t *testing.T) {
+func TestCriticalServiceLifecycle(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
 
-	// Account and source settings start enabled and can be changed independently.
+	// Account and service settings start enabled and can be changed independently.
 	if !user.CriticalAlertsEnabled {
 		t.Error("a fresh account should have critical alerts enabled")
 	}
@@ -2595,227 +2594,97 @@ func TestSafetySourceLifecycle(t *testing.T) {
 		t.Errorf("toggling an unknown user = %v, want ErrNotFound", err)
 	}
 
-	source := mustSafetySource(ctx, t, s, user.ID, "Home Assistant")
+	source := mustCriticalService(ctx, t, s, user.ID, "Home Assistant")
 	if !source.CriticalEnabled {
 		t.Errorf("fresh critical service = %+v, want critical delivery enabled", source)
 	}
-	source, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: source.ID, UserID: user.ID, CriticalEnabled: Value(false), Now: time.Now(),
+	source, err := s.Services.Update(ctx, UpdateServiceParams{
+		ID: source.ID, UserID: user.ID, CriticalCapable: true,
+		CriticalEnabled: Value(false), Now: time.Now(),
 	})
 	if err != nil || source.CriticalEnabled {
 		t.Errorf("disabling a critical service = (%+v, %v), want success", source, err)
 	}
 
-	src := mustSafetySource(ctx, t, s, user.ID, "Kitchen")
+	svc := mustCriticalService(ctx, t, s, user.ID, "Kitchen")
 
-	if got, err := s.SafetySources.ByID(ctx, src.ID, user.ID); err != nil || got.ID != src.ID {
-		t.Fatalf("ByID = (%v, %v)", got, err)
+	if got, err := s.Services.CriticalByID(ctx, svc.ID, user.ID); err != nil || got.ID != svc.ID {
+		t.Fatalf("CriticalByID = (%v, %v)", got, err)
 	}
-	if _, err := s.SafetySources.ByID(ctx, src.ID, id.New()); !errors.Is(err, ErrNotFound) {
+	if _, err := s.Services.CriticalByID(ctx, svc.ID, id.New()); !errors.Is(err, ErrNotFound) {
 		t.Errorf("cross-account read error = %v, want ErrNotFound", err)
 	}
-	if got, err := s.SafetySources.ByIDForUpdate(ctx, src.ID, user.ID); err != nil || got.ID != src.ID {
-		t.Fatalf("ByIDForUpdate = (%v, %v)", got, err)
+	if _, err := s.Services.ByID(ctx, svc.ID, user.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("critical service leaked into regular lookup: %v", err)
 	}
 
-	second := mustSafetySource(ctx, t, s, user.ID, "Basement")
-	listed, err := s.SafetySources.ListForUser(ctx, user.ID)
+	second := mustCriticalService(ctx, t, s, user.ID, "Basement")
+	listed, err := s.Services.ListCriticalForUser(ctx, user.ID)
 	if err != nil || len(listed) != 3 {
 		t.Fatalf("ListForUser = (%d, %v), want 3", len(listed), err)
 	}
 
 	// Partial updates leave unset fields unchanged.
-	updated, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: src.ID, UserID: user.ID, ImageURL: Value(ptr("https://example.com/kitchen.png")),
-		URL: Value(ptr("hark-test://kitchen")), CriticalEnabled: Value(true), Now: time.Now(),
+	updated, err := s.Services.Update(ctx, UpdateServiceParams{
+		ID: svc.ID, UserID: user.ID, CriticalCapable: true,
+		ImageURL: Value(ptr("https://example.com/kitchen.png")),
+		URL:      Value(ptr("hark-test://kitchen")), CriticalEnabled: Value(true), Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("update source: %v", err)
 	}
-	if !updated.CriticalEnabled || updated.Name != "Kitchen" || updated.ImageURL == nil || updated.URL == nil {
+	if !updated.CriticalEnabled || updated.Title != "Kitchen" || updated.ImageURL == nil || updated.URL == nil {
 		t.Errorf("updated = %+v, want service defaults and the toggle saved", updated)
 	}
-	if !updated.UpdatedAt.After(src.UpdatedAt) {
+	if !updated.UpdatedAt.After(svc.UpdatedAt) {
 		t.Error("UpdatedAt was not bumped")
 	}
-	renamed, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: src.ID, UserID: user.ID, Name: Value("Hallway"), Now: time.Now(),
+	renamed, err := s.Services.Update(ctx, UpdateServiceParams{
+		ID: svc.ID, UserID: user.ID, CriticalCapable: true,
+		Title: Value("Hallway"), Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("rename source: %v", err)
 	}
-	if renamed.Name != "Hallway" || !renamed.CriticalEnabled {
+	if renamed.Title != "Hallway" || !renamed.CriticalEnabled {
 		t.Errorf("renamed = %+v, want the name changed and the toggle untouched", renamed)
 	}
-	if _, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: src.ID, UserID: id.New(), Name: Value("hijacked"), Now: time.Now(),
+	if _, err := s.Services.Update(ctx, UpdateServiceParams{
+		ID: svc.ID, UserID: id.New(), CriticalCapable: true,
+		Title: Value("hijacked"), Now: time.Now(),
 	}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("update scoped to another owner error = %v, want ErrNotFound", err)
 	}
 
-	deleted, err := s.SafetySources.Delete(ctx, second.ID, user.ID)
+	deleted, err := s.Services.DeleteCritical(ctx, second.ID, user.ID)
 	if err != nil || !deleted {
 		t.Fatalf("Delete = (%v, %v)", deleted, err)
 	}
-	if deleted, err := s.SafetySources.Delete(ctx, second.ID, user.ID); err != nil || deleted {
+	if deleted, err := s.Services.DeleteCritical(ctx, second.ID, user.ID); err != nil || deleted {
 		t.Fatalf("re-deleting = (%v, %v), want (false, nil)", deleted, err)
 	}
 }
 
-func TestSafetyEventWindowsAndCounts(t *testing.T) {
+func TestCriticalServiceDeleteCascades(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
-	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, "Kitchen")
+	svc := mustCriticalService(ctx, t, s, user.ID, "Front door")
 	now := time.Now()
 
-	create := func(state, status string, tokenID *string, key *string, at time.Time) *SafetyEvent {
-		t.Helper()
-		title, body := SafetyAlertContent(src.Name, state)
-		e, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
-			ID: id.New(), SourceID: src.ID, RequesterTokenID: tokenID, State: state,
-			Title: title, Body: body, Priority: PriorityTimeSensitive, Status: status,
-			IdempotencyKey: key, RequestHash: key, Now: at,
-		})
-		if err != nil {
-			t.Fatalf("create safety event (%s/%s): %v", state, status, err)
-		}
-		return e
-	}
-
-	first := create(SafetyStateActive, EventProcessing, &tok.ID, ptr("alert-1"), now.Add(-4*time.Minute))
-	create(SafetyStateActive, SafetyCoalesced, &tok.ID, nil, now.Add(-3*time.Minute))
-	create(SafetyStateResolved, EventAccepted, &tok.ID, nil, now.Add(-2*time.Minute))
-	create(SafetyStateActive, SafetyRateLimited, &tok.ID, nil, now.Add(-time.Minute))
-	// Session tests have no requester token.
-	create(SafetyStateTest, EventAccepted, nil, nil, now.Add(-30*time.Second))
-
-	// Idempotency keys are scoped by token.
-	_, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
-		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
-		Title: "t", Body: "b", Priority: PriorityTimeSensitive, Status: EventProcessing,
-		IdempotencyKey: ptr("alert-1"), RequestHash: ptr("alert-1"), Now: now,
-	})
-	if !IsUniqueViolation(err, "safety_events_token_idempotency_key") {
-		t.Fatalf("duplicate key error = %v, want a violation of safety_events_token_idempotency_key", err)
-	}
-	replay, err := s.SafetyEvents.ByIdempotencyKey(ctx, tok.ID, "alert-1")
-	if err != nil || replay.ID != first.ID {
-		t.Fatalf("ByIdempotencyKey = (%v, %v)", replay, err)
-	}
-
-	// Suppressed rows do not count as pushes.
-	if n, err := s.SafetyEvents.CountPushedForSourceSince(ctx, src.ID, now.Add(-time.Hour)); err != nil || n != 3 {
-		t.Fatalf("CountPushedForSourceSince = (%d, %v), want (3, nil)", n, err)
-	}
-	if n, err := s.SafetyEvents.CountPushedForSourceStateSince(ctx, src.ID, SafetyStateActive, now.Add(-time.Hour)); err != nil || n != 1 {
-		t.Fatalf("CountPushedForSourceStateSince(active) = (%d, %v), want (1, nil)", n, err)
-	}
-	if n, err := s.SafetyEvents.CountPushedForSourceStateSince(ctx, src.ID, SafetyStateTest, now.Add(-time.Hour)); err != nil || n != 1 {
-		t.Fatalf("CountPushedForSourceStateSince(test) = (%d, %v), want (1, nil)", n, err)
-	}
-	// A row before the window is excluded.
-	if n, err := s.SafetyEvents.CountPushedForSourceStateSince(ctx, src.ID, SafetyStateActive, now.Add(-3*time.Minute)); err != nil || n != 0 {
-		t.Fatalf("CountPushedForSourceStateSince inside the window = (%d, %v), want (0, nil)", n, err)
-	}
-
-	// Token counts exclude session tests.
-	if n, err := s.SafetyEvents.CountForTokenSince(ctx, tok.ID, now.Add(-time.Hour)); err != nil || n != 4 {
-		t.Fatalf("CountForTokenSince = (%d, %v), want (4, nil)", n, err)
-	}
-	if n, err := s.SafetyEvents.CountForUserSince(ctx, user.ID, now.Add(-time.Hour)); err != nil || n != 5 {
-		t.Fatalf("CountForUserSince = (%d, %v), want (5, nil)", n, err)
-	}
-	if n, err := s.SafetyEvents.CountForUserSince(ctx, user.ID, now.Add(time.Minute)); err != nil || n != 0 {
-		t.Fatalf("CountForUserSince outside the window = (%d, %v), want (0, nil)", n, err)
-	}
-
-	settled, err := s.SafetyEvents.Settle(ctx, first.ID, EventPartial, 1, ptr("BadDeviceToken"))
-	if err != nil {
-		t.Fatalf("settle: %v", err)
-	}
-	if settled.Status != EventPartial || settled.DeliveredCount != 1 || *settled.Error != "BadDeviceToken" {
-		t.Errorf("settled = %+v", settled)
-	}
-}
-
-func TestSafetyEventsInTheFeed(t *testing.T) {
-	ctx, s := requireStore(t)
-	user := mustUser(ctx, t, s, "ali")
-	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, "Bedroom")
-	now := time.Now()
-
-	title, body := SafetyAlertContent(src.Name, SafetyStateActive)
-	event, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
-		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
-		Title: title, Body: body, Priority: PriorityCritical, Status: EventProcessing, Now: now,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.SafetyEvents.Settle(ctx, event.ID, EventAccepted, 1, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	all, err := s.Feed.List(ctx, user.ID, FeedFilterAll, Cursor{}, 50)
-	if err != nil || len(all.Items) != 1 {
-		t.Fatalf("feed = (%d items, %v), want the safety event", len(all.Items), err)
-	}
-	item := all.Items[0]
-	if item.ID != FeedSourceSafetyEvent+":"+event.ID || item.Kind != FeedKindNotification {
-		t.Fatalf("item = %+v, want a notification-kind safety row", item)
-	}
-	if item.SourceName != src.Name || item.Title != event.Title {
-		t.Errorf("item = %+v, want the source's name and the composed title", item)
-	}
-	if item.Priority == nil || *item.Priority != PriorityCritical ||
-		item.Status == nil || *item.Status != EventAccepted ||
-		item.DeliveredCount == nil || *item.DeliveredCount != 1 {
-		t.Errorf("item = %+v, want the delivery fields passed through", item)
-	}
-
-	// Safety events use the notification filter.
-	if page, err := s.Feed.List(ctx, user.ID, FeedFilterNotification, Cursor{}, 50); err != nil || len(page.Items) != 1 {
-		t.Fatalf("notification filter = (%d items, %v), want 1", len(page.Items), err)
-	}
-	if page, err := s.Feed.List(ctx, user.ID, FeedFilterResponse, Cursor{}, 50); err != nil || len(page.Items) != 0 {
-		t.Fatalf("response filter = (%d items, %v), want none", len(page.Items), err)
-	}
-
-	// Composite ids delete only owner-visible rows.
-	stranger := mustUser(ctx, t, s, "sam")
-	if deleted, err := s.Feed.Delete(ctx, stranger.ID, FeedSourceSafetyEvent+":"+event.ID); err != nil || deleted {
-		t.Errorf("cross-account delete = (%v, %v), want (false, nil)", deleted, err)
-	}
-	if deleted, err := s.Feed.Delete(ctx, user.ID, FeedSourceSafetyEvent+":"+event.ID); err != nil || !deleted {
-		t.Fatalf("Delete = (%v, %v)", deleted, err)
-	}
-	if remaining, err := s.Feed.List(ctx, user.ID, FeedFilterAll, Cursor{}, 50); err != nil || len(remaining.Items) != 0 {
-		t.Fatalf("feed after the delete = (%d items, %v), want none", len(remaining.Items), err)
-	}
-}
-
-func TestSafetySourceDeleteCascades(t *testing.T) {
-	ctx, s := requireStore(t)
-	user := mustUser(ctx, t, s, "ali")
-	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, "Front door")
-	now := time.Now()
-
-	if _, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
-		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
-		Title: "t", Body: "b", Priority: PriorityTimeSensitive, Status: EventAccepted,
+	event, err := s.Events.Create(ctx, CreateEventParams{
+		ID: id.New(), ServiceID: svc.ID, Title: "t", Body: "b",
+		Priority: PriorityCritical, Status: EventAccepted,
 		IdempotencyKey: ptr("alert-1"), RequestHash: ptr("hash"), Now: now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	deleted, err := s.SafetySources.Delete(ctx, src.ID, user.ID)
+	deleted, err := s.Services.DeleteCritical(ctx, svc.ID, user.ID)
 	if err != nil || !deleted {
 		t.Fatalf("Delete = (%v, %v)", deleted, err)
 	}
-	if _, err := s.SafetyEvents.ByIdempotencyKey(ctx, tok.ID, "alert-1"); !errors.Is(err, ErrNotFound) {
-		t.Errorf("the source's events survived the delete: %v", err)
+	if _, err := s.Events.ByID(ctx, event.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the critical service's events survived the delete: %v", err)
 	}
 }

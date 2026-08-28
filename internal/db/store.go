@@ -48,8 +48,6 @@ type Store struct {
 	Deliveries    *Deliveries
 	Operations    *Operations
 	Attempts      *Attempts
-	SafetySources *SafetySources
-	SafetyEvents  *SafetyEvents
 	Feed          *Feed
 }
 
@@ -74,8 +72,6 @@ func newStore(q Querier) *Store {
 		Interactions:  &Interactions{q},
 		Operations:    &Operations{q},
 		Attempts:      &Attempts{q},
-		SafetySources: &SafetySources{q},
-		SafetyEvents:  &SafetyEvents{q},
 	}
 	// The stores whose operations span more than one table keep a handle on
 	// the owning Store. Reaching back is what lets Activities.Start behave
