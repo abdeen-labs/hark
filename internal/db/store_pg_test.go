@@ -1849,7 +1849,7 @@ func seedFilteredFeed(ctx context.Context, t *testing.T, s *Store, userID string
 	deploy := mustService(ctx, t, s, userID, "Deploy bot")
 	uptime := mustService(ctx, t, s, userID, "Uptime")
 	tok := mustToken(ctx, t, s, userID)
-	src := mustSafetySource(ctx, t, s, userID, SafetyKindCarbonMonoxide, "Bedroom")
+	src := mustSafetySource(ctx, t, s, userID, "Bedroom")
 	device := mustDevice(ctx, t, s, userID, "aaaa")
 	base := time.Now().Add(-time.Hour)
 
@@ -1897,7 +1897,7 @@ func seedFilteredFeed(ctx context.Context, t *testing.T, s *Store, userID string
 	if err != nil {
 		t.Fatal(err)
 	}
-	title, body := SafetyAlertContent(SafetyKindCarbonMonoxide, src.Name, SafetyStateActive)
+	title, body := SafetyAlertContent(src.Name, SafetyStateActive)
 	safety, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
 		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
 		Title: title, Body: body, Priority: PriorityCritical, Status: EventAccepted,
@@ -1987,7 +1987,7 @@ func TestFeedSources(t *testing.T) {
 	mustService(ctx, t, s, user.ID, "Idle")
 	zed := mustService(ctx, t, s, user.ID, "Zed")
 	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindSmoke, "Bedroom")
+	src := mustSafetySource(ctx, t, s, user.ID, "Bedroom")
 	now := time.Now()
 
 	for i := range 2 {
@@ -2010,7 +2010,7 @@ func TestFeedSources(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	title, body := SafetyAlertContent(src.Kind, src.Name, SafetyStateActive)
+	title, body := SafetyAlertContent(src.Name, SafetyStateActive)
 	if _, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
 		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
 		Title: title, Body: body, Priority: PriorityCritical, Status: EventAccepted, Now: now,
@@ -2566,21 +2566,13 @@ func TestRemainingMutations(t *testing.T) {
 	}
 }
 
-func mustSafetySource(ctx context.Context, t *testing.T, s *Store, userID, kind, name string) *SafetySource {
+func mustSafetySource(ctx context.Context, t *testing.T, s *Store, userID, name string) *SafetySource {
 	t.Helper()
 	src, err := s.SafetySources.Create(ctx, CreateSafetySourceParams{
-		ID: id.New(), UserID: userID, Name: name, Now: time.Now(),
+		ID: id.New(), UserID: userID, Name: name, CriticalEnabled: true, Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("create safety source: %v", err)
-	}
-	if kind != "" && kind != SafetyKindGeneral {
-		src, err = s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-			ID: src.ID, UserID: userID, Kind: Value(kind), Now: time.Now(),
-		})
-		if err != nil {
-			t.Fatalf("classify safety source: %v", err)
-		}
 	}
 	return src
 }
@@ -2589,7 +2581,7 @@ func TestSafetySourceLifecycle(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
 
-	// Account and source settings have different defaults.
+	// Account and source settings start enabled and can be changed independently.
 	if !user.CriticalAlertsEnabled {
 		t.Error("a fresh account should have critical alerts enabled")
 	}
@@ -2603,27 +2595,18 @@ func TestSafetySourceLifecycle(t *testing.T) {
 		t.Errorf("toggling an unknown user = %v, want ErrNotFound", err)
 	}
 
-	general := mustSafetySource(ctx, t, s, user.ID, "", "Home Assistant")
-	if general.Kind != SafetyKindGeneral || general.CriticalEnabled {
-		t.Errorf("fresh source = %+v, want a general source with critical delivery off", general)
+	source := mustSafetySource(ctx, t, s, user.ID, "Home Assistant")
+	if !source.CriticalEnabled {
+		t.Errorf("fresh critical service = %+v, want critical delivery enabled", source)
 	}
-	if _, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: general.ID, UserID: user.ID, CriticalEnabled: Value(true), Now: time.Now(),
-	}); !IsCheckViolation(err) {
-		t.Errorf("enabling a general source error = %v, want a CHECK violation", err)
-	}
-
-	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindSmoke, "Kitchen")
-	if src.CriticalEnabled {
-		t.Error("a fresh source was born with critical delivery enabled")
+	source, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
+		ID: source.ID, UserID: user.ID, CriticalEnabled: Value(false), Now: time.Now(),
+	})
+	if err != nil || source.CriticalEnabled {
+		t.Errorf("disabling a critical service = (%+v, %v), want success", source, err)
 	}
 
-	// The database also enforces the kind allowlist.
-	if _, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: general.ID, UserID: user.ID, Kind: Value("fire"), Now: time.Now(),
-	}); !IsCheckViolation(err) {
-		t.Errorf("classifying a source with an invented kind error = %v, want a CHECK violation", err)
-	}
+	src := mustSafetySource(ctx, t, s, user.ID, "Kitchen")
 
 	if got, err := s.SafetySources.ByID(ctx, src.ID, user.ID); err != nil || got.ID != src.ID {
 		t.Fatalf("ByID = (%v, %v)", got, err)
@@ -2635,7 +2618,7 @@ func TestSafetySourceLifecycle(t *testing.T) {
 		t.Fatalf("ByIDForUpdate = (%v, %v)", got, err)
 	}
 
-	second := mustSafetySource(ctx, t, s, user.ID, SafetyKindWaterLeak, "Basement")
+	second := mustSafetySource(ctx, t, s, user.ID, "Basement")
 	listed, err := s.SafetySources.ListForUser(ctx, user.ID)
 	if err != nil || len(listed) != 3 {
 		t.Fatalf("ListForUser = (%d, %v), want 3", len(listed), err)
@@ -2643,13 +2626,14 @@ func TestSafetySourceLifecycle(t *testing.T) {
 
 	// Partial updates leave unset fields unchanged.
 	updated, err := s.SafetySources.Update(ctx, UpdateSafetySourceParams{
-		ID: src.ID, UserID: user.ID, CriticalEnabled: Value(true), Now: time.Now(),
+		ID: src.ID, UserID: user.ID, ImageURL: Value(ptr("https://example.com/kitchen.png")),
+		URL: Value(ptr("hark-test://kitchen")), CriticalEnabled: Value(true), Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("update source: %v", err)
 	}
-	if !updated.CriticalEnabled || updated.Name != "Kitchen" {
-		t.Errorf("updated = %+v, want the toggle flipped and the name untouched", updated)
+	if !updated.CriticalEnabled || updated.Name != "Kitchen" || updated.ImageURL == nil || updated.URL == nil {
+		t.Errorf("updated = %+v, want service defaults and the toggle saved", updated)
 	}
 	if !updated.UpdatedAt.After(src.UpdatedAt) {
 		t.Error("UpdatedAt was not bumped")
@@ -2682,12 +2666,12 @@ func TestSafetyEventWindowsAndCounts(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
 	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindSmoke, "Kitchen")
+	src := mustSafetySource(ctx, t, s, user.ID, "Kitchen")
 	now := time.Now()
 
 	create := func(state, status string, tokenID *string, key *string, at time.Time) *SafetyEvent {
 		t.Helper()
-		title, body := SafetyAlertContent(src.Kind, src.Name, state)
+		title, body := SafetyAlertContent(src.Name, state)
 		e, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
 			ID: id.New(), SourceID: src.ID, RequesterTokenID: tokenID, State: state,
 			Title: title, Body: body, Priority: PriorityTimeSensitive, Status: status,
@@ -2699,7 +2683,7 @@ func TestSafetyEventWindowsAndCounts(t *testing.T) {
 		return e
 	}
 
-	first := create(SafetyStateActive, EventProcessing, &tok.ID, ptr("alarm-1"), now.Add(-4*time.Minute))
+	first := create(SafetyStateActive, EventProcessing, &tok.ID, ptr("alert-1"), now.Add(-4*time.Minute))
 	create(SafetyStateActive, SafetyCoalesced, &tok.ID, nil, now.Add(-3*time.Minute))
 	create(SafetyStateResolved, EventAccepted, &tok.ID, nil, now.Add(-2*time.Minute))
 	create(SafetyStateActive, SafetyRateLimited, &tok.ID, nil, now.Add(-time.Minute))
@@ -2710,12 +2694,12 @@ func TestSafetyEventWindowsAndCounts(t *testing.T) {
 	_, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
 		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
 		Title: "t", Body: "b", Priority: PriorityTimeSensitive, Status: EventProcessing,
-		IdempotencyKey: ptr("alarm-1"), RequestHash: ptr("alarm-1"), Now: now,
+		IdempotencyKey: ptr("alert-1"), RequestHash: ptr("alert-1"), Now: now,
 	})
 	if !IsUniqueViolation(err, "safety_events_token_idempotency_key") {
 		t.Fatalf("duplicate key error = %v, want a violation of safety_events_token_idempotency_key", err)
 	}
-	replay, err := s.SafetyEvents.ByIdempotencyKey(ctx, tok.ID, "alarm-1")
+	replay, err := s.SafetyEvents.ByIdempotencyKey(ctx, tok.ID, "alert-1")
 	if err != nil || replay.ID != first.ID {
 		t.Fatalf("ByIdempotencyKey = (%v, %v)", replay, err)
 	}
@@ -2759,10 +2743,10 @@ func TestSafetyEventsInTheFeed(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
 	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindCarbonMonoxide, "Bedroom")
+	src := mustSafetySource(ctx, t, s, user.ID, "Bedroom")
 	now := time.Now()
 
-	title, body := SafetyAlertContent(src.Kind, src.Name, SafetyStateActive)
+	title, body := SafetyAlertContent(src.Name, SafetyStateActive)
 	event, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
 		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
 		Title: title, Body: body, Priority: PriorityCritical, Status: EventProcessing, Now: now,
@@ -2816,13 +2800,13 @@ func TestSafetySourceDeleteCascades(t *testing.T) {
 	ctx, s := requireStore(t)
 	user := mustUser(ctx, t, s, "ali")
 	tok := mustToken(ctx, t, s, user.ID)
-	src := mustSafetySource(ctx, t, s, user.ID, SafetyKindIntrusion, "Front door")
+	src := mustSafetySource(ctx, t, s, user.ID, "Front door")
 	now := time.Now()
 
 	if _, err := s.SafetyEvents.Create(ctx, CreateSafetyEventParams{
 		ID: id.New(), SourceID: src.ID, RequesterTokenID: &tok.ID, State: SafetyStateActive,
 		Title: "t", Body: "b", Priority: PriorityTimeSensitive, Status: EventAccepted,
-		IdempotencyKey: ptr("alarm-1"), RequestHash: ptr("hash"), Now: now,
+		IdempotencyKey: ptr("alert-1"), RequestHash: ptr("hash"), Now: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -2831,7 +2815,7 @@ func TestSafetySourceDeleteCascades(t *testing.T) {
 	if err != nil || !deleted {
 		t.Fatalf("Delete = (%v, %v)", deleted, err)
 	}
-	if _, err := s.SafetyEvents.ByIdempotencyKey(ctx, tok.ID, "alarm-1"); !errors.Is(err, ErrNotFound) {
+	if _, err := s.SafetyEvents.ByIdempotencyKey(ctx, tok.ID, "alert-1"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("the source's events survived the delete: %v", err)
 	}
 }

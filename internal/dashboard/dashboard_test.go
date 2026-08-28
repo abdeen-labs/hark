@@ -667,23 +667,23 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 		"safety": {tmplSafety, safetyPage{
 			view:                  frame,
 			CriticalAlertsEnabled: true,
-			Kinds:                 db.CriticalSafetyKinds,
-			Form:                  safetyForm{Name: "<script>alert(1)</script>"},
+			Form: safetyForm{
+				Name: "<script>alert(1)</script>", ImageURL: "https://example.com/logo.png",
+				URL: "hark-test://home", CriticalEnabled: true,
+			},
 			Sources: []db.SafetySource{
 				{
-					ID: "safe-1", Kind: db.SafetyKindSmoke, Name: "<script>alert(1)</script>",
+					ID: "safe-1", Name: "<script>alert(1)</script>",
+					ImageURL: ptr("https://example.com/logo.png"), URL: ptr("hark-test://home"),
 					CriticalEnabled: true, CreatedAt: now, UpdatedAt: now,
 				},
 				{
-					ID: "safe-2", Kind: db.SafetyKindGeneral, Name: "Home Assistant",
+					ID: "safe-2", Name: "Home Assistant",
 					CriticalEnabled: false, CreatedAt: now, UpdatedAt: now,
 				},
 			},
 		}},
-		"safety/empty": {tmplSafety, safetyPage{
-			view:  frame,
-			Kinds: db.CriticalSafetyKinds,
-		}},
+		"safety/empty": {tmplSafety, safetyPage{view: frame}},
 		"test": {tmplTest, testPage{
 			view:       frame,
 			Devices:    []db.Device{{ID: "dev-1", Name: ptr("iPhone"), Active: true}, {ID: "dev-2"}},

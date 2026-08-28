@@ -2,17 +2,11 @@
 //  SafetyPermission.swift
 //  Hark
 //
-//  Critical Alert permission and safety-source display helpers.
+//  Critical Alert permission and setup-test display helpers.
 //
 
 import Foundation
 import UserNotifications
-
-nonisolated enum SafetyCriticalSupport {
-    /// True only in builds signed with the
-    /// com.apple.developer.usernotifications.critical-alerts entitlement.
-    static let entitlementGranted = false
-}
 
 nonisolated enum CriticalAlertState {
     case unknown
@@ -27,8 +21,7 @@ nonisolated enum CriticalAlertState {
     static func classify(
         authorizationStatus: UNAuthorizationStatus,
         criticalSetting: UNNotificationSetting,
-        requestedBefore: Bool,
-        entitlementGranted: Bool
+        requestedBefore: Bool
     ) -> CriticalAlertState {
         switch authorizationStatus {
         case .denied:
@@ -46,30 +39,9 @@ nonisolated enum CriticalAlertState {
         case .disabled:
             return .criticalDenied
         case .notSupported:
-            if !requestedBefore { return .notRequested }
-            return entitlementGranted ? .notRequested : .unavailable
+            return requestedBefore ? .unavailable : .notRequested
         @unknown default:
             return .unknown
-        }
-    }
-}
-
-nonisolated enum SafetyKindDisplay {
-    static let all = ["smoke", "carbon_monoxide", "panic", "intrusion", "water_leak"]
-
-    static func allowsCritical(_ kind: String) -> Bool {
-        all.contains(kind)
-    }
-
-    static func label(_ kind: String) -> String {
-        switch kind {
-        case "general": "General"
-        case "smoke": "Smoke"
-        case "carbon_monoxide": "Carbon monoxide"
-        case "panic": "Panic"
-        case "intrusion": "Intrusion"
-        case "water_leak": "Water leak"
-        default: kind.replacingOccurrences(of: "_", with: " ")
         }
     }
 }

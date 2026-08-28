@@ -29,8 +29,9 @@ const (
 // safetySourceDTO is a configured alert source.
 type safetySourceDTO struct {
 	ID              string    `json:"id"`
-	Kind            string    `json:"kind"`
 	Name            string    `json:"name"`
+	ImageURL        *string   `json:"image_url"`
+	URL             *string   `json:"url"`
 	CriticalEnabled bool      `json:"critical_enabled"`
 	CreatedAt       Timestamp `json:"created_at"`
 	UpdatedAt       Timestamp `json:"updated_at"`
@@ -39,8 +40,9 @@ type safetySourceDTO struct {
 func newSafetySourceDTO(src db.SafetySource) safetySourceDTO {
 	return safetySourceDTO{
 		ID:              src.ID,
-		Kind:            src.Kind,
 		Name:            src.Name,
+		ImageURL:        src.ImageURL,
+		URL:             src.URL,
 		CriticalEnabled: src.CriticalEnabled,
 		CreatedAt:       Timestamp(src.CreatedAt),
 		UpdatedAt:       Timestamp(src.UpdatedAt),
@@ -132,10 +134,14 @@ func (s *server) handleGetSafetySource(w http.ResponseWriter, r *http.Request) {
 }
 
 type createSafetySourceRequest struct {
-	Name string `json:"name"`
+	Name            string  `json:"name"`
+	ImageURL        *string `json:"image_url"`
+	URL             *string `json:"url"`
+	CriticalEnabled *bool   `json:"critical_enabled"`
 }
 
-// handleCreateSafetySource creates a source with Critical Alerts disabled.
+// handleCreateSafetySource creates a Critical Alert source. Critical delivery
+// starts on unless the owner explicitly switches it off in the request.
 func (s *server) handleCreateSafetySource(w http.ResponseWriter, r *http.Request) {
 	var body createSafetySourceRequest
 	if !decodeJSON(w, r, &body) {
@@ -144,16 +150,25 @@ func (s *server) handleCreateSafetySource(w http.ResponseWriter, r *http.Request
 
 	var v validator
 	name := v.text("name", body.Name, 1, maxNameLen)
+	imageURL := v.httpsURL("image_url", body.ImageURL)
+	linkURL := v.linkURL("url", body.URL)
 	if !v.done(w, r) {
 		return
+	}
+	criticalEnabled := true
+	if body.CriticalEnabled != nil {
+		criticalEnabled = *body.CriticalEnabled
 	}
 
 	principal := auth.PrincipalFrom(r.Context())
 	src, err := s.store().SafetySources.Create(r.Context(), db.CreateSafetySourceParams{
-		ID:     newID(),
-		UserID: principal.UserID(),
-		Name:   name,
-		Now:    s.now(),
+		ID:              newID(),
+		UserID:          principal.UserID(),
+		Name:            name,
+		ImageURL:        imageURL,
+		URL:             linkURL,
+		CriticalEnabled: criticalEnabled,
+		Now:             s.now(),
 	})
 	if err != nil {
 		s.writeInternal(w, r, "creating a safety source failed", err)
@@ -163,9 +178,10 @@ func (s *server) handleCreateSafetySource(w http.ResponseWriter, r *http.Request
 }
 
 type updateSafetySourceRequest struct {
-	Kind            optional[string] `json:"kind"`
-	Name            optional[string] `json:"name"`
-	CriticalEnabled optional[bool]   `json:"critical_enabled"`
+	Name            optional[string]  `json:"name"`
+	ImageURL        optional[*string] `json:"image_url"`
+	URL             optional[*string] `json:"url"`
+	CriticalEnabled optional[bool]    `json:"critical_enabled"`
 }
 
 // handleUpdateSafetySource changes a source's editable fields.
@@ -181,39 +197,22 @@ func (s *server) handleUpdateSafetySource(w http.ResponseWriter, r *http.Request
 		UserID: auth.PrincipalFrom(r.Context()).UserID(),
 		Now:    s.now(),
 	}
-	if kind, ok := body.Kind.Get(); ok {
-		params.Kind = db.Value(v.enum("kind", &kind, db.SafetyKinds, ""))
-	}
 	if name, ok := body.Name.Get(); ok {
 		params.Name = db.Value(v.text("name", name, 1, maxNameLen))
+	}
+	if image, ok := body.ImageURL.Get(); ok {
+		params.ImageURL = db.Value(v.httpsURL("image_url", image))
+	}
+	if link, ok := body.URL.Get(); ok {
+		params.URL = db.Value(v.linkURL("url", link))
 	}
 	if critical, ok := body.CriticalEnabled.Get(); ok {
 		params.CriticalEnabled = db.Value(critical)
 	}
-	if !params.Kind.IsSet() && !params.Name.IsSet() && !params.CriticalEnabled.IsSet() {
-		v.add("name", "at least one of kind, name or critical_enabled is required")
+	if !params.Name.IsSet() && !params.ImageURL.IsSet() && !params.URL.IsSet() && !params.CriticalEnabled.IsSet() {
+		v.add("name", "at least one of name, image_url, url or critical_enabled is required")
 	}
 	if !v.done(w, r) {
-		return
-	}
-
-	existing, err := s.store().SafetySources.ByID(r.Context(), params.ID, params.UserID)
-	if err != nil {
-		s.writeStoreError(w, r, "alert source", err)
-		return
-	}
-	finalKind := existing.Kind
-	if kind, ok := params.Kind.Get(); ok {
-		finalKind = kind
-	}
-	finalCritical := existing.CriticalEnabled
-	if critical, ok := params.CriticalEnabled.Get(); ok {
-		finalCritical = critical
-	}
-	if finalCritical && !db.SafetyKindAllowsCritical(finalKind) {
-		WriteFieldErrors(w, r, "The request body is invalid.", []FieldError{{
-			Field: "kind", Message: "choose a safety alert type before enabling Critical Alerts",
-		}})
 		return
 	}
 
@@ -367,7 +366,7 @@ func (s *server) handleReportSafetyEvent(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
-		title, alertBody := db.SafetyAlertContent(src.Kind, src.Name, payload.State)
+		title, alertBody := db.SafetyAlertContent(src.Name, payload.State)
 		event, err = store.SafetyEvents.Create(ctx, db.CreateSafetyEventParams{
 			ID:               newID(),
 			SourceID:         src.ID,
@@ -375,7 +374,7 @@ func (s *server) handleReportSafetyEvent(w http.ResponseWriter, r *http.Request)
 			State:            payload.State,
 			Title:            title,
 			Body:             alertBody,
-			Priority:         db.SafetyAlertPriority(payload.State, src.Kind, user.CriticalAlertsEnabled, src.CriticalEnabled),
+			Priority:         db.SafetyAlertPriority(payload.State, user.CriticalAlertsEnabled, src.CriticalEnabled),
 			Status:           status,
 			IdempotencyKey:   key,
 			RequestHash:      storedHash(key, hash),
@@ -432,6 +431,8 @@ func (s *server) handleReportSafetyEvent(w http.ResponseWriter, r *http.Request)
 	result := s.fanOut(r, alertContent{
 		Title:      event.Title,
 		Body:       event.Body,
+		ImageURL:   src.ImageURL,
+		URL:        src.URL,
 		Priority:   event.Priority,
 		SourceID:   src.ID,
 		SourceName: src.Name,
@@ -481,14 +482,14 @@ func (s *server) handleSafetySourceTest(w http.ResponseWriter, r *http.Request) 
 			return nil
 		}
 
-		title, body := db.SafetyAlertContent(src.Kind, src.Name, db.SafetyStateTest)
+		title, body := db.SafetyAlertContent(src.Name, db.SafetyStateTest)
 		event, err = store.SafetyEvents.Create(ctx, db.CreateSafetyEventParams{
 			ID:       newID(),
 			SourceID: src.ID,
 			State:    db.SafetyStateTest,
 			Title:    title,
 			Body:     body,
-			Priority: db.SafetyAlertPriority(db.SafetyStateTest, src.Kind, user.CriticalAlertsEnabled, src.CriticalEnabled),
+			Priority: db.SafetyAlertPriority(db.SafetyStateTest, user.CriticalAlertsEnabled, src.CriticalEnabled),
 			Status:   db.EventProcessing,
 			Now:      now,
 		})
@@ -518,6 +519,8 @@ func (s *server) handleSafetySourceTest(w http.ResponseWriter, r *http.Request) 
 	result := s.fanOut(r, alertContent{
 		Title:      event.Title,
 		Body:       event.Body,
+		ImageURL:   src.ImageURL,
+		URL:        src.URL,
 		Priority:   event.Priority,
 		SourceID:   src.ID,
 		SourceName: src.Name,

@@ -168,15 +168,12 @@ CREATE INDEX        device_authorization_requests_purge_idx       ON device_auth
 CREATE TABLE safety_sources (
     id               text        PRIMARY KEY,
     user_id          text        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    kind             text        NOT NULL DEFAULT 'general',
     name             text        NOT NULL,
-    critical_enabled boolean     NOT NULL DEFAULT false,
+    image_url        text,
+    url              text,
+    critical_enabled boolean     NOT NULL DEFAULT true,
     created_at       timestamptz NOT NULL,
-    updated_at       timestamptz NOT NULL,
-    CONSTRAINT safety_sources_kind_check
-      CHECK (kind IN ('general', 'smoke', 'carbon_monoxide', 'panic', 'intrusion', 'water_leak')),
-    CONSTRAINT safety_sources_critical_kind_check
-      CHECK (NOT critical_enabled OR kind <> 'general')
+    updated_at       timestamptz NOT NULL
 );
 CREATE INDEX safety_sources_user_created_idx ON safety_sources (user_id, created_at DESC, id DESC);
 

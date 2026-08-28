@@ -132,7 +132,7 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 AxisToggle(
                     "Critical Alerts",
-                    sub: "Allow eligible sources to sound through Focus and Silent mode.",
+                    sub: "Allow enabled critical services to sound through Focus and Silent mode.",
                     busy: model.safetySettings == nil,
                     isOn: model.safetySettings?.criticalAlertsEnabled ?? false
                 ) { enabled in
@@ -146,7 +146,7 @@ struct SettingsView: View {
                     HStack(spacing: 16) {
                         Meta("Sources")
                             .frame(width: 100, alignment: .leading)
-                        Text("Manage alert sources")
+                        Text("Manage critical services")
                             .font(AxisType.copy(14))
                             .foregroundStyle(Axis.inkMuted)
                         Spacer(minLength: 8)

@@ -11,29 +11,18 @@ import (
 	"github.com/abdeen-labs/hark/internal/push"
 )
 
-// mustSafetySource creates a source and optionally enables Critical Alerts.
+// mustSafetySource creates a critical service with normal service identity
+// defaults and the requested critical-toggle state.
 func mustSafetySource(t *testing.T, store *db.Store, userID string, critical bool) db.SafetySource {
 	t.Helper()
+	imageURL := "https://example.com/kitchen.png"
+	destination := "hark-test://kitchen"
 	src, err := store.SafetySources.Create(t.Context(), db.CreateSafetySourceParams{
-		ID: id.New(), UserID: userID, Name: "Kitchen", Now: time.Now(),
+		ID: id.New(), UserID: userID, Name: "Kitchen", ImageURL: &imageURL,
+		URL: &destination, CriticalEnabled: critical, Now: time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("create a safety source: %v", err)
-	}
-	src, err = store.SafetySources.Update(t.Context(), db.UpdateSafetySourceParams{
-		ID: src.ID, UserID: userID, Kind: db.Value(db.SafetyKindSmoke), Now: time.Now(),
-	})
-	if err != nil {
-		t.Fatalf("classify the safety source: %v", err)
-	}
-	if !critical {
-		return *src
-	}
-	src, err = store.SafetySources.Update(t.Context(), db.UpdateSafetySourceParams{
-		ID: src.ID, UserID: userID, CriticalEnabled: db.Value(true), Now: time.Now(),
-	})
-	if err != nil {
-		t.Fatalf("enable critical delivery: %v", err)
 	}
 	return *src
 }
@@ -58,7 +47,7 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 	d, store, userID := newPGDashboard(t)
 	ctx := t.Context()
 
-	form := "name=Home+Assistant"
+	form := "name=Home+Assistant&image_url=https%3A%2F%2Fexample.com%2Fhome.png&url=hark-test%3A%2F%2Fhome&critical_enabled=on"
 	rec := send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety, ""), userID), form))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("create: status = %d, want %d: %s", rec.Code, http.StatusSeeOther, rec.Body)
@@ -71,8 +60,8 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 		t.Fatalf("sources = %v, %v; want the one just created", sources, err)
 	}
 	src := sources[0]
-	if src.Kind != db.SafetyKindGeneral || src.Name != "Home Assistant" || src.CriticalEnabled {
-		t.Errorf("created source = %+v, want a general Home Assistant source with critical off", src)
+	if src.Name != "Home Assistant" || !src.CriticalEnabled || src.ImageURL == nil || src.URL == nil {
+		t.Errorf("created source = %+v, want an enabled critical service with avatar and destination", src)
 	}
 
 	rec = send(d, asOwner(signedIn(http.MethodGet, pathSafety, ""), userID))
@@ -80,13 +69,7 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 		t.Fatalf("list: status = %d, or the source is missing:\n%s", rec.Code, rec.Body)
 	}
 
-	form = "name=Home+Assistant&kind=" + db.SafetyKindGeneral + "&critical_enabled=on"
-	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), form))
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("enable general source: status = %d, want %d: %s", rec.Code, http.StatusUnprocessableEntity, rec.Body)
-	}
-
-	form = "name=Home+Assistant&kind=" + db.SafetyKindWaterLeak + "&critical_enabled=on"
+	form = "name=Front+Door&image_url=https%3A%2F%2Fexample.com%2Fdoor.png&url=hark-test%3A%2F%2Fdoor&critical_enabled=on"
 	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), form))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update: status = %d: %s", rec.Code, rec.Body)
@@ -95,11 +78,11 @@ func TestSafetySourceLifecycleThroughTheDashboard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload the source: %v", err)
 	}
-	if reloaded.Name != "Home Assistant" || !reloaded.CriticalEnabled || reloaded.Kind != db.SafetyKindWaterLeak {
-		t.Errorf("updated source = %+v, want Home Assistant classified for critical water-leak alerts", reloaded)
+	if reloaded.Name != "Front Door" || !reloaded.CriticalEnabled || reloaded.ImageURL == nil || *reloaded.ImageURL != "https://example.com/door.png" || reloaded.URL == nil || *reloaded.URL != "hark-test://door" {
+		t.Errorf("updated source = %+v, want the normal service defaults saved", reloaded)
 	}
 
-	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), "name=Home+Assistant&kind="+db.SafetyKindWaterLeak))
+	rec = send(d, withCSRF(t, d, asOwner(signedIn(http.MethodPost, pathSafety+"/"+src.ID, ""), userID), "name=Front+Door&image_url=https%3A%2F%2Fexample.com%2Fdoor.png&url=hark-test%3A%2F%2Fdoor"))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("update off: status = %d: %s", rec.Code, rec.Body)
 	}
@@ -220,6 +203,9 @@ func TestSafetyTestSendsACriticalAlertAndRecordsIt(t *testing.T) {
 	}
 	if alert.SourceID != src.ID || alert.SourceName != src.Name || alert.ThreadKey != "safety-"+src.ID {
 		t.Errorf("alert = %+v, want it attributed to the source", alert)
+	}
+	if alert.ImageURL == nil || *alert.ImageURL != *src.ImageURL || alert.URL == nil || *alert.URL != *src.URL {
+		t.Errorf("alert = %+v, want the critical service avatar and tap destination", alert)
 	}
 
 	// Setup tests appear in history.

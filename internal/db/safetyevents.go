@@ -36,41 +36,24 @@ const (
 	SafetyRateLimited = "rate_limited"
 )
 
-// safetyAlertText defines alert copy for each source kind.
-var safetyAlertText = map[string]struct{ title, active string }{
-	SafetyKindGeneral:        {"Important alert", "Attention needed."},
-	SafetyKindSmoke:          {"Smoke alarm", "Smoke detected."},
-	SafetyKindCarbonMonoxide: {"Carbon monoxide alarm", "Carbon monoxide detected."},
-	SafetyKindPanic:          {"Panic alarm", "Panic button pressed."},
-	SafetyKindIntrusion:      {"Intrusion alarm", "Intrusion detected."},
-	SafetyKindWaterLeak:      {"Water leak alarm", "Water leak detected."},
-}
-
 // SafetyAlertContent returns server-defined copy for a safety event.
-func SafetyAlertContent(kind, name, state string) (title, body string) {
-	text, ok := safetyAlertText[kind]
-	if !ok {
-		text = safetyAlertText[SafetyKindGeneral]
-	}
+func SafetyAlertContent(name, state string) (title, body string) {
 	switch state {
 	case SafetyStateResolved:
-		if kind == SafetyKindGeneral {
-			return text.title + " cleared", name + ": All clear."
-		}
-		return text.title + " cleared", name + ": Alarm cleared."
+		return name + " cleared", "All clear."
 	case SafetyStateTest:
-		return "Alert test", name + ": This is a test notification."
+		return name + " test", "This is a test Critical Alert."
 	default:
-		return text.title, name + ": " + text.active
+		return name, "Attention needed."
 	}
 }
 
 // SafetyAlertPriority applies the account and source settings to an event.
-func SafetyAlertPriority(state, kind string, userEnabled, sourceEnabled bool) string {
+func SafetyAlertPriority(state string, userEnabled, sourceEnabled bool) string {
 	if state == SafetyStateResolved {
 		return PriorityNormal
 	}
-	if SafetyKindAllowsCritical(kind) && userEnabled && sourceEnabled {
+	if userEnabled && sourceEnabled {
 		return PriorityCritical
 	}
 	return PriorityTimeSensitive

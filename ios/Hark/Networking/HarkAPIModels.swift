@@ -362,16 +362,20 @@ nonisolated struct ActivitiesPage: Decodable, Sendable {
 nonisolated struct APISafetySource: Decodable, Hashable, Identifiable, Sendable {
     var id: String
     var name: String
-    var kind: String
+    var imageUrl: String?
+    var url: String?
     var criticalEnabled: Bool
     var createdAt: Date
+    var updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id
         case name
-        case kind
+        case imageUrl = "image_url"
+        case url
         case criticalEnabled = "critical_enabled"
         case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
 
@@ -385,21 +389,37 @@ nonisolated struct SafetySourceListResponse: Decodable, Sendable {
 
 nonisolated struct CreateSafetySourceRequest: Encodable, Sendable {
     var name: String
+    var imageUrl: String?
+    var url: String?
+    var criticalEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case name
+        case imageUrl = "image_url"
+        case url
+        case criticalEnabled = "critical_enabled"
     }
 }
 
 nonisolated struct UpdateSafetySourceRequest: Encodable, Sendable {
-    var kind: String?
-    var name: String?
-    var criticalEnabled: Bool?
+    var name: String
+    var imageUrl: String?
+    var url: String?
+    var criticalEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
-        case kind
         case name
+        case imageUrl = "image_url"
+        case url
         case criticalEnabled = "critical_enabled"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(imageUrl, forKey: .imageUrl)
+        try container.encode(url, forKey: .url)
+        try container.encode(criticalEnabled, forKey: .criticalEnabled)
     }
 }
 

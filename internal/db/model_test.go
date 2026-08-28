@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -256,30 +255,6 @@ func TestValidPriority(t *testing.T) {
 	}
 }
 
-func TestValidSafetyKind(t *testing.T) {
-	for _, k := range SafetyKinds {
-		if !ValidSafetyKind(k) {
-			t.Errorf("ValidSafetyKind(%q) = false", k)
-		}
-	}
-	for _, k := range []string{"", "fire", "SMOKE", "smoke "} {
-		if ValidSafetyKind(k) {
-			t.Errorf("ValidSafetyKind(%q) = true", k)
-		}
-	}
-}
-
-func TestCriticalSafetyKindsExcludeGeneral(t *testing.T) {
-	if SafetyKindAllowsCritical(SafetyKindGeneral) {
-		t.Error("a general source must stay below critical priority")
-	}
-	for _, kind := range CriticalSafetyKinds {
-		if !SafetyKindAllowsCritical(kind) {
-			t.Errorf("SafetyKindAllowsCritical(%q) = false", kind)
-		}
-	}
-}
-
 func TestValidSafetyState(t *testing.T) {
 	for _, s := range SafetyStates {
 		if !ValidSafetyState(s) {
@@ -305,63 +280,42 @@ func TestValidSafetyState(t *testing.T) {
 func TestSafetyAlertContent(t *testing.T) {
 	const name = "Kitchen"
 
-	activeTitles := map[string]string{}
-	for _, kind := range SafetyKinds {
-		titles := map[string]string{}
-		for _, state := range SafetyStates {
-			title, body := SafetyAlertContent(kind, name, state)
-			if title == "" || body == "" {
-				t.Fatalf("SafetyAlertContent(%q, %q, %q) composed an empty alert", kind, name, state)
-			}
-			if !strings.HasPrefix(body, name+": ") {
-				t.Errorf("SafetyAlertContent(%q, %q, %q) body %q does not lead with the source name", kind, name, state, body)
-			}
-			if prev, ok := titles[title]; ok {
-				t.Errorf("kind %q states %q and %q share the title %q", kind, prev, state, title)
-			}
-			titles[title] = state
+	titles := map[string]string{}
+	for _, state := range SafetyStates {
+		title, body := SafetyAlertContent(name, state)
+		if title == "" || body == "" {
+			t.Fatalf("SafetyAlertContent(%q, %q) composed an empty alert", name, state)
 		}
-
-		activeTitle, _ := SafetyAlertContent(kind, name, SafetyStateActive)
-		if other, ok := activeTitles[activeTitle]; ok {
-			t.Errorf("kinds %q and %q share the active title %q", other, kind, activeTitle)
+		if prev, ok := titles[title]; ok {
+			t.Errorf("states %q and %q share the title %q", prev, state, title)
 		}
-		activeTitles[activeTitle] = kind
-	}
-
-	// Setup tests share a title across source kinds.
-	smokeTest, _ := SafetyAlertContent(SafetyKindSmoke, name, SafetyStateTest)
-	panicTest, _ := SafetyAlertContent(SafetyKindPanic, name, SafetyStateTest)
-	if smokeTest != panicTest {
-		t.Errorf("test titles differ by kind: %q vs %q", smokeTest, panicTest)
+		titles[title] = state
 	}
 }
 
 func TestSafetyAlertPriority(t *testing.T) {
 	cases := []struct {
-		state, kind             string
+		state                   string
 		userEnabled, srcEnabled bool
 		want                    string
 	}{
-		{SafetyStateActive, SafetyKindSmoke, true, true, PriorityCritical},
-		{SafetyStateActive, SafetyKindSmoke, true, false, PriorityTimeSensitive},
-		{SafetyStateActive, SafetyKindSmoke, false, true, PriorityTimeSensitive},
-		{SafetyStateActive, SafetyKindSmoke, false, false, PriorityTimeSensitive},
-		{SafetyStateActive, SafetyKindGeneral, true, true, PriorityTimeSensitive},
-		{SafetyStateTest, SafetyKindSmoke, true, true, PriorityCritical},
-		{SafetyStateTest, SafetyKindSmoke, true, false, PriorityTimeSensitive},
-		{SafetyStateTest, SafetyKindSmoke, false, true, PriorityTimeSensitive},
-		{SafetyStateTest, SafetyKindSmoke, false, false, PriorityTimeSensitive},
-		{SafetyStateTest, SafetyKindGeneral, true, true, PriorityTimeSensitive},
-		{SafetyStateResolved, SafetyKindSmoke, true, true, PriorityNormal},
-		{SafetyStateResolved, SafetyKindSmoke, true, false, PriorityNormal},
-		{SafetyStateResolved, SafetyKindGeneral, true, true, PriorityNormal},
-		{SafetyStateResolved, SafetyKindSmoke, false, false, PriorityNormal},
+		{SafetyStateActive, true, true, PriorityCritical},
+		{SafetyStateActive, true, false, PriorityTimeSensitive},
+		{SafetyStateActive, false, true, PriorityTimeSensitive},
+		{SafetyStateActive, false, false, PriorityTimeSensitive},
+		{SafetyStateTest, true, true, PriorityCritical},
+		{SafetyStateTest, true, false, PriorityTimeSensitive},
+		{SafetyStateTest, false, true, PriorityTimeSensitive},
+		{SafetyStateTest, false, false, PriorityTimeSensitive},
+		{SafetyStateResolved, true, true, PriorityNormal},
+		{SafetyStateResolved, true, false, PriorityNormal},
+		{SafetyStateResolved, false, true, PriorityNormal},
+		{SafetyStateResolved, false, false, PriorityNormal},
 	}
 	for _, tc := range cases {
-		if got := SafetyAlertPriority(tc.state, tc.kind, tc.userEnabled, tc.srcEnabled); got != tc.want {
-			t.Errorf("SafetyAlertPriority(%q, %q, %v, %v) = %q, want %q",
-				tc.state, tc.kind, tc.userEnabled, tc.srcEnabled, got, tc.want)
+		if got := SafetyAlertPriority(tc.state, tc.userEnabled, tc.srcEnabled); got != tc.want {
+			t.Errorf("SafetyAlertPriority(%q, %v, %v) = %q, want %q",
+				tc.state, tc.userEnabled, tc.srcEnabled, got, tc.want)
 		}
 	}
 }

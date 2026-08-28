@@ -2,7 +2,7 @@
 //  SafetySourcesView.swift
 //  Hark
 //
-//  Alert sources and Critical Alert permission.
+//  Critical services and Critical Alert permission.
 //
 
 import SwiftUI
@@ -19,6 +19,10 @@ struct SafetySourcesView: View {
     @State private var errorMessage: String?
     @State private var testNotice: (kind: Notice.Kind, message: String)?
     @State private var name = ""
+    @State private var imageUrl = ""
+    @State private var destinationUrl = ""
+    @State private var newServiceCritical = true
+    @State private var editingSource: APISafetySource?
     @State private var creating = false
     @State private var requesting = false
     @State private var busySourceIDs: Set<String> = []
@@ -60,7 +64,7 @@ struct SafetySourcesView: View {
                         source: source,
                         busy: busySourceIDs.contains(source.id),
                         sentAt: testedAt[source.id],
-                        onKind: { kind in Task { await setKind(source, kind: kind) } },
+                        onEdit: { editingSource = source },
                         onToggle: { enabled in Task { await setCritical(source, enabled: enabled) } },
                         onTest: { Task { await sendTest(source) } }
                     )
@@ -89,6 +93,14 @@ struct SafetySourcesView: View {
             .refreshable { await reload() }
             .toolbarVisibility(.hidden, for: .navigationBar)
             .task { await reload() }
+            .sheet(item: $editingSource) { source in
+                CriticalServiceEditor(source: source) { updated in
+                    if let index = sources.firstIndex(where: { $0.id == updated.id }) {
+                        sources[index] = updated
+                    }
+                }
+                .presentationDetents([.large])
+            }
         }
     }
 
@@ -108,11 +120,11 @@ struct SafetySourcesView: View {
             Eyebrow(index: "04·A", label: "Priority")
                 .padding(.top, 16)
             HStack(alignment: .lastTextBaseline, spacing: 24) {
-                DisplayTitle(text: "Alert sources", size: 44)
+                DisplayTitle(text: "Critical services", size: 40)
                 Spacer(minLength: 0)
                 Metric(
                     value: String(format: "%02d", sources.count),
-                    label: sources.count == 1 ? "Source" : "Sources",
+                    label: sources.count == 1 ? "Service" : "Services",
                     size: 40,
                     alignment: .trailing
                 )
@@ -140,7 +152,7 @@ struct SafetySourcesView: View {
                 if model.safetySettings?.criticalAlertsEnabled == false {
                     Notice(
                         kind: .warn,
-                        message: "Critical Alerts are off for this account. Active alerts arrive as Time Sensitive notifications."
+                        message: "Critical Alerts are off for this account. These services arrive as Time Sensitive notifications."
                     )
                 }
             }
@@ -148,7 +160,7 @@ struct SafetySourcesView: View {
     }
 
     private var explanation: some View {
-        Text("Sources start as Time Sensitive. Assign a safety alert type only when a source reports an immediate risk, then turn on Critical Alerts.")
+        Text("Critical services work like regular services. They can use an avatar and tap destination, and each one has its own Critical Alert switch.")
             .font(AxisType.copy(14))
             .lineSpacing(2)
             .foregroundStyle(Axis.inkMuted)
@@ -168,17 +180,12 @@ struct SafetySourcesView: View {
                     }
                 }
                 .buttonStyle(.instrument(.primary))
-                .disabled(!hasCriticalCandidate || requesting)
-                if !hasCriticalCandidate {
-                    Text(sources.isEmpty ? "Create a source first." : "Assign a safety alert type first.")
-                        .font(AxisType.copy(12))
-                        .foregroundStyle(Axis.inkFaint)
-                }
+                .disabled(requesting)
             }
         case .unavailable:
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 StatusLight(color: Axis.warn, size: 5)
-                Text("Critical Alerts aren't available. Active alerts arrive as Time Sensitive notifications.")
+                Text("Critical Alerts aren't available. Critical services arrive as Time Sensitive notifications.")
                     .font(AxisType.copy(13))
                     .foregroundStyle(Axis.inkSubtle)
                     .fixedSize(horizontal: false, vertical: true)
@@ -186,7 +193,7 @@ struct SafetySourcesView: View {
         case .notificationsDenied:
             deniedState("Notifications are off for Hark. Turn them on to receive alerts.")
         case .criticalDenied:
-            deniedState("Critical Alerts are off for Hark. Active alerts arrive as Time Sensitive notifications.")
+            deniedState("Critical Alerts are off for Hark. Critical services arrive as Time Sensitive notifications.")
         case .granted, .unknown:
             EmptyView()
         }
@@ -214,12 +221,12 @@ struct SafetySourcesView: View {
         if sources.isEmpty {
             if loaded {
                 EmptyNote(
-                    text: "No alert sources yet.",
-                    detail: "Add a trusted app, service, or automation."
+                    text: "No critical services yet.",
+                    detail: "Create one with the same defaults as a regular service."
                 )
                 .padding(.horizontal, Axis.gutter)
             } else {
-                LoadingMark(text: "Reading sources")
+                LoadingMark(text: "Reading critical services")
                     .padding(.horizontal, Axis.gutter)
                     .padding(.vertical, 24)
             }
@@ -227,14 +234,33 @@ struct SafetySourcesView: View {
     }
 
     private func createModule(proxy: ScrollViewProxy) -> some View {
-        Module(index: "01", label: "New source") {
+        Module(index: "01", label: "New critical service") {
             VStack(alignment: .leading, spacing: 18) {
                 FieldFrame(label: "Name", focused: nameFocused) {
                     TextField("Home Assistant", text: $name)
                         .focused($nameFocused)
                         .submitLabel(.done)
                 }
-                Button(creating ? "Creating…" : "Create source") {
+                FieldFrame(label: "Avatar image URL", hint: "Optional · use a public HTTPS image.") {
+                    TextField("https://example.com/logo.png", text: $imageUrl)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                FieldFrame(label: "Tap destination", hint: "Optional · a web URL or app deep link.") {
+                    TextField("https://example.com", text: $destinationUrl)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                AxisToggle(
+                    "Critical delivery",
+                    sub: "Falls back to Time Sensitive when Critical Alerts are off.",
+                    isOn: newServiceCritical
+                ) { newServiceCritical = $0 }
+                Button(creating ? "Creating…" : "Create critical service") {
                     Task { await create(proxy: proxy) }
                 }
                 .buttonStyle(.instrument(.primary))
@@ -245,10 +271,6 @@ struct SafetySourcesView: View {
 
     private var createValid: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var hasCriticalCandidate: Bool {
-        sources.contains { SafetyKindDisplay.allowsCritical($0.kind) }
     }
 
     // MARK: Network
@@ -274,11 +296,17 @@ struct SafetySourcesView: View {
         defer { creating = false }
         do {
             let source = try await model.client.createSafetySource(
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines)
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                imageUrl: optionalValue(imageUrl),
+                url: optionalValue(destinationUrl),
+                criticalEnabled: newServiceCritical
             )
             let wasEmpty = sources.isEmpty
             withAnimation(Axis.Motion.ease) { sources.append(source) }
             name = ""
+            imageUrl = ""
+            destinationUrl = ""
+            newServiceCritical = true
             nameFocused = false
             errorMessage = nil
             if wasEmpty, model.criticalAlertState == .notRequested {
@@ -294,22 +322,17 @@ struct SafetySourcesView: View {
         }
     }
 
-    private func setKind(_ source: APISafetySource, kind: String) async {
-        guard !busySourceIDs.contains(source.id), source.kind != kind else { return }
+    private func setCritical(_ source: APISafetySource, enabled: Bool) async {
+        guard !busySourceIDs.contains(source.id) else { return }
         busySourceIDs.insert(source.id)
         defer { busySourceIDs.remove(source.id) }
         guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
         let previous = sources[index]
-        sources[index].kind = kind
-        if !SafetyKindDisplay.allowsCritical(kind) {
-            sources[index].criticalEnabled = false
-        }
+        var changed = previous
+        changed.criticalEnabled = enabled
+        sources[index] = changed
         do {
-            let updated = try await model.client.updateSafetySource(
-                id: source.id,
-                kind: kind,
-                criticalEnabled: SafetyKindDisplay.allowsCritical(kind) ? nil : false
-            )
+            let updated = try await model.client.updateSafetySource(changed)
             if let index = sources.firstIndex(where: { $0.id == updated.id }) {
                 sources[index] = updated
             }
@@ -319,34 +342,6 @@ struct SafetySourcesView: View {
         } catch {
             if let index = sources.firstIndex(where: { $0.id == source.id }) {
                 sources[index] = previous
-            }
-            errorMessage = (error as? HarkClientError)?.errorDescription
-                ?? (error as NSError).localizedDescription
-        }
-    }
-
-    private func setCritical(_ source: APISafetySource, enabled: Bool) async {
-        guard !busySourceIDs.contains(source.id) else { return }
-        guard !enabled || SafetyKindDisplay.allowsCritical(source.kind) else {
-            errorMessage = "Assign a safety alert type before enabling Critical Alerts."
-            return
-        }
-        busySourceIDs.insert(source.id)
-        defer { busySourceIDs.remove(source.id) }
-        guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
-        let previous = sources[index].criticalEnabled
-        sources[index].criticalEnabled = enabled
-        do {
-            let updated = try await model.client.updateSafetySource(id: source.id, criticalEnabled: enabled)
-            if let index = sources.firstIndex(where: { $0.id == updated.id }) {
-                sources[index] = updated
-            }
-            errorMessage = nil
-        } catch let error as HarkClientError where error.isUnauthorized {
-            model.handleUnauthorized()
-        } catch {
-            if let index = sources.firstIndex(where: { $0.id == source.id }) {
-                sources[index].criticalEnabled = previous
             }
             errorMessage = (error as? HarkClientError)?.errorDescription
                 ?? (error as NSError).localizedDescription
@@ -387,6 +382,11 @@ struct SafetySourcesView: View {
                 ?? (error as NSError).localizedDescription
         }
     }
+
+    private func optionalValue(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 struct SafetySourceRow: View {
@@ -394,7 +394,7 @@ struct SafetySourceRow: View {
     let source: APISafetySource
     let busy: Bool
     let sentAt: Date?
-    let onKind: (String) -> Void
+    let onEdit: () -> Void
     let onToggle: (Bool) -> Void
     let onTest: () -> Void
 
@@ -405,39 +405,34 @@ struct SafetySourceRow: View {
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
+                        avatar
                         Text(source.name)
                             .font(AxisType.copy(15, weight: .medium))
                             .foregroundStyle(Axis.ink)
                             .lineLimit(1)
                         Spacer(minLength: 8)
                     }
-                    Picker(
-                        "Alert type",
-                        selection: Binding(
-                            get: { source.kind },
-                            set: { onKind($0) }
-                        )
-                    ) {
-                        Text("General · Time Sensitive").tag("general")
-                        ForEach(SafetyKindDisplay.all, id: \.self) { kind in
-                            Text(SafetyKindDisplay.label(kind)).tag(kind)
-                        }
+                    if let destination = source.url {
+                        Text(destination)
+                            .font(AxisType.mono(11))
+                            .foregroundStyle(Axis.inkFaint)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .pickerStyle(.menu)
-                    .tint(Axis.inkMuted)
-                    .disabled(busy)
 
                     AxisToggle(
-                        "Critical",
-                        sub: source.kind == "general" ? "Choose a safety alert type first." : nil,
+                        "Critical delivery",
+                        sub: "Time Sensitive when switched off.",
                         compact: true,
                         busy: busy,
-                        disabled: !SafetyKindDisplay.allowsCritical(source.kind),
                         isOn: source.criticalEnabled
                     ) {
                         onToggle($0)
                     }
                     HStack(spacing: 14) {
+                        Button("Manage") { onEdit() }
+                            .buttonStyle(.instrument(.secondary, compact: true, fill: false))
+                            .disabled(busy)
                         Button("Send test") { onTest() }
                             .buttonStyle(.instrument(.ghost, compact: true, fill: false))
                             .padding(.leading, -10)
@@ -452,5 +447,142 @@ struct SafetySourceRow: View {
             .padding(.vertical, 14)
             Hairline()
         }
+    }
+
+    private var avatar: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous)
+                .fill(Axis.field)
+            Text(String(source.name.prefix(1)).uppercased())
+                .font(AxisType.meta(12))
+                .foregroundStyle(Axis.inkFaint)
+            if let url = source.imageUrl.flatMap(URL.init(string:)) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let image) = phase {
+                        image.resizable().scaledToFill()
+                    }
+                }
+            }
+        }
+        .frame(width: 36, height: 36)
+        .clipShape(RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+private struct CriticalServiceEditor: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    let source: APISafetySource
+    let onSaved: (APISafetySource) -> Void
+
+    @State private var name: String
+    @State private var imageUrl: String
+    @State private var destinationUrl: String
+    @State private var criticalEnabled: Bool
+    @State private var saving = false
+    @State private var errorMessage: String?
+    @FocusState private var focused: Field?
+
+    private enum Field {
+        case name, image, destination
+    }
+
+    init(source: APISafetySource, onSaved: @escaping (APISafetySource) -> Void) {
+        self.source = source
+        self.onSaved = onSaved
+        _name = State(initialValue: source.name)
+        _imageUrl = State(initialValue: source.imageUrl ?? "")
+        _destinationUrl = State(initialValue: source.url ?? "")
+        _criticalEnabled = State(initialValue: source.criticalEnabled)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack {
+                        Button("Close") { dismiss() }
+                            .buttonStyle(.instrument(.ghost, compact: true, fill: false))
+                            .padding(.leading, -10)
+                        Spacer()
+                    }
+                    Eyebrow(index: "04·B", label: "Critical service")
+                    DisplayTitle(text: "Manage service", size: 40)
+                    Module(index: "01", label: "Defaults", variant: .marked) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            FieldFrame(label: "Name", focused: focused == .name) {
+                                TextField("Home Assistant", text: $name)
+                                    .focused($focused, equals: .name)
+                            }
+                            FieldFrame(label: "Avatar image URL", hint: "Optional · use a public HTTPS image.", focused: focused == .image) {
+                                TextField("https://example.com/logo.png", text: $imageUrl)
+                                    .keyboardType(.URL)
+                                    .textContentType(.URL)
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
+                                    .focused($focused, equals: .image)
+                            }
+                            FieldFrame(label: "Tap destination", hint: "Optional · a web URL or app deep link.", focused: focused == .destination) {
+                                TextField("https://example.com", text: $destinationUrl)
+                                    .keyboardType(.URL)
+                                    .textContentType(.URL)
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
+                                    .focused($focused, equals: .destination)
+                            }
+                            AxisToggle(
+                                "Critical delivery",
+                                sub: "Falls back to Time Sensitive when switched off.",
+                                busy: saving,
+                                isOn: criticalEnabled
+                            ) { criticalEnabled = $0 }
+                            if let errorMessage {
+                                Notice(kind: .error, message: errorMessage)
+                            }
+                            Button(saving ? "Saving…" : "Save defaults") {
+                                Task { await save() }
+                            }
+                            .buttonStyle(.instrument(.primary))
+                            .disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    }
+                }
+                .padding(.horizontal, Axis.gutter)
+                .padding(.vertical, 20)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+        }
+    }
+
+    private func save() async {
+        guard !saving else { return }
+        saving = true
+        defer { saving = false }
+        var changed = source
+        changed.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        changed.imageUrl = optionalValue(imageUrl)
+        changed.url = optionalValue(destinationUrl)
+        changed.criticalEnabled = criticalEnabled
+        do {
+            let updated = try await model.client.updateSafetySource(changed)
+            onSaved(updated)
+            dismiss()
+        } catch let error as HarkClientError where error.isUnauthorized {
+            model.handleUnauthorized()
+        } catch {
+            errorMessage = (error as? HarkClientError)?.errorDescription
+                ?? (error as NSError).localizedDescription
+        }
+    }
+
+    private func optionalValue(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

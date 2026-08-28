@@ -103,7 +103,7 @@ func TestEmbeddedMigrationsLoad(t *testing.T) {
 		t.Fatalf("embedded migrations are invalid: %v", err)
 	}
 	if len(migrations) != 1 || migrations[0].Version != 1 {
-		t.Fatalf("embedded schema = %v, want one initial migration", migrations)
+		t.Fatalf("embedded schema = %v, want one clean initial schema", migrations)
 	}
 	for i, m := range migrations {
 		if i > 0 && m.Version <= migrations[i-1].Version {
@@ -113,17 +113,17 @@ func TestEmbeddedMigrationsLoad(t *testing.T) {
 	t.Logf("embedded migrations: %d", len(migrations))
 }
 
-func TestInitialMigrationIsImmutable(t *testing.T) {
+func TestInitialMigrationChecksum(t *testing.T) {
 	migrations, err := LoadMigrations(Migrations())
 	if err != nil {
 		t.Fatalf("load embedded migrations: %v", err)
 	}
 
-	const checksum = "f2f7870353bba9c258fa512465a1515a6d62e501ebb240052b653a082530934b"
+	const checksum = "c7e9bb7e79c7d36c5991b196dd6e4a26323d0f1479c80edad1b110cc0bb0c212"
 	for _, migration := range migrations {
 		if migration.Version == 1 {
 			if migration.Checksum != checksum {
-				t.Fatalf("migration %s changed; applied migrations must remain byte-for-byte identical", migration)
+				t.Fatalf("migration %s changed; update the checksum only when intentionally resetting the database", migration)
 			}
 			return
 		}

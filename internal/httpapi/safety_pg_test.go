@@ -8,19 +8,13 @@ import (
 	"github.com/abdeen-labs/hark/internal/db"
 )
 
-// createSafetySource creates a source through the API.
-func (f *fixture) createSafetySource(kind, name string) safetySourceDTO {
+// createSafetySource creates a critical service through the API.
+func (f *fixture) createSafetySource(name string) safetySourceDTO {
 	f.t.Helper()
 
 	var created safetySourceResponse
 	f.expect(http.MethodPost, "/safety-sources", f.session,
 		`{"name":"`+name+`"}`, http.StatusCreated, &created)
-	if kind != db.SafetyKindGeneral {
-		var updated safetySourceResponse
-		f.expect(http.MethodPatch, "/safety-sources/"+created.Source.ID, f.session,
-			`{"kind":"`+kind+`"}`, http.StatusOK, &updated)
-		return updated.Source
-	}
 	return created.Source
 }
 
@@ -44,33 +38,12 @@ func (f *fixture) reportSafety(sourceID, state string, want int) safetyEventResp
 func TestSafetySourceLifecycle(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 
-	src := f.createSafetySource(db.SafetyKindGeneral, "Home Assistant")
-	if src.Kind != db.SafetyKindGeneral || src.CriticalEnabled {
-		t.Fatalf("created = %+v, want a general source with critical delivery off", src)
+	src := f.createSafetySource("Home Assistant")
+	if !src.CriticalEnabled {
+		t.Fatalf("created = %+v, want a critical service enabled by default", src)
 	}
 
-	// Creation has one shape: a name-only general source. Classification and
-	// Critical Alerts are separate updates.
-	rec := f.request(http.MethodPost, "/safety-sources", f.session,
-		`{"kind":"smoke","name":"Garage","critical_enabled":true}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("create with classification fields: status = %d, want 400: %s", rec.Code, rec.Body)
-	}
-
-	rec = f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session, `{"kind":"fire"}`)
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("classify with an unknown kind: status = %d, want 422: %s", rec.Code, rec.Body)
-	}
-
-	// A general source cannot be made critical until the owner assigns an
-	// eligible safety alert type.
-	rec = f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session,
-		`{"critical_enabled":true}`)
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("enable a general source: status = %d, want 422: %s", rec.Code, rec.Body)
-	}
-
-	second := f.createSafetySource(db.SafetyKindWaterLeak, "Basement")
+	second := f.createSafetySource("Basement")
 	var listed safetySourceListResponse
 	f.expect(http.MethodGet, "/safety-sources", f.session, "", http.StatusOK, &listed)
 	if len(listed.Sources) != 2 || listed.Sources[0].ID != second.ID {
@@ -85,17 +58,17 @@ func TestSafetySourceLifecycle(t *testing.T) {
 
 	f.expect(http.MethodPatch, "/safety-sources/"+src.ID, f.session,
 		`{"name":"Hallway"}`, http.StatusOK, &got)
-	if got.Source.Name != "Hallway" || got.Source.CriticalEnabled {
+	if got.Source.Name != "Hallway" || !got.Source.CriticalEnabled {
 		t.Fatalf("renamed = %+v, want the toggle untouched", got.Source)
 	}
 	f.expect(http.MethodPatch, "/safety-sources/"+src.ID, f.session,
-		`{"kind":"smoke","critical_enabled":true}`, http.StatusOK, &got)
-	if !got.Source.CriticalEnabled || got.Source.Name != "Hallway" || got.Source.Kind != db.SafetyKindSmoke {
-		t.Fatalf("classified = %+v, want a critical smoke source with the name untouched", got.Source)
+		`{"image_url":"https://example.com/hallway.png","url":"hark-test://hallway","critical_enabled":false}`, http.StatusOK, &got)
+	if got.Source.CriticalEnabled || got.Source.Name != "Hallway" || got.Source.ImageURL == nil || got.Source.URL == nil {
+		t.Fatalf("updated = %+v, want service defaults and critical delivery off", got.Source)
 	}
 
 	// An empty PATCH changes nothing.
-	rec = f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session, `{}`)
+	rec := f.request(http.MethodPatch, "/safety-sources/"+src.ID, f.session, `{}`)
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("empty patch: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
@@ -135,7 +108,7 @@ func TestSafetySettingsToggle(t *testing.T) {
 
 func TestSafetyAuthBoundaries(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 
 	// Sessions cannot report safety events.
 	rec := f.request(http.MethodPost, "/safety-events", f.session,
@@ -186,7 +159,7 @@ func TestSafetyAuthBoundaries(t *testing.T) {
 func TestSafetyReportComposesTheAlert(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	device := f.registerDevice(strings.Repeat("a1", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 	f.enableCritical(src.ID)
 
 	sent := f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
@@ -203,7 +176,7 @@ func TestSafetyReportComposesTheAlert(t *testing.T) {
 		t.Error("the server composed an empty alert")
 	}
 
-	wantTitle, wantBody := db.SafetyAlertContent(src.Kind, src.Name, db.SafetyStateActive)
+	wantTitle, wantBody := db.SafetyAlertContent(src.Name, db.SafetyStateActive)
 	alert := f.sender.lastAlert(t)
 	if alert.Title != wantTitle || alert.Body != wantBody {
 		t.Errorf("alert = %+v, want the db-composed content", alert)
@@ -235,7 +208,9 @@ func TestSafetyDowngradeMatrix(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("b2", 32))
 
-	sourceOff := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	sourceOff := f.createSafetySource("Kitchen")
+	f.expect(http.MethodPatch, "/safety-sources/"+sourceOff.ID, f.session,
+		`{"critical_enabled":false}`, http.StatusOK, nil)
 	sent := f.reportSafety(sourceOff.ID, db.SafetyStateActive, http.StatusCreated)
 	if sent.Event.Status != db.EventAccepted {
 		t.Fatalf("report = %+v, want it delivered despite the downgrade", sent.Event)
@@ -244,7 +219,7 @@ func TestSafetyDowngradeMatrix(t *testing.T) {
 		t.Errorf("source toggle off: alert priority = %q, want %q", got, db.PriorityTimeSensitive)
 	}
 
-	globalOff := f.createSafetySource(db.SafetyKindPanic, "Wristband")
+	globalOff := f.createSafetySource("Wristband")
 	f.enableCritical(globalOff.ID)
 	f.expect(http.MethodPatch, "/safety-settings", f.session,
 		`{"critical_alerts_enabled":false}`, http.StatusOK, nil)
@@ -256,7 +231,7 @@ func TestSafetyDowngradeMatrix(t *testing.T) {
 		t.Errorf("global toggle off: alert priority = %q, want %q", got, db.PriorityTimeSensitive)
 	}
 
-	bothOn := f.createSafetySource(db.SafetyKindIntrusion, "Front door")
+	bothOn := f.createSafetySource("Front door")
 	f.enableCritical(bothOn.ID)
 	f.expect(http.MethodPatch, "/safety-settings", f.session,
 		`{"critical_alerts_enabled":true}`, http.StatusOK, nil)
@@ -269,10 +244,10 @@ func TestSafetyDowngradeMatrix(t *testing.T) {
 	}
 }
 
-func TestSafetyReportCoalescesRepeatedAlarms(t *testing.T) {
+func TestSafetyReportCoalescesRepeatedAlerts(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("c3", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 
 	first := f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 	if first.Event.Status != db.EventAccepted {
@@ -309,7 +284,7 @@ func TestSafetyReportCoalescesRepeatedAlarms(t *testing.T) {
 func TestSafetyHourlyCapRateLimits(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("d4", 32))
-	src := f.createSafetySource(db.SafetyKindWaterLeak, "Basement")
+	src := f.createSafetySource("Basement")
 
 	// Resolved events fill the remaining hourly allowance without coalescing.
 	if sent := f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated); sent.Event.Status != db.EventAccepted {
@@ -339,7 +314,7 @@ func TestSafetyHourlyCapRateLimits(t *testing.T) {
 func TestSafetySetupTest(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("e5", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 	f.enableCritical(src.ID)
 
 	var sent safetyTestResponse
@@ -372,7 +347,9 @@ func TestSafetySetupTest(t *testing.T) {
 	}
 
 	// A disabled source setting downgrades the test.
-	plain := f.createSafetySource(db.SafetyKindPanic, "Wristband")
+	plain := f.createSafetySource("Wristband")
+	f.expect(http.MethodPatch, "/safety-sources/"+plain.ID, f.session,
+		`{"critical_enabled":false}`, http.StatusOK, nil)
 	f.expect(http.MethodPost, "/safety-sources/"+plain.ID+"/test", f.session, "",
 		http.StatusCreated, &sent)
 	if sent.Event.Priority != db.PriorityTimeSensitive {
@@ -388,7 +365,7 @@ func TestSafetySetupTest(t *testing.T) {
 func TestSafetyReportValidation(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("f6", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 
 	// Setup tests use their session-only endpoint.
 	rec := f.request(http.MethodPost, "/safety-events", f.token,
@@ -426,20 +403,20 @@ func TestSafetyReportValidation(t *testing.T) {
 func TestSafetyReportIdempotency(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("a7", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 
 	body := `{"source_id":"` + src.ID + `","state":"active"}`
 
 	var first safetyEventResponse
 	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
-		IdempotencyKeyHeader, "alarm-1", http.StatusCreated, &first)
+		IdempotencyKeyHeader, "alert-1", http.StatusCreated, &first)
 	if first.Event.Status != db.EventAccepted || first.Replayed {
 		t.Fatalf("first report = %+v, want one accepted delivery", first)
 	}
 
 	var second safetyEventResponse
 	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
-		IdempotencyKeyHeader, "alarm-1", http.StatusOK, &second)
+		IdempotencyKeyHeader, "alert-1", http.StatusOK, &second)
 	if !second.Replayed || second.Event.ID != first.Event.ID {
 		t.Fatalf("replay = %+v, want the first event back", second)
 	}
@@ -450,18 +427,18 @@ func TestSafetyReportIdempotency(t *testing.T) {
 	// Reusing a key for a different payload is a conflict.
 	f.withHeader(http.MethodPost, "/safety-events", f.token,
 		`{"source_id":"`+src.ID+`","state":"resolved"}`,
-		IdempotencyKeyHeader, "alarm-1", http.StatusConflict, nil)
+		IdempotencyKeyHeader, "alert-1", http.StatusConflict, nil)
 
 	// Replaying a coalesced report does not send it.
 	var coalesced safetyEventResponse
 	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
-		IdempotencyKeyHeader, "alarm-2", http.StatusCreated, &coalesced)
+		IdempotencyKeyHeader, "alert-2", http.StatusCreated, &coalesced)
 	if coalesced.Event.Status != db.SafetyCoalesced {
-		t.Fatalf("second alarm = %+v, want it coalesced", coalesced.Event)
+		t.Fatalf("second alert = %+v, want it coalesced", coalesced.Event)
 	}
 	var replayed safetyEventResponse
 	f.withHeader(http.MethodPost, "/safety-events", f.token, body,
-		IdempotencyKeyHeader, "alarm-2", http.StatusOK, &replayed)
+		IdempotencyKeyHeader, "alert-2", http.StatusOK, &replayed)
 	if !replayed.Replayed || replayed.Event.Status != db.SafetyCoalesced {
 		t.Fatalf("replayed = %+v, want the stored coalesced outcome", replayed)
 	}
@@ -473,7 +450,7 @@ func TestSafetyReportIdempotency(t *testing.T) {
 func TestSafetyEventsEnterTheHistory(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	f.registerDevice(strings.Repeat("b8", 32))
-	src := f.createSafetySource(db.SafetyKindCarbonMonoxide, "Bedroom")
+	src := f.createSafetySource("Bedroom")
 
 	sent := f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 
@@ -504,7 +481,7 @@ func TestSafetyEventsEnterTheHistory(t *testing.T) {
 func TestSafetyReportsConsumeDeliveryQuota(t *testing.T) {
 	f := newFixture(t, fixtureOptions{requesterRate: 1, accountRate: 100})
 	f.registerDevice(strings.Repeat("c9", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 
 	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 
@@ -521,7 +498,7 @@ func TestSafetyReportsConsumeDeliveryQuota(t *testing.T) {
 func TestSafetyReportsCountAgainstTheAccountCeiling(t *testing.T) {
 	f := newFixture(t, fixtureOptions{requesterRate: 100, accountRate: 1})
 	f.registerDevice(strings.Repeat("d1", 32))
-	src := f.createSafetySource(db.SafetyKindSmoke, "Kitchen")
+	src := f.createSafetySource("Kitchen")
 
 	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 

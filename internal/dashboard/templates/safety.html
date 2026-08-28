@@ -4,7 +4,7 @@
     <span><span class="idx">03·A</span> Priority alerts</span>
   </p>
   <h1 class="page-head__title display">Critical Alerts</h1>
-  <p class="page-head__lede lede">Choose which trusted sources may break through Focus and Silent mode.</p>
+  <p class="page-head__lede lede">Critical services work like regular services, with permission to break through Focus and Silent mode.</p>
 </header>
 
 <div class="grid">
@@ -21,7 +21,7 @@
           <input type="checkbox" name="critical_alerts_enabled"{{if .CriticalAlertsEnabled}} checked{{end}}>
           <span class="check__copy">
             <span class="check__name">Critical Alerts</span>
-            <span class="check__description">Allow eligible sources to sound through Focus and Silent mode. Everything else stays Time Sensitive.</span>
+            <span class="check__description">Allow enabled critical services to sound through Focus and Silent mode. When off, they stay Time Sensitive.</span>
           </span>
         </label>
         <button class="btn btn--primary" type="submit">Save</button>
@@ -31,7 +31,7 @@
 
   <section class="module module--marked span-4">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">02</span>New source</h2>
+      <h2 class="module__label"><span class="module__index">02</span>New critical service</h2>
     </div>
     <div class="module__body">
       <form method="post" action="{{.Paths.Safety}}" class="stack" hx-disabled-elt="find button[type=submit]">
@@ -42,16 +42,32 @@
           <input class="input" type="text" name="name" value="{{.Form.Name}}"
                  placeholder="Home Assistant" maxlength="80" required>
         </label>
+        <label class="field">
+          <span class="field__label">Avatar image URL <span class="muted">optional</span></span>
+          <input class="input" type="url" name="image_url" value="{{.Form.ImageURL}}"
+                 placeholder="https://example.com/logo.png" maxlength="2048">
+        </label>
+        <label class="field">
+          <span class="field__label">Tap destination <span class="muted">optional</span></span>
+          <input class="input" type="text" name="url" value="{{.Form.URL}}"
+                 placeholder="https://home.example.com or an app deep link" maxlength="2048">
+        </label>
+        <label class="check">
+          <input type="checkbox" name="critical_enabled"{{if .Form.CriticalEnabled}} checked{{end}}>
+          <span class="check__copy">
+            <span class="check__name">Critical delivery</span>
+            <span class="check__description">Send this service as a Critical Alert when the account setting and phone permission are on.</span>
+          </span>
+        </label>
 
-        <button class="btn btn--primary" type="submit">Create source <span class="arrow">→</span></button>
-        <p class="module__note">New sources start as Time Sensitive. You can opt them into Critical Alerts below.</p>
+        <button class="btn btn--primary" type="submit">Create critical service <span class="arrow">→</span></button>
       </form>
     </div>
   </section>
 
   <section class="module span-8">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">03</span>Sources</h2>
+      <h2 class="module__label"><span class="module__index">03</span>Critical services</h2>
       {{if not .CriticalAlertsEnabled}}<span class="meta meta--signal">Critical Alerts are off for this account</span>{{end}}
     </div>
     {{if .Sources}}
@@ -60,33 +76,35 @@
         <thead>
           <tr>
             <th class="cell--index"><span class="visually-hidden">Row</span></th>
-            <th>Name</th><th>Alert type</th><th>Critical</th><th>Created</th>
+            <th>Service</th><th>Avatar image URL</th><th>Tap destination</th><th>Critical</th><th>Created</th>
             <th class="cell--right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {{range .Sources}}
-          {{$source := .}}
           <tr data-safety-source="{{.ID}}">
             <td class="cell--index"></td>
             <td class="cell--strong">
+              {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}
               <input class="input" type="text" name="name" value="{{.Name}}"
                      maxlength="80" required form="safety-edit-{{.ID}}"
                      aria-label="Name">
             </td>
             <td>
-              <select class="input" name="kind" form="safety-edit-{{.ID}}" aria-label="Alert type">
-                <option value="general"{{if eq .Kind "general"}} selected{{end}}>General · Time Sensitive</option>
-                {{range $.Kinds}}
-                <option value="{{.}}"{{if eq $source.Kind .}} selected{{end}}>{{title .}}</option>
-                {{end}}
-              </select>
+              <input class="input" type="url" name="image_url" value="{{with text .ImageURL}}{{.}}{{end}}"
+                     placeholder="https://example.com/logo.png" maxlength="2048"
+                     form="safety-edit-{{.ID}}" aria-label="Avatar image URL">
+            </td>
+            <td>
+              <input class="input" type="text" name="url" value="{{with text .URL}}{{.}}{{end}}"
+                     placeholder="https://example.com or an app deep link" maxlength="2048"
+                     form="safety-edit-{{.ID}}" aria-label="Tap destination">
             </td>
             <td>
               <label class="check">
                 <input type="checkbox" name="critical_enabled"{{if .CriticalEnabled}} checked{{end}}
                        form="safety-edit-{{.ID}}">
-                <span class="visually-hidden">Allow Critical Alerts</span>
+                <span class="visually-hidden">Enable Critical Alerts for {{.Name}}</span>
               </label>
             </td>
             <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
@@ -114,7 +132,7 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">No alert sources yet.</p>
+    <p class="empty">No critical services yet.</p>
     {{end}}
   </section>
 </div>

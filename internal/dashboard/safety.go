@@ -10,6 +10,7 @@ import (
 
 	"github.com/abdeen-labs/hark/internal/auth"
 	"github.com/abdeen-labs/hark/internal/db"
+	"github.com/abdeen-labs/hark/internal/httpapi"
 	"github.com/abdeen-labs/hark/internal/id"
 	"github.com/abdeen-labs/hark/internal/push"
 )
@@ -22,18 +23,23 @@ type safetyPage struct {
 	view
 	CriticalAlertsEnabled bool
 	Sources               []db.SafetySource
-	Kinds                 []string
 	Form                  safetyForm
 }
 
 // safetyForm preserves a rejected create form.
 type safetyForm struct {
-	Name string
+	Name            string
+	ImageURL        string
+	URL             string
+	CriticalEnabled bool
 }
 
 func safetyFormFrom(r *http.Request) safetyForm {
 	return safetyForm{
-		Name: strings.TrimSpace(r.PostFormValue("name")),
+		Name:            strings.TrimSpace(r.PostFormValue("name")),
+		ImageURL:        strings.TrimSpace(r.PostFormValue("image_url")),
+		URL:             strings.TrimSpace(r.PostFormValue("url")),
+		CriticalEnabled: r.PostFormValue("critical_enabled") != "",
 	}
 }
 
@@ -42,14 +48,34 @@ func (f safetyForm) validate() *notice {
 	if n := utf8.RuneCountInString(f.Name); n < 1 || n > 80 {
 		problems = append(problems, "The name must be 1-80 characters.")
 	}
+	if f.ImageURL != "" && !httpapi.ValidAvatarURL(f.ImageURL) {
+		problems = append(problems, "The avatar must be a public HTTPS URL.")
+	}
+	if f.URL != "" && !httpapi.ValidTapURL(f.URL) {
+		problems = append(problems, "The tap destination must be a web URL or an app deep link.")
+	}
 	if problems == nil {
 		return nil
 	}
 	return &notice{Kind: noticeError, Message: strings.Join(problems, " ")}
 }
 
+func (f safetyForm) imageURL() *string {
+	if f.ImageURL == "" {
+		return nil
+	}
+	return &f.ImageURL
+}
+
+func (f safetyForm) linkURL() *string {
+	if f.URL == "" {
+		return nil
+	}
+	return &f.URL
+}
+
 func (d *Dashboard) showSafety(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	d.renderSafety(w, r, p, http.StatusOK, safetyForm{}, nil)
+	d.renderSafety(w, r, p, http.StatusOK, safetyForm{CriticalEnabled: true}, nil)
 }
 
 func (d *Dashboard) renderSafety(
@@ -71,7 +97,6 @@ func (d *Dashboard) renderSafety(
 		view:                  d.newView(r, p, "Critical Alerts", "safety"),
 		CriticalAlertsEnabled: user.CriticalAlertsEnabled,
 		Sources:               sources,
-		Kinds:                 db.CriticalSafetyKinds,
 		Form:                  form,
 	}
 	if n != nil {
@@ -88,7 +113,13 @@ func (d *Dashboard) createSafetySource(w http.ResponseWriter, r *http.Request, p
 	}
 
 	_, err := d.opts.Store.SafetySources.Create(r.Context(), db.CreateSafetySourceParams{
-		ID: id.New(), UserID: p.UserID(), Name: form.Name, Now: d.opts.Auth.Now(),
+		ID:              id.New(),
+		UserID:          p.UserID(),
+		Name:            form.Name,
+		ImageURL:        form.imageURL(),
+		URL:             form.linkURL(),
+		CriticalEnabled: form.CriticalEnabled,
+		Now:             d.opts.Auth.Now(),
 	})
 	if err != nil {
 		d.fail(w, r, "creating a safety source failed", err)
@@ -99,44 +130,20 @@ func (d *Dashboard) createSafetySource(w http.ResponseWriter, r *http.Request, p
 
 // updateSafetySource saves the editable fields shown in a source row.
 func (d *Dashboard) updateSafetySource(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	src, err := d.opts.Store.SafetySources.ByID(r.Context(), r.PathValue("id"), p.UserID())
-	if errors.Is(err, db.ErrNotFound) {
-		d.renderError(w, r, http.StatusNotFound, "No alert source matches that identifier.")
-		return
-	}
-	if err != nil {
-		d.fail(w, r, "loading the alert source failed", err)
+	form := safetyFormFrom(r)
+	if n := form.validate(); n != nil {
+		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{CriticalEnabled: true},
+			n)
 		return
 	}
 
-	name := strings.TrimSpace(r.PostFormValue("name"))
-	if n := utf8.RuneCountInString(name); n < 1 || n > 80 {
-		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{},
-			&notice{Kind: noticeError, Message: "The name must be 1-80 characters."})
-		return
-	}
-	kind := r.PostFormValue("kind")
-	if kind == "" {
-		kind = src.Kind
-	}
-	if !db.ValidSafetyKind(kind) {
-		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{},
-			&notice{Kind: noticeError, Message: "Choose a valid alert type."})
-		return
-	}
-	critical := r.PostFormValue("critical_enabled") != ""
-	if critical && !db.SafetyKindAllowsCritical(kind) {
-		d.renderSafety(w, r, p, http.StatusUnprocessableEntity, safetyForm{},
-			&notice{Kind: noticeError, Message: "Choose a safety alert type before enabling Critical Alerts."})
-		return
-	}
-
-	_, err = d.opts.Store.SafetySources.Update(r.Context(), db.UpdateSafetySourceParams{
+	_, err := d.opts.Store.SafetySources.Update(r.Context(), db.UpdateSafetySourceParams{
 		ID:              r.PathValue("id"),
 		UserID:          p.UserID(),
-		Kind:            db.Value(kind),
-		Name:            db.Value(name),
-		CriticalEnabled: db.Value(critical),
+		Name:            db.Value(form.Name),
+		ImageURL:        db.Value(form.imageURL()),
+		URL:             db.Value(form.linkURL()),
+		CriticalEnabled: db.Value(form.CriticalEnabled),
 		Now:             d.opts.Auth.Now(),
 	})
 	switch {
@@ -201,14 +208,14 @@ func (d *Dashboard) sendSafetyTest(w http.ResponseWriter, r *http.Request, p *au
 			return nil
 		}
 
-		title, body := db.SafetyAlertContent(src.Kind, src.Name, db.SafetyStateTest)
+		title, body := db.SafetyAlertContent(src.Name, db.SafetyStateTest)
 		event, err = store.SafetyEvents.Create(ctx, db.CreateSafetyEventParams{
 			ID:       id.New(),
 			SourceID: src.ID,
 			State:    db.SafetyStateTest,
 			Title:    title,
 			Body:     body,
-			Priority: db.SafetyAlertPriority(db.SafetyStateTest, src.Kind, user.CriticalAlertsEnabled, src.CriticalEnabled),
+			Priority: db.SafetyAlertPriority(db.SafetyStateTest, user.CriticalAlertsEnabled, src.CriticalEnabled),
 			Status:   db.EventProcessing,
 			Now:      now,
 		})
@@ -234,7 +241,7 @@ func (d *Dashboard) sendSafetyTest(w http.ResponseWriter, r *http.Request, p *au
 	}
 	if len(devices) == 0 {
 		d.settleSafetyEvent(r, event, db.EventNoDevices, 0, nil)
-		d.renderSafety(w, r, p, http.StatusOK, safetyForm{}, &notice{
+		d.renderSafety(w, r, p, http.StatusOK, safetyForm{CriticalEnabled: true}, &notice{
 			Kind:    noticeWarn,
 			Message: "No active device is registered.",
 		})
@@ -247,6 +254,8 @@ func (d *Dashboard) sendSafetyTest(w http.ResponseWriter, r *http.Request, p *au
 			Target:     push.Target{DeviceID: device.ID, Token: device.APNsToken},
 			Title:      event.Title,
 			Body:       event.Body,
+			ImageURL:   src.ImageURL,
+			URL:        src.URL,
 			Priority:   event.Priority,
 			ThreadKey:  "safety-" + src.ID,
 			SourceID:   src.ID,
@@ -276,7 +285,7 @@ func (d *Dashboard) sendSafetyTest(w http.ResponseWriter, r *http.Request, p *au
 		failure = &joined
 	}
 	settled := d.settleSafetyEvent(r, event, status, sent.Accepted, failure)
-	d.renderSafety(w, r, p, http.StatusOK, safetyForm{}, safetyTestNotice(settled))
+	d.renderSafety(w, r, p, http.StatusOK, safetyForm{CriticalEnabled: true}, safetyTestNotice(settled))
 }
 
 // settleSafetyEvent records a send independently of request cancellation.

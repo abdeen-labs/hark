@@ -231,8 +231,7 @@ final class AppModel {
         criticalAlertState = CriticalAlertState.classify(
             authorizationStatus: settings.authorizationStatus,
             criticalSetting: settings.criticalAlertSetting,
-            requestedBefore: UserDefaults.standard.bool(forKey: Self.criticalAlertRequestedKey),
-            entitlementGranted: SafetyCriticalSupport.entitlementGranted
+            requestedBefore: UserDefaults.standard.bool(forKey: Self.criticalAlertRequestedKey)
         )
     }
 

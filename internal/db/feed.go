@@ -195,8 +195,8 @@ const feedQuery = `
 
 		UNION ALL
 
-		SELECT 'safety_event:' || se.id, 'notification'::text, ss.name, NULL::text,
-		       se.title, se.body, NULL::text, NULL::text,
+		SELECT 'safety_event:' || se.id, 'notification'::text, ss.name, ss.image_url,
+		       se.title, se.body, ss.url, NULL::text,
 		       se.status, se.delivered_count, se.error, se.priority, se.created_at
 		FROM safety_events se
 		JOIN safety_sources ss ON ss.id = se.source_id

@@ -179,7 +179,6 @@ shown below; unknown values are rejected.
 | Interaction status | `pending`, `approved`, `denied`, `yes`, `no`, `replied`, `canceled`, `expired` |
 | Interaction presentation | `notification`, `live_activity` |
 | Notification delivery status | `processing`, `no_devices`, `accepted`, `partial`, `failed` |
-| Alert source kind | `general`, `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak` |
 | Safety event state | `active`, `resolved` (reported by tokens) · `test` (session-only [setup test](#post-safety-sourcesidtest)) |
 | Safety event status | the notification delivery statuses plus `coalesced`, `rate_limited` |
 | Live Activity status | `starting`, `active`, `partial` (live) · `failed`, `ended`, `expired` (terminal) |
@@ -1351,21 +1350,20 @@ idempotency key, `422 validation_failed`, `429 rate_limited`.
 
 ## Safety
 
-Alert sources give trusted integrations a small endpoint for reporting active
-and resolved events. A source starts as `general`, which is always Time
-Sensitive. The owner can assign one of the eligible safety types — smoke,
-carbon monoxide, panic, intrusion, or water leak — before allowing it to use
-Critical Alerts.
+Critical services give trusted integrations a small endpoint for reporting
+active and resolved events. They use the same editable identity defaults as a
+regular service: a name, optional avatar, and optional tap destination. Each
+service also has its own Critical Alert switch.
 
 * Reports contain a source id and an `active` or `resolved` state. The server
   supplies the title, body, and priority.
 * A session is required to create sources, change safety settings, and send a
   setup test. API tokens can only report events, using the `safety:report`
   scope.
-* New sources start as `general`, with critical delivery off. A Critical Alert
-  requires an eligible safety type and both the source and account settings.
-* General sources, disabled sources, and disabled accounts send active events
-  and setup tests as `time_sensitive`. Resolved events are always `normal`.
+* New critical services start with critical delivery on. A Critical Alert
+  requires both the per-service and account settings.
+* Disabled services and disabled accounts send active events and setup tests as
+  `time_sensitive`. Resolved events are always `normal`.
 
 ### How an alert is composed
 
@@ -1373,8 +1371,7 @@ Each safety event creates one notification. Its priority is:
 
 | Event | Critical settings on | Otherwise |
 | --- | --- | --- |
-| `active`, `test` from an eligible safety type | `critical` | `time_sensitive` |
-| `active`, `test` from a `general` source | `time_sensitive` | `time_sensitive` |
+| `active`, `test` | `critical` | `time_sensitive` |
 | `resolved` | `normal` | `normal` |
 
 Safety alerts target every reachable device and cannot be narrowed with
@@ -1397,7 +1394,7 @@ returns the stored result.
 
 ### `GET /safety-sources`
 
-The account's configured alert sources, newest first. **Session only.** Not
+The account's configured critical services, newest first. **Session only.** Not
 paged.
 
 **200 OK**
@@ -1407,9 +1404,10 @@ paged.
   "sources": [
     {
       "id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
-      "kind": "general",
       "name": "Home Assistant",
-      "critical_enabled": false,
+      "image_url": "https://home.example.com/avatar.png",
+      "url": "homeassistant://dashboard-security",
+      "critical_enabled": true,
       "created_at": "2026-08-20T08:00:00.000Z",
       "updated_at": "2026-08-21T09:30:00.000Z"
     }
@@ -1419,22 +1417,22 @@ paged.
 
 | Field | Notes |
 | --- | --- |
-| `kind` | `general`, or an eligible Critical Alert type: `smoke`, `carbon_monoxide`, `panic`, `intrusion`, `water_leak`. |
-| `critical_enabled` | Whether an eligible source may use Critical Alerts. `false` on a new source. |
+| `image_url` | Default sender avatar, or `null`. |
+| `url` | Default destination opened when the notification is tapped, or `null`. |
+| `critical_enabled` | Whether this service may use Critical Alerts. `true` on a new source unless explicitly disabled. |
 
 ### `POST /safety-sources`
 
-Creates an alert source. **Session only.**
+Creates a critical service. **Session only.**
 
 **Request**
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `name` | string | yes | 1–80 characters. Appears in every alert the source produces. For example, `Home Assistant`. |
-
-New sources are always general Time Sensitive sources. Assign an eligible type
-and enable Critical Alerts with a separate
-[`PATCH`](#patch-safety-sourcesid).
+| `image_url` | string or null | no | Public HTTPS avatar URL. |
+| `url` | string or null | no | Web URL or app deep link opened when the notification is tapped. |
+| `critical_enabled` | boolean | no | Defaults to `true`. Set `false` to create the service with Time Sensitive delivery. |
 
 **201 Created** — `{ "source": { … } }`.
 
@@ -1442,19 +1440,20 @@ and enable Critical Alerts with a separate
 
 ### `GET /safety-sources/{id}`
 
-One source. **Session only.** **200 OK** — `{ "source": { … } }`;
+One critical service. **Session only.** **200 OK** — `{ "source": { … } }`;
 `404 not_found` when it does not exist.
 
 ### `PATCH /safety-sources/{id}`
 
-Changes a source's name, alert type, or critical setting. **Session only.** At
-least one field is required.
+Changes a critical service's defaults or critical setting. **Session only.** At
+least one field is required. Send `null` to clear an optional URL.
 
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `kind` | enum | no | `general`, `smoke`, `carbon_monoxide`, `panic`, `intrusion`, or `water_leak`. `general` cannot use Critical Alerts. |
 | `name` | string | no | 1–80 characters. |
-| `critical_enabled` | boolean | no | Whether an eligible source may use Critical Alerts. Enabling it for `general` returns `422`. |
+| `image_url` | string or null | no | Public HTTPS avatar URL; `null` clears it. |
+| `url` | string or null | no | Web URL or app deep link; `null` clears it. |
+| `critical_enabled` | boolean | no | Whether this service may use Critical Alerts. |
 
 **200 OK** — `{ "source": { … } }`.
 
@@ -1468,9 +1467,9 @@ entries.
 ### `POST /safety-sources/{id}/test`
 
 Sends one setup test for a source. **Session only.** No request body. The test
-is composed, delivered, and recorded like a reported event. Its returned
-`priority` is `critical` for an eligible source when both settings are on, and
-`time_sensitive` otherwise.
+is composed, delivered, and recorded like a reported event, including the
+source avatar and tap destination. Its returned `priority` is `critical` when
+both settings are on, and `time_sensitive` otherwise.
 
 **201 Created**
 
@@ -1481,8 +1480,8 @@ is composed, delivered, and recorded like a reported event. Its returned
     "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
     "source_name": "Home Assistant",
     "state": "test",
-    "title": "Alert test",
-    "body": "Home Assistant: This is a test notification.",
+    "title": "Home Assistant test",
+    "body": "This is a test Critical Alert.",
     "priority": "critical",
     "status": "accepted",
     "delivered_count": 1,
@@ -1511,8 +1510,8 @@ The account-wide critical delivery toggle. **Session only.**
 { "critical_alerts_enabled": true }
 ```
 
-The setting starts as `true`. A source must also have an eligible safety type
-and `critical_enabled` set to `true` before it can send a Critical Alert.
+The setting starts as `true`. A source must also have `critical_enabled` set to
+`true` before it can send a Critical Alert.
 
 ### `PATCH /safety-settings`
 
@@ -1555,8 +1554,8 @@ The server [composes the title, body, and priority](#how-an-alert-is-composed).
     "source_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
     "source_name": "Home Assistant",
     "state": "active",
-    "title": "Smoke alarm",
-    "body": "Home Assistant: Smoke detected.",
+    "title": "Home Assistant",
+    "body": "Attention needed.",
     "priority": "critical",
     "status": "accepted",
     "delivered_count": 2,
@@ -1570,7 +1569,7 @@ The server [composes the title, body, and priority](#how-an-alert-is-composed).
 | Field | Notes |
 | --- | --- |
 | `state` | What was reported. `resolved` composes a "cleared" alert at `normal` priority. |
-| `priority` | `critical` for an eligible source when both settings are on. General and disabled sources are `time_sensitive`. Resolved events are `normal`. |
+| `priority` | `critical` when both settings are on. Disabled sources are `time_sensitive`. Resolved events are `normal`. |
 | `status` | The [delivery statuses](#get-events), plus `coalesced` and `rate_limited` for reports recorded without a push. |
 | `delivered_count` | APNs acceptances. See [what `accepted` means](#what-accepted-means). |
 | `message` | Non-null when no push was sent or accepted. |
@@ -2550,10 +2549,10 @@ separate from the JSON API:
 | `POST` | `/dashboard/services/{id}` | Saves the defaults. |
 | `POST` | `/dashboard/services/{id}/rotate` | Replaces the webhook credential immediately. |
 | `POST` | `/dashboard/services/{id}/delete` | Deletes the service and its associated deliveries. |
-| `GET` | `/dashboard/safety` | Critical Alert settings, alert sources, and the form that creates a source. |
-| `POST` | `/dashboard/safety` | Creates an alert source. |
+| `GET` | `/dashboard/safety` | Critical Alert settings, critical services, and the form that creates one. |
+| `POST` | `/dashboard/safety` | Creates a critical service. |
 | `POST` | `/dashboard/safety/settings` | Saves the account-wide critical toggle. |
-| `POST` | `/dashboard/safety/{id}` | Saves a source's name, alert type, and per-source critical toggle. |
+| `POST` | `/dashboard/safety/{id}` | Saves a critical service's name, avatar, tap destination, and critical toggle. |
 | `POST` | `/dashboard/safety/{id}/test` | Sends the [setup test](#post-safety-sourcesidtest) for one source. |
 | `POST` | `/dashboard/safety/{id}/delete` | Deletes the source and its safety events. |
 | `GET` | `/dashboard/devices` | Registered phones. |

@@ -16,72 +16,42 @@ final class SafetyPermissionTests: XCTestCase {
     private func classify(
         _ status: UNAuthorizationStatus,
         _ critical: UNNotificationSetting,
-        requestedBefore: Bool = false,
-        entitlementGranted: Bool = false
+        requestedBefore: Bool = false
     ) -> CriticalAlertState {
         CriticalAlertState.classify(
             authorizationStatus: status,
             criticalSetting: critical,
-            requestedBefore: requestedBefore,
-            entitlementGranted: entitlementGranted
+            requestedBefore: requestedBefore
         )
     }
 
     func testDeniedNotificationsDominate() {
         XCTAssertEqual(classify(.denied, .notSupported), .notificationsDenied)
         XCTAssertEqual(
-            classify(.denied, .enabled, requestedBefore: true, entitlementGranted: true),
+            classify(.denied, .enabled, requestedBefore: true),
             .notificationsDenied
         )
         XCTAssertEqual(classify(.denied, .disabled, requestedBefore: true), .notificationsDenied)
     }
 
     func testEnabledSettingIsGranted() {
-        XCTAssertEqual(classify(.authorized, .enabled, requestedBefore: true, entitlementGranted: true), .granted)
-        XCTAssertEqual(classify(.provisional, .enabled, requestedBefore: true, entitlementGranted: true), .granted)
+        XCTAssertEqual(classify(.authorized, .enabled, requestedBefore: true), .granted)
+        XCTAssertEqual(classify(.provisional, .enabled, requestedBefore: true), .granted)
     }
 
     func testDisabledSettingIsCriticalDenied() {
-        XCTAssertEqual(classify(.authorized, .disabled, requestedBefore: true, entitlementGranted: true), .criticalDenied)
+        XCTAssertEqual(classify(.authorized, .disabled, requestedBefore: true), .criticalDenied)
         XCTAssertEqual(classify(.authorized, .disabled, requestedBefore: false), .criticalDenied)
     }
 
     func testNeverRequestedIsNotRequested() {
         XCTAssertEqual(classify(.authorized, .notSupported), .notRequested)
-        XCTAssertEqual(classify(.authorized, .notSupported, entitlementGranted: true), .notRequested)
         XCTAssertEqual(classify(.notDetermined, .notSupported), .notRequested)
     }
 
-    func testRequestedWithoutEntitlementIsUnavailable() {
+    func testRequestedButUnsupportedIsUnavailable() {
         XCTAssertEqual(classify(.authorized, .notSupported, requestedBefore: true), .unavailable)
         XCTAssertEqual(classify(.provisional, .notSupported, requestedBefore: true), .unavailable)
-    }
-
-    func testEntitlementFlipReturnsAwaitingUsersToNotRequested() {
-        XCTAssertEqual(
-            classify(.authorized, .notSupported, requestedBefore: true, entitlementGranted: true),
-            .notRequested
-        )
-    }
-
-    // MARK: - SafetyKindDisplay
-
-    func testCriticalKindsMatchTheWireContract() {
-        XCTAssertEqual(SafetyKindDisplay.all, ["smoke", "carbon_monoxide", "panic", "intrusion", "water_leak"])
-        XCTAssertFalse(SafetyKindDisplay.allowsCritical("general"))
-        XCTAssertEqual(SafetyKindDisplay.label("general"), "General")
-    }
-
-    func testEveryKindHasAReadableLabel() {
-        for kind in SafetyKindDisplay.all {
-            let label = SafetyKindDisplay.label(kind)
-            XCTAssertFalse(label.isEmpty, "No label for \(kind)")
-            XCTAssertFalse(label.contains("_"), "Raw wire value leaked for \(kind)")
-        }
-    }
-
-    func testUnknownKindFallsBackToUnderscoreReplacement() {
-        XCTAssertEqual(SafetyKindDisplay.label("gas_leak"), "gas leak")
     }
 
     // MARK: - SafetyTestFeedback
@@ -121,31 +91,42 @@ final class SafetyPermissionTests: XCTestCase {
 
     // MARK: - Safety source request encoding
 
-    func testCreateSourceNeedsOnlyAName() throws {
-        let data = try JSONEncoder().encode(CreateSafetySourceRequest(name: "Home Assistant"))
+    func testCreateSourceIncludesCriticalSwitch() throws {
+        let data = try JSONEncoder().encode(CreateSafetySourceRequest(
+            name: "Home Assistant",
+            imageUrl: nil,
+            url: nil,
+            criticalEnabled: true
+        ))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object.keys.sorted(), ["name"])
+        XCTAssertEqual(object.keys.sorted(), ["critical_enabled", "name"])
         XCTAssertEqual(object["name"] as? String, "Home Assistant")
-    }
-
-    func testKindCanBeAssignedLater() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(kind: "intrusion", name: nil, criticalEnabled: nil))
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object.keys.sorted(), ["kind"])
-        XCTAssertEqual(object["kind"] as? String, "intrusion")
-    }
-
-    func testNilNameIsOmittedFromTheWire() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(kind: nil, name: nil, criticalEnabled: true))
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object.keys.sorted(), ["critical_enabled"])
         XCTAssertEqual(object["critical_enabled"] as? Bool, true)
     }
 
-    func testNilCriticalEnabledIsOmittedFromTheWire() throws {
-        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(kind: nil, name: "Hall detector", criticalEnabled: nil))
+    func testUpdateCarriesTheSameDefaultsAsAService() throws {
+        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(
+            name: "Front door",
+            imageUrl: "https://example.com/front-door.png",
+            url: "hark-test://front-door",
+            criticalEnabled: true
+        ))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object.keys.sorted(), ["name"])
-        XCTAssertEqual(object["name"] as? String, "Hall detector")
+        XCTAssertEqual(object.keys.sorted(), ["critical_enabled", "image_url", "name", "url"])
+        XCTAssertEqual(object["image_url"] as? String, "https://example.com/front-door.png")
+        XCTAssertEqual(object["url"] as? String, "hark-test://front-door")
+    }
+
+    func testUpdateCanClearOptionalDefaults() throws {
+        let data = try JSONEncoder().encode(UpdateSafetySourceRequest(
+            name: "Front door",
+            imageUrl: nil,
+            url: nil,
+            criticalEnabled: false
+        ))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertTrue(object["image_url"] is NSNull)
+        XCTAssertTrue(object["url"] is NSNull)
+        XCTAssertEqual(object["critical_enabled"] as? Bool, false)
     }
 }

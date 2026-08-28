@@ -343,7 +343,7 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 	f.expect(http.MethodPost, "/notifications", f.token, `{"title":"Hark","body":"Agent finished"}`,
 		http.StatusCreated, nil)
 
-	src := f.createSafetySource(db.SafetyKindSmoke, "Garage")
+	src := f.createSafetySource("Garage")
 	f.enableCritical(src.ID)
 	f.reportSafety(src.ID, db.SafetyStateActive, http.StatusCreated)
 
