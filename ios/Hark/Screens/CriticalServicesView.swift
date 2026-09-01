@@ -182,14 +182,6 @@ struct CriticalServicesView: View {
                 .buttonStyle(.instrument(.primary))
                 .disabled(requesting)
             }
-        case .unavailable:
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                StatusLight(color: Axis.warn, size: 5)
-                Text("Critical Alerts aren't available on this build. Normal and Time Sensitive still work. Turn either Critical switch off if you want Critical selections to fall back to Time Sensitive.")
-                    .font(AxisType.copy(13))
-                    .foregroundStyle(Axis.inkSubtle)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         case .notificationsDenied:
             deniedState("Notifications are off for Hark. Turn them on to receive alerts.")
         case .criticalDenied:

@@ -12,16 +12,12 @@ nonisolated enum CriticalAlertState {
     case unknown
     case notificationsDenied
     case notRequested
-    case unavailable
     case granted
     case criticalDenied
 
-    /// `requestedBefore` distinguishes an unrequested permission from a build
-    /// where Critical Alerts are unavailable.
     static func classify(
         authorizationStatus: UNAuthorizationStatus,
-        criticalSetting: UNNotificationSetting,
-        requestedBefore: Bool
+        criticalSetting: UNNotificationSetting
     ) -> CriticalAlertState {
         switch authorizationStatus {
         case .denied:
@@ -39,7 +35,7 @@ nonisolated enum CriticalAlertState {
         case .disabled:
             return .criticalDenied
         case .notSupported:
-            return requestedBefore ? .unavailable : .notRequested
+            return .notRequested
         @unknown default:
             return .unknown
         }

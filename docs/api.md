@@ -1364,11 +1364,8 @@ Critical only when both `critical_alerts_enabled` for the account and
 request falls back to `time_sensitive`; neither switch changes Normal or Time
 Sensitive requests.
 
-The app does not declare Apple's Critical Alerts entitlement before Apple grants
-it. On a build where iOS reports Critical Alerts as unavailable, Normal and
-Time Sensitive continue to work. Turn either Critical switch off to make
-Critical selections fall back to Time Sensitive until the entitlement is
-available.
+The iOS target declares Apple's Critical Alerts entitlement, and the user grants
+Critical Alerts permission in the app.
 
 ### `GET /critical-services`
 
@@ -1905,9 +1902,7 @@ Priority maps as follows. The `apns-priority` header is always `10`:
 
 [Critical service](#critical-services) webhooks can produce `critical`. iOS
 requires Apple's Critical Alerts entitlement and the user's permission to
-deliver at that level. Hark does not declare that entitlement before Apple
-grants it. Until it is available, turn off either Critical switch to make
-Critical requests fall back to Time Sensitive.
+deliver at that level. Hark declares the entitlement on its app target.
 
 **`hark`**
 

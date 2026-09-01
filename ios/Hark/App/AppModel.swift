@@ -88,7 +88,6 @@ final class AppModel {
 
     private static let serverURLKey = "server_url"
     private static let deviceIDKey = "device_id"
-    private static let criticalAlertRequestedKey = "critical_alert_requested"
 
     // MARK: - Lifecycle
 
@@ -230,15 +229,13 @@ final class AppModel {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         criticalAlertState = CriticalAlertState.classify(
             authorizationStatus: settings.authorizationStatus,
-            criticalSetting: settings.criticalAlertSetting,
-            requestedBefore: UserDefaults.standard.bool(forKey: Self.criticalAlertRequestedKey)
+            criticalSetting: settings.criticalAlertSetting
         )
     }
 
     func requestCriticalAlertAuthorization() async {
         let center = UNUserNotificationCenter.current()
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge, .criticalAlert])
-        UserDefaults.standard.set(true, forKey: Self.criticalAlertRequestedKey)
         UIApplication.shared.registerForRemoteNotifications()
         await refreshNotificationPermission()
     }

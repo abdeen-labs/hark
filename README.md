@@ -274,6 +274,9 @@ so Hark refreshes the token and sends that push again once. See
 [Push payloads](docs/api.md#push-payloads) in the API contract for what the
 phone receives and what a client can rely on.
 
+The iOS target declares Apple's Critical Alerts entitlement. The user grants
+Critical Alerts permission in the app.
+
 ### Limits
 
 | Variable | Default | Notes |

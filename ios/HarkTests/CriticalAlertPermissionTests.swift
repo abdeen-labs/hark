@@ -15,43 +15,32 @@ final class CriticalAlertPermissionTests: XCTestCase {
 
     private func classify(
         _ status: UNAuthorizationStatus,
-        _ critical: UNNotificationSetting,
-        requestedBefore: Bool = false
+        _ critical: UNNotificationSetting
     ) -> CriticalAlertState {
         CriticalAlertState.classify(
             authorizationStatus: status,
-            criticalSetting: critical,
-            requestedBefore: requestedBefore
+            criticalSetting: critical
         )
     }
 
     func testDeniedNotificationsDominate() {
         XCTAssertEqual(classify(.denied, .notSupported), .notificationsDenied)
-        XCTAssertEqual(
-            classify(.denied, .enabled, requestedBefore: true),
-            .notificationsDenied
-        )
-        XCTAssertEqual(classify(.denied, .disabled, requestedBefore: true), .notificationsDenied)
+        XCTAssertEqual(classify(.denied, .enabled), .notificationsDenied)
+        XCTAssertEqual(classify(.denied, .disabled), .notificationsDenied)
     }
 
     func testEnabledSettingIsGranted() {
-        XCTAssertEqual(classify(.authorized, .enabled, requestedBefore: true), .granted)
-        XCTAssertEqual(classify(.provisional, .enabled, requestedBefore: true), .granted)
+        XCTAssertEqual(classify(.authorized, .enabled), .granted)
+        XCTAssertEqual(classify(.provisional, .enabled), .granted)
     }
 
     func testDisabledSettingIsCriticalDenied() {
-        XCTAssertEqual(classify(.authorized, .disabled, requestedBefore: true), .criticalDenied)
-        XCTAssertEqual(classify(.authorized, .disabled, requestedBefore: false), .criticalDenied)
+        XCTAssertEqual(classify(.authorized, .disabled), .criticalDenied)
     }
 
     func testNeverRequestedIsNotRequested() {
         XCTAssertEqual(classify(.authorized, .notSupported), .notRequested)
         XCTAssertEqual(classify(.notDetermined, .notSupported), .notRequested)
-    }
-
-    func testRequestedButUnsupportedIsUnavailable() {
-        XCTAssertEqual(classify(.authorized, .notSupported, requestedBefore: true), .unavailable)
-        XCTAssertEqual(classify(.provisional, .notSupported, requestedBefore: true), .unavailable)
     }
 
     // MARK: - AxisState priorities

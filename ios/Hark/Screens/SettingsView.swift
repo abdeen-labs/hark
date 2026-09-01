@@ -174,7 +174,6 @@ struct SettingsView: View {
         case .unknown: "Checking"
         case .notificationsDenied: "Notifications off"
         case .notRequested: "Not set up"
-        case .unavailable: "Unavailable"
         case .granted: "Granted"
         case .criticalDenied: "Denied"
         }
@@ -197,8 +196,6 @@ struct SettingsView: View {
             model.criticalSettings?.criticalAlertsEnabled == true ? "Ready" : "Off"
         case .criticalDenied, .notificationsDenied:
             "Denied"
-        case .unavailable:
-            "Unavailable"
         default:
             "Setup"
         }
