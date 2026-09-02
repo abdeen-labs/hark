@@ -2,7 +2,7 @@
 //  AxisShell.swift
 //  Hark
 //
-//  The signed-in chrome: a mast along the top carrying the Key, the
+//  The signed-in chrome: a mast along the top carrying the brand, the
 //  product's role and the device's registration state; the column ruler
 //  under it; and the section rail along the bottom, indexed the way the
 //  dashboard's navigation is. No floating bars, no glass — rules and type.
@@ -21,7 +21,9 @@ struct Mast: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                KeySeal(size: 24)
+                Rectangle()
+                    .fill(Axis.signal)
+                    .frame(width: 10, height: 10)
                 Text("Hark")
                     .font(.system(size: 15, weight: .semibold))
                     .tracking(-0.3)
