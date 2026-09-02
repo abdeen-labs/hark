@@ -307,7 +307,7 @@ private struct ApprovalCard: View {
                     .foregroundStyle(Axis.ink)
                     .lineLimit(3)
                     .harkMasked(state.isPrivate)
-                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
+                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent, ink: state.accentInk)
             }
         }
     }
@@ -337,7 +337,7 @@ private struct ShellCard: View {
                     .foregroundStyle(Axis.ink)
                     .lineLimit(3)
                     .harkMasked(state.isPrivate)
-                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
+                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent, ink: state.accentInk)
             }
         }
     }
@@ -360,7 +360,7 @@ private struct VerdictCard: View {
                     .harkMasked(state.isPrivate)
                 Meta(state.title)
                     .harkMasked(state.isPrivate)
-                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
+                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent, ink: state.accentInk)
             }
         }
     }
@@ -381,7 +381,7 @@ private struct SignalCard: View {
                         .foregroundStyle(Axis.ink)
                         .lineLimit(2)
                         .harkMasked(state.isPrivate)
-                    AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
+                    AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent, ink: state.accentInk)
                 }
             }
             Spacer(minLength: 0)
@@ -402,7 +402,7 @@ private struct IslandBottom: View {
                     .font(AxisType.copy(13))
                     .foregroundStyle(Axis.ink)
                     .lineLimit(2)
-                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent)
+                AnswerButtons(attributes: context.attributes, interaction: interaction, accent: state.accent, ink: state.accentInk)
             } else {
                 Text(state.title)
                     .font(AxisType.copy(13, weight: .semibold))

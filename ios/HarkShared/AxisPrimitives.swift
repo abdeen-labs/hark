@@ -57,12 +57,13 @@ struct IndexLabel: View {
 
 // MARK: - Lights and rules
 
-/// A square status light. Blinks in hard steps when asked to, unless motion
-/// is reduced.
+/// A square status light. A warning's light is the square rotated. Blinks in
+/// hard steps when asked to, unless motion is reduced.
 struct StatusLight: View {
     var color: Color = Axis.signal
     var size: CGFloat = 6
     var blinking = false
+    var rotated = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -70,16 +71,18 @@ struct StatusLight: View {
         if blinking, !reduceMotion {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let on = Int(context.date.timeIntervalSinceReferenceDate.rounded(.down)) % 2 == 0
-                Rectangle()
-                    .fill(color)
-                    .frame(width: size, height: size)
-                    .opacity(on ? 1 : 0.2)
+                square.opacity(on ? 1 : 0.2)
             }
         } else {
-            Rectangle()
-                .fill(color)
-                .frame(width: size, height: size)
+            square
         }
+    }
+
+    private var square: some View {
+        Rectangle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .rotationEffect(rotated ? .degrees(45) : .zero)
     }
 }
 
@@ -123,7 +126,8 @@ struct ThinBar: View {
 // MARK: - Tags
 
 /// A status or kind in a one-pixel frame. State tags carry a square light in
-/// their colour; kind tags do not.
+/// their colour; kind tags do not. A warning is the highlighter chip with a
+/// rotated square; a fault is the filled alarm field. Both take carbon ink.
 struct Tag: View {
     enum Tone {
         case kind, ok, warn, danger, muted, signal
@@ -145,6 +149,7 @@ struct Tag: View {
                 Rectangle()
                     .fill(color)
                     .frame(width: 5, height: 5)
+                    .rotationEffect(tone == .warn ? .degrees(45) : .zero)
             }
             Text(text)
                 .axisMeta(10)
@@ -154,6 +159,7 @@ struct Tag: View {
         .foregroundStyle(color)
         .padding(.horizontal, 7)
         .padding(.vertical, 4)
+        .background(fill, in: RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Axis.Radius.xs, style: .continuous)
                 .strokeBorder(border, lineWidth: 1)
@@ -164,10 +170,17 @@ struct Tag: View {
         switch tone {
         case .kind: Axis.inkSubtle
         case .ok: Axis.ok
-        case .warn: Axis.warn
-        case .danger: Axis.danger
+        case .warn, .danger: Axis.onField
         case .muted: Axis.inkFaint
         case .signal: Axis.signalText
+        }
+    }
+
+    private var fill: Color {
+        switch tone {
+        case .warn: Axis.warnChip
+        case .danger: Axis.alarmField
+        default: .clear
         }
     }
 
@@ -175,8 +188,7 @@ struct Tag: View {
         switch tone {
         case .kind: Axis.lineStrong
         case .ok: Axis.okLine
-        case .warn: Axis.warnLine
-        case .danger: Axis.signalLine
+        case .warn, .danger: .clear
         case .muted: Axis.line
         case .signal: Axis.signalLine
         }
@@ -218,7 +230,7 @@ struct StateTag: View {
 // MARK: - Buttons
 
 /// An instrument control: compact, square-cornered, labelled in capitals, and
-/// a press that inverts rather than lifts.
+/// a press that compresses rather than lifts.
 struct InstrumentButtonStyle: ButtonStyle {
     enum Kind {
         case primary, secondary, danger, ghost
@@ -235,6 +247,8 @@ struct InstrumentButtonStyle: ButtonStyle {
     /// Overrides the signal colour for a primary control — a Live Activity
     /// answers in the accent its server chose.
     var tint: Color?
+    /// The label ink on a tinted primary control.
+    var ink: Color?
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -270,32 +284,33 @@ struct InstrumentButtonStyle: ButtonStyle {
         )
         .clipShape(RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous))
         .contentShape(Rectangle())
-        .scaleEffect(pressed && !reduceMotion ? 0.97 : 1)
+        .scaleEffect(pressed && !reduceMotion ? Axis.Motion.press : 1)
         .animation(Axis.Motion.quick, value: pressed)
     }
 
-    private var signal: Color { tint ?? Axis.signal }
+    private var field: Color { tint ?? Axis.signalField }
+    private var fieldInk: Color { ink ?? Axis.onSignal }
 
     private func foreground(pressed: Bool) -> Color {
         guard isEnabled else {
-            return kind == .primary ? Axis.onSignal.opacity(0.55) : Axis.inkDisabled
+            return kind == .primary ? fieldInk.opacity(0.55) : Axis.inkDisabled
         }
         switch kind {
-        case .primary: return Axis.onSignal
-        case .secondary: return pressed ? Axis.paper : Axis.ink
-        case .danger: return pressed ? Axis.onSignal : Axis.danger
+        case .primary: return fieldInk
+        case .secondary: return Axis.ink
+        case .danger: return pressed ? Axis.onSignal : Axis.signalText
         case .ghost: return pressed ? Axis.ink : Axis.inkSubtle
         }
     }
 
     private func background(pressed: Bool) -> Color {
         guard isEnabled else {
-            return kind == .primary ? signal.opacity(0.35) : .clear
+            return kind == .primary ? field.opacity(0.35) : .clear
         }
         switch kind {
-        case .primary: return pressed ? (tint == nil ? Axis.signalPressed : signal.opacity(0.8)) : signal
-        case .secondary: return pressed ? Axis.ink : .clear
-        case .danger: return pressed ? Axis.signal : .clear
+        case .primary: return field
+        case .secondary: return pressed ? Axis.surface3 : .clear
+        case .danger: return pressed ? Axis.signalField : .clear
         case .ghost: return .clear
         }
     }
@@ -307,7 +322,7 @@ struct InstrumentButtonStyle: ButtonStyle {
         switch kind {
         case .primary: return .clear
         case .secondary: return pressed ? Axis.ink : Axis.lineStrong
-        case .danger: return pressed ? Axis.signal : Axis.signalLine
+        case .danger: return pressed ? Axis.signalField : Axis.signalLine
         case .ghost: return pressed ? Axis.lineStrong : .clear
         }
     }
@@ -319,8 +334,9 @@ extension ButtonStyle where Self == InstrumentButtonStyle {
         arrow: InstrumentButtonStyle.Arrow? = nil,
         compact: Bool = false,
         fill: Bool = true,
-        tint: Color? = nil
+        tint: Color? = nil,
+        ink: Color? = nil
     ) -> InstrumentButtonStyle {
-        InstrumentButtonStyle(kind: kind, arrow: arrow, compact: compact, fill: fill, tint: tint)
+        InstrumentButtonStyle(kind: kind, arrow: arrow, compact: compact, fill: fill, tint: tint, ink: ink)
     }
 }

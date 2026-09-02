@@ -128,12 +128,12 @@
     {{end}}
   </section>
 
-  <section class="module module--hazard span-12">
+  <section class="module module--alarm span-12">
     <div class="module__head">
       <h2 class="module__label"><span class="module__index">04</span>Delete</h2>
-      <span class="meta meta--signal">Irreversible</span>
+      <span class="meta meta--alarm">Irreversible</span>
     </div>
-    <div class="module__body hazard">
+    <div class="module__body alarm">
       <p class="module__note">Deleting this service also deletes its delivery history.</p>
       <form method="post" action="{{.BasePath}}/{{.Service.ID}}/delete"
             data-confirm="Delete {{.Service.Title}} and its delivery history?"

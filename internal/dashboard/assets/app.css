@@ -1,47 +1,133 @@
 /* Hark dashboard. */
 
+/* Abdeen Labs · Redline. The brand tokens are declared as published in
+ * system/colors_and_type.css; Hark's own roles below resolve from them. */
+
 :root {
   color-scheme: dark;
 
-  --paper: #06080d;
-  --surface: #0b0e14;
-  --surface-2: #11161f;
-  --surface-3: #1a212c;
-  --field: #090c11;
+  --pitch-960: #000000;
+  --void: #0a0f1c;
+  --pitch-900: #121827;
+  --surface: #192133;
+  --pitch-800: #212a40;
+  --pitch-700: #29334d;
+  --pitch-600: #313c5a;
+  --border: #3a4769;
 
-  --ink: #f4f6f9;
-  --ink-muted: #d5dbe4;
-  --ink-subtle: #a2abb9;
-  --ink-faint: #8f99ab;
-  --ink-disabled: #4d5665;
+  --graphite-900: #090e1e;
+  --graphite-800: #232a3e;
+  --graphite-700: #414a61;
+  --graphite-600: #555e75;
+  --graphite-500: #747d90;
+  --graphite-400: #939fbd;
+  --graphite-300: #afb9cf;
+  --graphite-200: #c9d1e4;
+  --graphite-100: #e1e7f4;
 
-  --line: rgba(244, 246, 249, 0.12);
-  --line-strong: rgba(244, 246, 249, 0.24);
-  --line-faint: rgba(244, 246, 249, 0.06);
+  --chalk-100: #f3f7ff;
+  --chalk-200: #e9eefa;
+  --chalk-300: #dbe2f4;
+
+  --mist: #f0f3fa;
+  --mist-200: #eaeef5;
+  --mist-300: #dee4f2;
+  --mist-400: #d2d9eb;
+  --mist-500: #c3cce2;
+
+  --carbon-900: #0a0f1c;
+  --carbon-800: #1e2537;
+  --carbon-700: #3c455a;
+  --carbon-600: #535d75;
+  --carbon-500: #788197;
+  --carbon-300: #b1bbd2;
+  --carbon-200: #bbc5db;
+
+  --accent: #fe002a;
+  --accent-deep: #d4212c;
+  --accent-ink: #be0018;
+
+  --alarm-500: #ff2bd6;
+  --alarm-700: #bf0099;
+  --warn-400: #f5ff00;
+  --warn-700: #766800;
+  --cobalt-400: #5aa7ff;
+  --cobalt-700: #1d5a96;
+
+  --font-mark: 'Aref Ruqaa', serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+  --tracking-wordmark: 0.22em;
+
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --motion-duration-state: 120ms;
+  --motion-duration-shift: 170ms;
+  --motion-duration-enter: 520ms;
+  --motion-enter-offset: 12px;
+  --motion-enter-blur: 4px;
+
+  --mark-optical-shift: 0.168em;
+  --seal-mark-scale: 0.36;
+  --seal-cut: 26%;
+  --seal-size: 40px;
+  --seal-line: max(1px, calc(var(--seal-size) / 40));
+  --seal-key-field: var(--pitch-900);
+  --seal-key-line: var(--accent);
+  --seal-key-ink: var(--chalk-100);
+  --lockup-divider: var(--pitch-600);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --seal-key-field: var(--mist-200);
+  --seal-key-line: var(--accent-deep);
+  --seal-key-ink: var(--carbon-900);
+  --lockup-divider: var(--carbon-200);
+}
+
+/* Hark's roles. The dark ground is canonical; light is its equal. */
+:root {
+  --paper: var(--void);
+  /* Modules are outlined on the ground, not filled: scarlet text holds AA
+   * against the void and against nothing lighter. */
+  --panel: var(--void);
+  --panel-2: var(--pitch-800);
+  --panel-3: var(--pitch-700);
+  --field: var(--pitch-900);
+
+  --ink: var(--chalk-100);
+  --ink-muted: var(--chalk-300);
+  --ink-subtle: var(--graphite-300);
+  --ink-faint: var(--graphite-400);
+  /* Furniture only: aria-hidden indices, row counters, disabled controls. */
+  --ink-disabled: var(--graphite-600);
+
+  --line: var(--pitch-600);
+  --line-strong: var(--border);
+  --line-faint: var(--pitch-800);
   /* The edge of anything the hand operates: heavy enough to clear 3:1 against
-   * the surface behind it, which a rule never has to. */
-  --line-control: rgba(244, 246, 249, 0.36);
+   * the panel behind it, which a rule never has to. */
+  --line-control: var(--graphite-500);
 
-  --signal: #ce2020;
-  --signal-hover: #a31818;
-  --signal-text: #e64949;
-  --on-signal: #ffffff;
-  --signal-wash: rgba(206, 32, 32, 0.12);
-  --signal-line: rgba(206, 32, 32, 0.55);
+  /* Scarlet is identity: a solid line, or a filled field under carbon ink. */
+  --signal: var(--accent);
+  --signal-fill: var(--accent);
+  --signal-text: var(--accent);
+  --signal-line: var(--accent-deep);
+  --on-signal: var(--carbon-900);
 
-  --ok: #16b37d;
-  --ok-line: rgba(22, 179, 125, 0.5);
-  --warn: #e2a81e;
-  --warn-line: rgba(226, 168, 30, 0.5);
-  --danger: #e64949;
+  /* Cobalt says verified; yellow frames a warning; magenta hatches an alarm. */
+  --ok: var(--cobalt-400);
+  --warn: var(--warn-400);
+  --alarm: var(--alarm-500);
 
-  --code: #090c11;
-  --code-ink: #eef1f6;
+  --code: var(--pitch-900);
+  --code-ink: var(--chalk-100);
   --code-line: var(--line);
   --code-line-strong: var(--line-strong);
 
-  --dot: rgba(244, 246, 249, 0.085);
-  --row-hover: rgba(244, 246, 249, 0.05);
+  --dot: var(--pitch-600);
+  --row-hover: var(--pitch-900);
 
   --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -56,45 +142,52 @@
   --max: 1680px;
   --mast-h: 56px;
 
-  --t-fast: 150ms;
-  --t-base: 220ms;
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: var(--motion-duration-state);
+  --t-base: var(--motion-duration-shift);
+  --ease: var(--motion-ease);
 }
 
 :root[data-theme="light"] {
-  color-scheme: light;
+  --paper: var(--mist);
+  --panel: var(--mist);
+  --panel-2: var(--mist-300);
+  --panel-3: var(--mist-400);
+  --field: var(--mist-300);
 
-  --paper: #f4f5f8;
-  --surface: #ffffff;
-  --surface-2: #edeff3;
-  --surface-3: #e2e5eb;
-  --field: #eceef2;
+  --ink: var(--carbon-900);
+  --ink-muted: var(--carbon-800);
+  --ink-subtle: var(--carbon-700);
+  --ink-faint: var(--carbon-600);
+  --ink-disabled: var(--carbon-500);
 
-  --ink: #10141b;
-  --ink-muted: #2a313c;
-  --ink-subtle: #525c6b;
-  --ink-faint: #616b7b;
-  --ink-disabled: #b6bdc9;
+  --line: var(--carbon-200);
+  --line-strong: var(--carbon-300);
+  --line-faint: var(--mist-500);
+  --line-control: var(--carbon-500);
 
-  --line: rgba(16, 20, 27, 0.12);
-  --line-strong: rgba(16, 20, 27, 0.24);
-  --line-faint: rgba(16, 20, 27, 0.06);
-  --line-control: rgba(16, 20, 27, 0.46);
+  --signal: var(--accent-deep);
+  --signal-fill: var(--accent);
+  --signal-text: var(--accent-ink);
+  --signal-line: var(--accent-deep);
+  --on-signal: var(--carbon-900);
 
-  --signal-text: #b91c1c;
-  --signal-wash: rgba(206, 32, 32, 0.12);
+  --ok: var(--cobalt-700);
+  --warn: var(--warn-700);
+  --alarm: var(--alarm-700);
 
-  --ok: #0c7a54;
-  --ok-line: rgba(12, 122, 84, 0.5);
-  --warn: #8f6600;
-  --warn-line: rgba(143, 102, 0, 0.5);
-  --danger: #b91c1c;
+  --code: var(--mist-300);
+  --code-ink: var(--carbon-900);
+  --code-line: var(--carbon-200);
+  --code-line-strong: var(--carbon-300);
 
-  --code-line: rgba(244, 246, 249, 0.14);
-  --code-line-strong: rgba(244, 246, 249, 0.26);
+  --dot: var(--mist-500);
+  --row-hover: var(--mist-300);
+}
 
-  --dot: rgba(16, 20, 27, 0.1);
-  --row-hover: rgba(16, 20, 27, 0.045);
+/* The faint step holds AA against the light ground and nothing else; inside a
+ * panel it escalates one step. */
+:root[data-theme="light"] :is(.docs-search kbd, .secret__value, .prose pre, .prose code) {
+  --ink-faint: var(--carbon-700);
 }
 
 @media (max-width: 1024px) {
@@ -139,12 +232,18 @@ body::before {
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
 }
 
-::selection { background: var(--signal); color: var(--on-signal); }
+::selection { background: var(--signal-fill); color: var(--on-signal); }
 
 :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
-a { color: var(--signal-text); text-decoration: none; }
-a:hover { text-decoration: underline; text-underline-offset: 0.15em; }
+a {
+  color: var(--signal-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--signal-line);
+  text-underline-offset: 0.15em;
+}
+a:hover { text-decoration-color: currentColor; }
 
 h1, h2, h3 { margin: 0; color: var(--ink); font-weight: 600; letter-spacing: -0.02em; }
 
@@ -210,10 +309,11 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.meta a { color: inherit; }
+.meta a { color: inherit; text-decoration: none; }
 .meta a:hover { color: var(--ink); text-decoration: none; }
 .meta--ink { color: var(--ink-subtle); }
 .meta--signal { color: var(--signal-text); }
+.meta--alarm { color: var(--alarm); }
 
 .lede {
   max-width: 46ch;
@@ -320,8 +420,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   font-weight: 600;
   letter-spacing: -0.02em;
 }
-.brand:hover { text-decoration: none; }
-.brand__mark { width: 10px; height: 10px; background: var(--signal); }
+.brand, .brand:hover { text-decoration: none; }
 .brand__sub {
   margin-left: 4px;
   padding-left: 12px;
@@ -347,6 +446,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+  text-decoration: none;
 }
 .nav a::before {
   content: "";
@@ -560,25 +660,24 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .module {
   position: relative;
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--panel);
 }
 .module--flat { background: transparent; }
 .module--signal { border-color: var(--signal-line); box-shadow: inset 4px 0 0 var(--signal); }
 .module--signal > .module__head, .module--signal > .module__body { padding-left: 20px; }
 
-/* Hazard marking: a hatched band down the left edge of a destructive region. */
-.module--hazard { border-color: var(--line-strong); }
-.module--hazard::before {
+/* Alarm marking: a hatched band down the left edge of a destructive region. */
+.module--alarm { border-color: var(--line-strong); }
+.module--alarm::before {
   content: "";
   position: absolute;
   top: -1px;
   bottom: -1px;
   left: -1px;
   width: 8px;
-  background: repeating-linear-gradient(135deg, var(--signal) 0 5px, transparent 5px 11px);
-  opacity: 0.8;
+  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px);
 }
-.module--hazard > .module__head, .module--hazard > .module__body { padding-left: 24px; }
+.module--alarm > .module__head, .module--alarm > .module__body { padding-left: 24px; }
 
 /* Corner brackets at two opposite corners. */
 .module--marked::before, .module--marked::after {
@@ -615,7 +714,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   text-transform: uppercase;
 }
 .module__index { color: var(--signal-text); }
-.module__more { color: var(--ink-faint); }
+.module__more { color: var(--ink-faint); text-decoration: none; }
 .module__more:hover { color: var(--ink); text-decoration: none; }
 .module__more:hover .arrow { transform: translateX(4px); }
 .module__body { padding: 20px 16px; }
@@ -694,6 +793,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
+  text-decoration: none;
 }
 .tabs a::after {
   content: "";
@@ -789,7 +889,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   outline-offset: -1px;
   object-fit: cover;
   vertical-align: -5px;
-  background: var(--surface-3);
+  background: var(--panel-3);
 }
 
 /* Tags ----------------------------------------------------------------------
@@ -816,9 +916,26 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   vertical-align: middle;
 }
 .tag--state::before { content: ""; width: 5px; height: 5px; background: currentColor; }
-.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok { border-color: var(--ok-line); color: var(--ok); }
-.tag--failed, .tag--error, .tag--denied, .tag--retired { border-color: var(--signal-line); color: var(--danger); }
-.tag--partial, .tag--warn, .tag--starting, .tag--pending { border-color: var(--warn-line); color: var(--warn); }
+.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok { color: var(--ok); }
+/* An alarm carries a hatched edge, never a solid frame. */
+.tag--failed, .tag--error, .tag--denied, .tag--retired {
+  padding-left: 13px;
+  background: repeating-linear-gradient(135deg, var(--alarm) 0 2px, transparent 2px 4px) left / 6px 100% no-repeat;
+  color: var(--alarm);
+}
+/* A warning is a dashed frame with a rotated square ahead of the label. */
+.tag--partial, .tag--warn, .tag--starting, .tag--pending {
+  padding: 2px 6px;
+  border: 2px dashed var(--warn);
+  color: var(--warn);
+}
+.tag--partial::before, .tag--warn::before, .tag--starting::before, .tag--pending::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
 .tag--expired, .tag--ended, .tag--no_devices { border-color: var(--line); color: var(--ink-faint); }
 .tag--kind { color: var(--ink-subtle); }
 
@@ -858,9 +975,8 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .feed__meta { margin: 6px 0 0; }
 .feed__error {
   margin: 8px 0 0;
-  padding: 6px 10px;
-  border-left: 2px solid var(--danger);
-  background: var(--signal-wash);
+  padding: 6px 10px 6px 18px;
+  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px) left / 8px 100% no-repeat;
   color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
@@ -922,10 +1038,13 @@ textarea.input { min-height: 96px; resize: vertical; }
 select.input {
   appearance: none;
   padding-right: 36px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a2abb9' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23afb9cf' stroke-width='1.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 10px 6px;
+}
+:root[data-theme="light"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%233c455a' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 .input--code {
   min-height: 52px;
@@ -953,7 +1072,7 @@ select.input {
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 .check input:hover { border-color: var(--ink-faint); }
-.check input:checked { border-color: var(--signal); background: var(--signal); }
+.check input:checked { border-color: var(--signal-fill); background: var(--signal-fill); }
 .check input:checked::before { content: ""; width: 6px; height: 6px; background: var(--on-signal); }
 .check__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .check__name { color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; }
@@ -1007,13 +1126,18 @@ select.input {
 /* htmx disables the submitting button for the life of its request. That is a
  * control at work, not one that is unavailable: it keeps its colours. */
 .btn[data-disabled-by-htmx] { opacity: 0.6; cursor: progress; transform: none; }
-.btn--primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
-.btn--primary:hover { background: var(--signal-hover); border-color: var(--signal-hover); color: var(--on-signal); }
+.btn--primary { background: var(--signal-fill); border-color: var(--signal-fill); color: var(--on-signal); }
 .btn--ghost { border-color: transparent; color: var(--ink-subtle); }
 .btn--ghost:hover { background: transparent; border-color: var(--line-strong); color: var(--ink); }
-.btn--danger { border-color: var(--signal-line); color: var(--danger); }
-.btn--danger:hover { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+/* Destructive: a hatched leading edge at rest, a filled alarm field on hover. */
+.btn--danger {
+  padding-left: 20px;
+  background: repeating-linear-gradient(135deg, var(--alarm) 0 2px, transparent 2px 4px) left / 6px 100% no-repeat;
+  color: var(--alarm);
+}
+.btn--danger:hover { background: var(--alarm); border-color: var(--alarm); color: var(--carbon-900); }
 .btn--sm { min-height: 30px; padding: 0 10px; font-size: 11px; }
+.btn--danger.btn--sm { padding-left: 16px; }
 
 @media (max-width: 640px) {
   .btn { min-height: 44px; }
@@ -1028,10 +1152,10 @@ select.input {
   align-items: baseline;
   gap: 6px 16px;
   margin: 24px 0 0;
-  padding: 12px 16px;
+  padding: 12px 16px 12px 19px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--ink-subtle);
-  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--ink-subtle);
+  background: var(--panel);
   color: var(--ink);
   font-size: 14px;
   line-height: 1.45;
@@ -1046,12 +1170,29 @@ select.input {
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.notice--ok { border-left-color: var(--ok); }
+.notice--ok { box-shadow: inset 3px 0 0 var(--ok); }
 .notice--ok::before { content: "OK"; color: var(--ok); }
-.notice--warn { border-left-color: var(--warn); }
+/* A warning: a 2px dashed frame, a rotated square ahead of the label, and the
+ * message on primary ink. */
+.notice--warn { padding: 11px 15px 11px 18px; border: 2px dashed var(--warn); box-shadow: none; }
 .notice--warn::before { content: "Warning"; color: var(--warn); }
-.notice--error { border-left-color: var(--danger); background: var(--signal-wash); }
-.notice--error::before { content: "Error"; color: var(--danger); }
+.notice--warn::after {
+  content: "";
+  order: -1;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  margin-right: -8px;
+  background: var(--warn);
+  transform: rotate(45deg);
+}
+/* An error: a hatched edge. */
+.notice--error {
+  padding-left: 24px;
+  box-shadow: none;
+  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px) left / 8px 100% no-repeat, var(--panel);
+}
+.notice--error::before { content: "Error"; color: var(--alarm); }
 
 .secret { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
 .secret__value {
@@ -1074,11 +1215,16 @@ select.input {
   margin: 16px 0 0;
   padding: 0;
   list-style: none;
-  color: var(--danger);
+  color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
 }
-.failures li { padding: 6px 0; border-top: 1px solid var(--signal-line); overflow-wrap: anywhere; }
+.failures li {
+  padding: 6px 0 6px 16px;
+  border-top: 1px solid var(--line);
+  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px) left / 8px 100% no-repeat;
+  overflow-wrap: anywhere;
+}
 
 /* The confirmation dialog --------------------------------------------------- */
 
@@ -1088,7 +1234,7 @@ select.input {
   border: 1px solid var(--line-strong);
   border-top: 3px solid var(--signal);
   border-radius: var(--r-xs);
-  background: var(--surface-2);
+  background: var(--paper);
   color: var(--ink-muted);
 }
 .confirm::backdrop { background: rgba(0, 0, 0, 0.62); }
@@ -1179,7 +1325,7 @@ select.input {
   top: -1px;
   right: -1px;
   padding: 6px 10px;
-  background: var(--signal);
+  background: var(--signal-fill);
   color: var(--on-signal);
   font-family: var(--mono);
   font-size: 10px;
@@ -1249,7 +1395,6 @@ select.input {
   border-top: 1px solid var(--line);
   color: var(--ink-faint);
 }
-.wordmark { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); }
 
 .gate--error { align-items: end; }
 .gate--error .gate__brand { grid-column: 1 / span 6; }
@@ -1306,22 +1451,115 @@ select.input {
   .table th, .table td { padding: 10px 14px; }
   .feed__item { padding-inline: 14px; }
   .module--signal > .module__head, .module--signal > .module__body { padding-left: 18px; }
-  .module--hazard > .module__head, .module--hazard > .module__body { padding-left: 22px; }
+  .module--alarm > .module__head, .module--alarm > .module__body { padding-left: 22px; }
 }
 
 /* Compositions that span two blocks --------------------------------------------- */
 
-.hazard {
+.alarm {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px 32px;
 }
-.hazard .module__note { max-width: 64ch; margin: 0; }
+.alarm .module__note { max-width: 64ch; margin: 0; }
 
 .grant + .grant__lookup { margin-top: 48px; }
 
 .shell--bare + .foot { display: none; }
 .shell--bare > .notice { margin-top: 16px; }
 .notice + .gate { min-height: calc(100vh - 72px); }
+
+/* Brand components ------------------------------------------------------------
+ *
+ * The mark, wordmark, lockup, and Key, as published in the brand's
+ * colors_and_type.css. The mark is live-set; no logo file exists. */
+
+.mark {
+  font-family: var(--font-mark);
+  font-weight: 700;
+  line-height: 1;
+  direction: rtl;
+}
+.mark-centered {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - var(--mark-optical-shift)));
+}
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: var(--tracking-wordmark);
+  text-transform: uppercase;
+  margin-right: calc(-1 * var(--tracking-wordmark));
+  color: currentColor;
+}
+
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.lockup .lockup-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--lockup-divider);
+}
+
+.seal-key {
+  /* Re-declared here so it resolves against this instance's --seal-size. */
+  --seal-line: max(1px, calc(var(--seal-size) / 40));
+  position: relative;
+  width: var(--seal-size);
+  height: var(--seal-size);
+  flex: none;
+  display: inline-block;
+  background: var(--seal-key-field, var(--pitch-900));
+  clip-path: polygon(var(--seal-cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--seal-cut));
+}
+.seal-key::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--seal-key-line, var(--accent));
+  clip-path: polygon(
+    evenodd,
+    var(--seal-cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--seal-cut),
+    var(--seal-line) calc(var(--seal-cut) + var(--seal-line) * 0.41),
+    var(--seal-line) calc(100% - var(--seal-line)),
+    calc(100% - var(--seal-line)) calc(100% - var(--seal-line)),
+    calc(100% - var(--seal-line)) var(--seal-line),
+    calc(var(--seal-cut) + var(--seal-line) * 0.41) var(--seal-line),
+    var(--seal-line) calc(var(--seal-cut) + var(--seal-line) * 0.41),
+    0 var(--seal-cut)
+  );
+}
+.seal-key .seal-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - var(--mark-optical-shift)));
+  font-family: var(--font-mark);
+  font-weight: 700;
+  color: var(--seal-key-ink, var(--accent));
+  font-size: calc(var(--seal-size) * var(--seal-mark-scale) / 0.883);
+  line-height: 1;
+  direction: rtl;
+}
+.seal-key--flush {
+  --seal-key-field: transparent;
+  --seal-key-line: var(--accent);
+  --seal-key-ink: var(--accent);
+}
+.seal-key--mono {
+  --seal-key-line: currentColor;
+  --seal-key-ink: currentColor;
+  --seal-key-field: transparent;
+}
+
+.brand__mark { --seal-size: 24px; }
+.gate__foot .lockup { --seal-size: 24px; }

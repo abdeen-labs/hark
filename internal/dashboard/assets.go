@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-//go:embed assets/app.css assets/app.js assets/theme.js assets/docs.css assets/docs.js assets/htmx.min.js assets/htmx.provenance.json assets/idiomorph.min.js assets/idiomorph.provenance.json
+//go:embed assets/app.css assets/app.js assets/theme.js assets/docs.css assets/docs.js assets/favicon.svg assets/favicon-32.png assets/favicon-16.png assets/htmx.min.js assets/htmx.provenance.json assets/idiomorph.min.js assets/idiomorph.provenance.json
 var assetFS embed.FS
 
 // asset is one embedded static file, served from a URL that contains a digest
@@ -25,7 +25,9 @@ type asset struct {
 
 // assetLinks are the URLs the layout links to. Docs is the extra sheet the
 // contract page loads on top of the shared one, so the dashboard does not carry
-// styles for elements it never renders. HTMX and Morph are vendored copies of
+// styles for elements it never renders. Icon, Icon32 and Icon16 are the
+// favicon cuts rendered from the Abdeen Labs Seal component, copied verbatim
+// from the brand repository's renders. HTMX and Morph are vendored copies of
 // htmx and idiomorph from the npm registry, unmodified — each one's
 // authoritative version, tarball, and digest live in assets/<name>.provenance.json,
 // which a test binds to the embedded bytes. htmx's hx-boost is what turns a
@@ -38,6 +40,9 @@ type assetLinks struct {
 	Theme  string
 	Docs   string
 	DocsJS string
+	Icon   string
+	Icon32 string
+	Icon16 string
 	HTMX   string
 	Morph  string
 }
@@ -52,6 +57,9 @@ var (
 		Theme:  mustLoadAsset("theme.js", "text/javascript; charset=utf-8"),
 		Docs:   mustLoadAsset("docs.css", "text/css; charset=utf-8"),
 		DocsJS: mustLoadAsset("docs.js", "text/javascript; charset=utf-8"),
+		Icon:   mustLoadAsset("favicon.svg", "image/svg+xml"),
+		Icon32: mustLoadAsset("favicon-32.png", "image/png"),
+		Icon16: mustLoadAsset("favicon-16.png", "image/png"),
 		HTMX:   mustLoadAsset("htmx.min.js", "text/javascript; charset=utf-8"),
 		Morph:  mustLoadAsset("idiomorph.min.js", "text/javascript; charset=utf-8"),
 	}

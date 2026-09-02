@@ -158,12 +158,8 @@ private struct LockBrand: View {
 
 private struct LockFooter: View {
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Abdeen Labs")
-                .font(AxisType.meta(11))
-                .tracking(AxisType.tracking(AxisType.wordmarkTracking, at: 11))
-                .textCase(.uppercase)
-                .foregroundStyle(Axis.inkFaint)
+        HStack {
+            Lockup()
             Spacer()
             Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkFaint)
         }

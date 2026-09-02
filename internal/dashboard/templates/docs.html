@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>{{.Title}} · Hark</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ce2020'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="{{.Assets.Icon}}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{.Assets.Icon32}}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{.Assets.Icon16}}">
+<meta name="theme-color" content="#0a0f1c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
 <link rel="stylesheet" href="{{.Assets.CSS}}">
 <link rel="stylesheet" href="{{.Assets.Docs}}">
 <script src="{{.Assets.Theme}}"></script>
@@ -17,7 +20,7 @@
 
 <header class="mast">
   <div class="mast__inner">
-    <a class="brand" href="{{.Paths.Docs}}"><span class="brand__mark" aria-hidden="true"></span>Hark<span class="brand__sub meta">API contract</span></a>
+    <a class="brand" href="{{.Paths.Docs}}"><span class="seal-key brand__mark" aria-hidden="true"><span class="seal-mark" lang="ar">عابدين</span></span>Hark<span class="brand__sub meta">API contract</span></a>
     <nav class="nav" aria-label="Sections">
       <a href="{{.Paths.Docs}}" aria-current="page"><span class="nav__index" aria-hidden="true">07</span>Docs</a>
       <a href="{{.Paths.Home}}"><span class="nav__index" aria-hidden="true">01</span>Dashboard</a>

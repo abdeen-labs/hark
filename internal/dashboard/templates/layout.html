@@ -11,10 +11,13 @@
      here is a rendered page, not a protocol error. */}}
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0,"responseHandling":[{"code":".*","swap":true}]}'>
 <title>{{.Title}} · Hark</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ce2020'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="{{.Assets.Icon}}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{.Assets.Icon32}}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{.Assets.Icon16}}">
+<meta name="theme-color" content="#0a0f1c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
 <link rel="stylesheet" href="{{.Assets.CSS}}">
 <script src="{{.Assets.Theme}}"></script>
 {{/* The scripts live in the head: htmx drops a response's head before it
@@ -36,7 +39,7 @@
 {{if .SignedIn}}
 <header class="mast">
   <div class="mast__inner">
-    <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark<span class="brand__sub meta">Push relay</span></a>
+    <a class="brand" href="{{.Paths.Home}}"><span class="seal-key brand__mark" aria-hidden="true"><span class="seal-mark" lang="ar">عابدين</span></span>Hark<span class="brand__sub meta">Push relay</span></a>
     <nav class="nav" aria-label="Sections">
       <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">01</span>Overview</a>
       <a href="{{.Paths.History}}"{{if eq .Section "history"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">02</span>History</a>

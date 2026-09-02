@@ -13,6 +13,8 @@
     const light = mode === "light" || (mode === "system" && system.matches);
     document.documentElement.dataset.theme = light ? "light" : "dark";
     document.documentElement.dataset.themeMode = mode;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = light ? "#f0f3fa" : "#0a0f1c";
   };
 
   apply();

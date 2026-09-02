@@ -112,12 +112,8 @@ struct SignInView: View {
     }
 
     private var footer: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Abdeen Labs")
-                .font(AxisType.meta(11))
-                .tracking(AxisType.tracking(AxisType.wordmarkTracking, at: 11))
-                .textCase(.uppercase)
-                .foregroundStyle(Axis.inkFaint)
+        HStack {
+            Lockup()
             Spacer()
             Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkFaint)
         }

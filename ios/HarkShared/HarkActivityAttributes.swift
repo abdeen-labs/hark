@@ -65,7 +65,7 @@ nonisolated struct HarkActivityAttributes: ActivityAttributes, Hashable {
             updatedAt = (try? c.decodeIfPresent(String.self, forKey: .updatedAt)) ?? ""
             symbol = (try? c.decodeIfPresent(String.self, forKey: .symbol)) ?? "terminal"
             privacyMode = (try? c.decodeIfPresent(String.self, forKey: .privacyMode)) ?? "standard"
-            accentColor = (try? c.decodeIfPresent(String.self, forKey: .accentColor)) ?? "#E64949"
+            accentColor = (try? c.decodeIfPresent(String.self, forKey: .accentColor)) ?? "#FE002A"
             style = (try? c.decodeIfPresent(String.self, forKey: .style)) ?? "standard"
             interaction = try? c.decodeIfPresent(InteractionState.self, forKey: .interaction)
         }
@@ -80,7 +80,7 @@ nonisolated struct HarkActivityAttributes: ActivityAttributes, Hashable {
             updatedAt: String = "",
             symbol: String = "terminal",
             privacyMode: String = "standard",
-            accentColor: String = "#E64949",
+            accentColor: String = "#FE002A",
             style: String = "standard",
             interaction: InteractionState? = nil
         ) {

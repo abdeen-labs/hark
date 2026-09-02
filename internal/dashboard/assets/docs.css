@@ -17,6 +17,7 @@
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  text-decoration: none;
 }
 .docs-formats a:hover { color: var(--ink); text-decoration: none; }
 
@@ -61,6 +62,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  text-decoration: none;
 }
 .docs-intro__links a:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); text-decoration: none; }
 
@@ -117,7 +119,7 @@
   padding: 1px 5px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-xs);
-  background: var(--surface-2);
+  background: var(--panel-2);
   color: var(--ink-faint);
   font-family: var(--mono);
   font-size: 10px;
@@ -144,6 +146,7 @@
   /* A path is one token: breaking it mid-segment is worse than a scrollbar. */
   overflow-wrap: anywhere;
   transition: border-color var(--t-fast), color var(--t-fast);
+  text-decoration: none;
 }
 .toc__item a:hover { border-left-color: var(--line-strong); color: var(--ink); text-decoration: none; }
 
@@ -187,14 +190,6 @@
 }
 
 .prose > :first-child { margin-top: 0; }
-
-.prose a {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-decoration-color: var(--signal-line);
-  text-underline-offset: 0.15em;
-}
-.prose a:hover { text-decoration-color: currentColor; }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
   color: var(--ink);
@@ -270,7 +265,7 @@
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-left: 2px solid var(--signal);
-  background: var(--surface);
+  background: var(--panel);
   color: var(--ink-subtle);
 }
 .prose blockquote > :last-child { margin-bottom: 0; }
@@ -310,23 +305,15 @@
   white-space: pre;
 }
 
-.prose pre, .prose code {
-  --ink: #f4f6f9;
-  --ink-muted: #d5dbe4;
-  --ink-subtle: #a2abb9;
-  --ink-faint: #8f99ab;
-  --ok: #16b37d;
-  --warn: #e2a81e;
-  --signal-text: #e64949;
-}
 .prose pre { color: var(--ink-muted); }
 
 /* Syntax colors, on chroma's classes. Only tokens the contract's three fence
- * languages — json, http, sh — produce. Strings borrow jade and
- * numbers amber as reading colors, not as status. */
-.chroma .nt { color: var(--ink); }
-.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }
-.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--warn); }
+ * languages — json, http, sh — produce. The scheme is tonal: state colours
+ * are reserved for state, so values read in ink and only keywords take the
+ * accent. */
+.chroma .nt { color: var(--ink-muted); }
+.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ink); }
+.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--ink); }
 .chroma .k, .chroma .kc, .chroma .kd, .chroma .kr { color: var(--signal-text); }
 .chroma .c, .chroma .c1, .chroma .cm { color: var(--ink-faint); font-style: italic; }
 .chroma .nf, .chroma .nb, .chroma .nn { color: var(--ink); font-weight: 500; }
@@ -344,7 +331,7 @@
   padding: 0 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
-  background: var(--surface);
+  background: var(--code);
   color: var(--ink-subtle);
   font: 600 10px var(--sans);
   letter-spacing: 0.08em;
@@ -353,8 +340,6 @@
   transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
 .code-copy:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-:root[data-theme="light"] .code-copy { background: transparent; border-color: rgba(244, 246, 249, 0.26); color: #a2abb9; }
-:root[data-theme="light"] .code-copy:hover { background: #f4f6f9; border-color: #f4f6f9; color: #06080d; }
 
 .docs-empty {
   margin: 32px 0;
@@ -422,7 +407,7 @@
     max-height: 18rem;
     padding: 14px;
     border: 1px solid var(--line);
-    background: var(--surface);
+    background: var(--panel);
   }
   .toc__item--h3 { display: none; }
   .docs-formats { display: none; }

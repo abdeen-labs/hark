@@ -388,14 +388,14 @@ struct HistoryRow: View {
                     if let error = item.error, !error.isEmpty {
                         Text(error)
                             .font(AxisType.mono(12))
-                            .foregroundStyle(Axis.danger)
+                            .foregroundStyle(Axis.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                            .padding(EdgeInsets(top: 6, leading: 18, bottom: 6, trailing: 10))
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Axis.signalWash)
+                            .background(Axis.surface)
                             .overlay(alignment: .leading) {
-                                Rectangle().fill(Axis.danger).frame(width: 2)
+                                AlarmBand().frame(width: 8)
                             }
                             .padding(.top, 4)
                     }

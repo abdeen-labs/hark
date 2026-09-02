@@ -46,6 +46,7 @@ nonisolated enum ActivityStyleKind: String {
 
 extension HarkActivityAttributes.ContentState {
     var accent: Color { .harkAccent(accentColor) }
+    var accentInk: Color { .harkAccentInk(accentColor) }
     var symbolName: String { ActivitySymbol.systemName(symbol) }
     var isPrivate: Bool { privacyMode == "private" }
 }
@@ -111,6 +112,7 @@ struct AnswerButtons: View {
     let attributes: HarkActivityAttributes
     let interaction: HarkActivityAttributes.InteractionState
     let accent: Color
+    let ink: Color
 
     var body: some View {
         if interaction.state == "pending" {
@@ -118,7 +120,7 @@ struct AnswerButtons: View {
                 Button(intent: intent(for: interaction.primaryAction)) {
                     Text(interaction.primaryLabel)
                 }
-                .buttonStyle(.instrument(.primary, compact: true, tint: accent))
+                .buttonStyle(.instrument(.primary, compact: true, tint: accent, ink: ink))
 
                 Button(intent: intent(for: interaction.secondaryAction)) {
                     Text(interaction.secondaryLabel)

@@ -22,8 +22,9 @@ struct Module<Content: View, Trailing: View>: View {
         case flat
         /// A signal strip down the left edge.
         case signal
-        /// A hatched hazard band down the left edge of a destructive region.
-        case hazard
+        /// A warning frame: a dashed leading edge, the label in the warning
+        /// colour behind a rotated square.
+        case warning
         /// Corner brackets at two opposite corners.
         case marked
     }
@@ -41,7 +42,13 @@ struct Module<Content: View, Trailing: View>: View {
                 if let index {
                     IndexLabel(index)
                 }
-                Meta(label, color: Axis.inkSubtle)
+                if variant == .warning {
+                    Rectangle()
+                        .fill(Axis.warn)
+                        .frame(width: 5, height: 5)
+                        .rotationEffect(.degrees(45))
+                }
+                Meta(label, color: variant == .warning ? Axis.warn : Axis.inkSubtle)
                 Spacer(minLength: 8)
                 trailing()
             }
@@ -67,7 +74,7 @@ struct Module<Content: View, Trailing: View>: View {
     private var edgeWidth: CGFloat {
         switch variant {
         case .signal: 4
-        case .hazard: 8
+        case .warning: 3
         default: 0
         }
     }
@@ -76,8 +83,8 @@ struct Module<Content: View, Trailing: View>: View {
         switch variant {
         case .signal:
             Rectangle().fill(Axis.signal).frame(width: 4)
-        case .hazard:
-            HazardBand().frame(width: 8)
+        case .warning:
+            DashedEdge()
         default:
             EmptyView()
         }
@@ -86,7 +93,6 @@ struct Module<Content: View, Trailing: View>: View {
     private var border: Color {
         switch variant {
         case .signal: Axis.signalLine
-        case .hazard: Axis.lineStrong
         default: Axis.line
         }
     }
@@ -106,13 +112,14 @@ extension Module where Trailing == EmptyView {
     }
 }
 
-/// Hazard marking: signal stripes at 135°, for the edge of a region whose
-/// control is destructive.
-struct HazardBand: View {
+/// The alarm's hatched edge: stripes at 135° in the alarm colour.
+struct AlarmBand: View {
+    var color: Color = Axis.alarm
+
     var body: some View {
         Canvas { context, size in
-            let period: CGFloat = 11
-            let band: CGFloat = 5
+            let period: CGFloat = 8
+            let band: CGFloat = 4
             var path = Path()
             var x = -size.height
             while x < size.width + size.height {
@@ -123,9 +130,27 @@ struct HazardBand: View {
                 path.closeSubpath()
                 x += period
             }
-            context.fill(path, with: .color(Axis.signal.opacity(0.8)))
+            context.fill(path, with: .color(color))
         }
         .clipped()
+        .accessibilityHidden(true)
+    }
+}
+
+/// The warning's dashed leading edge.
+struct DashedEdge: View {
+    var color: Color = Axis.warn
+    var width: CGFloat = 3
+
+    var body: some View {
+        GeometryReader { proxy in
+            Path { path in
+                path.move(to: CGPoint(x: width / 2, y: 0))
+                path.addLine(to: CGPoint(x: width / 2, y: proxy.size.height))
+            }
+            .stroke(color, style: StrokeStyle(lineWidth: width, dash: [6, 4]))
+        }
+        .frame(width: width)
         .accessibilityHidden(true)
     }
 }
@@ -156,8 +181,9 @@ struct CornerMarks: View {
 
 // MARK: - Notices
 
-/// A notice: a mono kind label, the message, and a rule down the left edge
-/// in the kind's colour.
+/// A notice: a mono kind label, the message in primary ink, and the kind's
+/// form down the left edge — a hatched alarm edge, a dashed warning edge, or
+/// a plain rule.
 struct Notice: View {
     enum Kind {
         case error, ok, warn, plain
@@ -168,17 +194,43 @@ struct Notice: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Meta(label, color: tone)
+            HStack(spacing: 6) {
+                marker
+                Meta(label, color: tone)
+            }
             Text(message)
                 .font(AxisType.copy(14))
                 .foregroundStyle(Axis.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-        .background(kind == .error ? Axis.signalWash : Axis.surface)
+        .padding(EdgeInsets(top: 12, leading: kind == .error ? 24 : 16, bottom: 12, trailing: 16))
+        .background(Axis.surface)
         .overlay(Rectangle().strokeBorder(Axis.line, lineWidth: 1))
-        .overlay(alignment: .leading) {
+        .overlay(alignment: .leading) { edge }
+    }
+
+    @ViewBuilder private var marker: some View {
+        switch kind {
+        case .error:
+            AlarmBand().frame(width: 12, height: 6)
+        case .warn:
+            Rectangle()
+                .fill(tone)
+                .frame(width: 5, height: 5)
+                .rotationEffect(.degrees(45))
+        case .ok, .plain:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder private var edge: some View {
+        switch kind {
+        case .error:
+            AlarmBand().frame(width: 8)
+        case .warn:
+            DashedEdge(color: tone)
+        case .ok, .plain:
             Rectangle().fill(tone).frame(width: 3)
         }
     }
@@ -194,7 +246,7 @@ struct Notice: View {
 
     private var tone: Color {
         switch kind {
-        case .error: Axis.danger
+        case .error: Axis.alarm
         case .ok: Axis.ok
         case .warn: Axis.warn
         case .plain: Axis.inkSubtle
@@ -546,7 +598,7 @@ struct EnvironmentalIndex: View {
             .font(.system(size: size, weight: .semibold))
             .monospacedDigit()
             .tracking(AxisType.tracking(-0.06, at: size))
-            .foregroundStyle(Axis.ink.opacity(0.045))
+            .foregroundStyle(Axis.surface)
             .lineLimit(1)
             .fixedSize()
             .allowsHitTesting(false)
@@ -571,7 +623,7 @@ struct DotMatrix: View {
                 }
                 y += pitch
             }
-            context.fill(dots, with: .color(Axis.ink.opacity(0.085)))
+            context.fill(dots, with: .color(Axis.lineFaint))
         }
         .mask(
             LinearGradient(
@@ -639,7 +691,7 @@ struct Schematic: View {
                 line.addLine(to: CGPoint(x: xs[i + 1] - 4, y: y))
                 context.stroke(
                     line,
-                    with: .color(isSignal ? Axis.signal : Axis.inkFaint.opacity(0.7)),
+                    with: .color(isSignal ? Axis.signal : Axis.lineStrong),
                     lineWidth: isSignal ? 1.5 : 1
                 )
                 if isSignal {

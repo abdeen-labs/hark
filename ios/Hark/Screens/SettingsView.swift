@@ -121,7 +121,7 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } trailing: {
             HStack(spacing: 8) {
-                StatusLight(color: model.deviceID != nil ? Axis.ok : Axis.warn, size: 5)
+                StatusLight(color: model.deviceID != nil ? Axis.ok : Axis.warn, size: 5, rotated: model.deviceID == nil)
                 Meta(model.deviceID != nil ? "Registered" : "Registering", color: Axis.inkSubtle)
             }
         }
@@ -163,7 +163,7 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } trailing: {
             HStack(spacing: 8) {
-                StatusLight(color: criticalAlertsLight, size: 5)
+                StatusLight(color: criticalAlertsLight.color, size: 5, rotated: criticalAlertsLight.rotated)
                 Meta(criticalAlertsWord, color: Axis.inkSubtle)
             }
         }
@@ -179,14 +179,14 @@ struct SettingsView: View {
         }
     }
 
-    private var criticalAlertsLight: Color {
+    private var criticalAlertsLight: (color: Color, rotated: Bool) {
         switch model.criticalAlertState {
         case .granted:
-            model.criticalSettings?.criticalAlertsEnabled == true ? Axis.ok : Axis.warn
+            model.criticalSettings?.criticalAlertsEnabled == true ? (Axis.ok, false) : (Axis.warn, true)
         case .criticalDenied, .notificationsDenied:
-            Axis.danger
+            (Axis.alarm, false)
         default:
-            Axis.warn
+            (Axis.warn, true)
         }
     }
 
@@ -202,7 +202,7 @@ struct SettingsView: View {
     }
 
     private var session: some View {
-        Module(index: "07", label: "Session", variant: .hazard) {
+        Module(index: "07", label: "Session", variant: .warning) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Signing out does not unregister this device.")
                     .font(AxisType.copy(13))
@@ -223,14 +223,10 @@ struct SettingsView: View {
     }
 
     private var foot: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack {
             Meta("Hark · Rev \(AppInfo.version)", color: Axis.inkFaint)
             Spacer()
-            Text("Abdeen Labs")
-                .font(AxisType.meta(11))
-                .tracking(AxisType.tracking(AxisType.wordmarkTracking, at: 11))
-                .textCase(.uppercase)
-                .foregroundStyle(Axis.inkFaint)
+            Lockup()
         }
         .padding(.top, 14)
         .overlay(alignment: .top) { Hairline() }

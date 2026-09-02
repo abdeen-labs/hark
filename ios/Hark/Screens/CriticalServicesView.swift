@@ -75,7 +75,7 @@ struct CriticalServicesView: View {
                         Button("Delete", role: .destructive) {
                             Task { await delete(service) }
                         }
-                        .tint(Axis.signal)
+                        .tint(Axis.signalDeep)
                     }
                 }
 
@@ -194,7 +194,7 @@ struct CriticalServicesView: View {
     private func deniedState(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                StatusLight(color: Axis.danger, size: 5)
+                StatusLight(color: Axis.alarm, size: 5)
                 Text(message)
                     .font(AxisType.copy(13))
                     .foregroundStyle(Axis.inkSubtle)
@@ -474,7 +474,7 @@ struct CriticalServiceRow: View {
         .clipShape(RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Axis.Radius.sm, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
+                .strokeBorder(Axis.line, lineWidth: 1)
         )
     }
 }

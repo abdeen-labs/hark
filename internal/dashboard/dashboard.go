@@ -247,8 +247,9 @@ func (d *Dashboard) routes() {
 //
 // The content security policy is the important one: nothing on these pages is
 // inline, so scripts and styles are restricted to this origin, with the one
-// exception the brand needs — Geist, served by Google Fonts. Images allow any
-// HTTPS origin because a service's avatar is a URL the owner supplied.
+// exception the brand needs — Geist and Aref Ruqaa, served by Google Fonts.
+// Images allow any HTTPS origin because a service's avatar is a URL the owner
+// supplied.
 func (d *Dashboard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h := w.Header()
 	h.Set("Content-Security-Policy", contentSecurityPolicy)

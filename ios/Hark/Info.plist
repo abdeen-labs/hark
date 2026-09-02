@@ -17,5 +17,10 @@
 	<array>
 		<string>INSendMessageIntent</string>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>ArefRuqaa-Bold.ttf</string>
+		<string>GeistMono[wght].ttf</string>
+	</array>
 </dict>
 </plist>

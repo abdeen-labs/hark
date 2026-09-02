@@ -106,7 +106,7 @@ struct DevicesView: View {
                                     Task { await delete(device) }
                                 }
                             }
-                            .tint(Axis.signal)
+                            .tint(Axis.signalDeep)
                         }
                 }
             }

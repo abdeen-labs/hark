@@ -7,48 +7,58 @@ import SwiftUI
 import UIKit
 
 nonisolated enum Axis {
-    // MARK: Surfaces
+    // MARK: Grounds
 
-    static let paper = Color(axisDark: axisPaperDarkRGB, light: axisPaperLightRGB)
-    static let surface = Color(axisDark: 0x0B0E14, light: 0xFFFFFF)
-    static let surface2 = Color(axisDark: 0x11161F, light: 0xEDEFF3)
-    static let surface3 = Color(axisDark: 0x1A212C, light: 0xE2E5EB)
-    static let field = Color(axisDark: 0x090C11, light: 0xECEEF2)
+    static let paper = Color(axisDark: axisVoidRGB, light: axisMistRGB)
+    static let surface = Color(axisDark: 0x121827, light: 0xEAEEF5)
+    static let surface2 = Color(axisDark: 0x192133, light: 0xDEE4F2)
+    static let surface3 = Color(axisDark: 0x212A40, light: 0xD2D9EB)
+    static let field = surface2
 
     // MARK: Ink
 
-    static let ink = Color(axisDark: 0xF4F6F9, light: 0x10141B)
-    static let inkMuted = Color(axisDark: 0xD5DBE4, light: 0x2A313C)
-    static let inkSubtle = Color(axisDark: 0xA2ABB9, light: 0x525C6B)
-    static let inkFaint = Color(axisDark: 0x8F99AB, light: 0x616B7B)
+    static let ink = Color(axisDark: axisChalkRGB, light: axisCarbonRGB)
+    static let inkMuted = Color(axisDark: 0xDBE2F4, light: 0x1E2537)
+    static let inkSubtle = Color(axisDark: 0xAFB9CF, light: 0x3C455A)
+    static let inkFaint = Color(axisDark: 0x939FBD, light: 0x3C455A)
     /// Decorative only — indexes and ledger numbers hidden from assistive
     /// technology. It does not meet AA against the paper.
-    static let inkDisabled = Color(axisDark: 0x4D5665, light: 0xB6BDC9)
+    static let inkDisabled = Color(axisDark: 0x555E75, light: 0x788197)
 
     // MARK: Rules
 
-    static let line = ink.opacity(0.12)
-    static let lineStrong = ink.opacity(0.24)
-    static let lineFaint = ink.opacity(0.06)
+    static let line = Color(axisDark: 0x313C5A, light: 0xBBC5DB)
+    static let lineStrong = Color(axisDark: 0x3A4769, light: 0xB1BBD2)
+    static let lineFaint = Color(axisDark: 0x212A40, light: 0xD2D9EB)
 
     // MARK: Signal
 
-    /// Fills, strips, rules. Not small text.
-    static let signal = Color(axisRGB: 0xCE2020)
-    static let signalPressed = Color(axisRGB: 0xA31818)
-    /// The signal colour at text weight; passes AA on every surface.
-    static let signalText = Color(axisDark: axisAccentDarkRGB, light: axisAccentLightRGB)
-    static let onSignal = Color.white
+    /// Lines, strips, rules, and lights. Not small text.
+    static let signal = Color(axisDark: axisAccentRGB, light: axisAccentDeepRGB)
+    /// The filled scarlet field. Its label is `onSignal`.
+    static let signalField = Color(axisRGB: axisAccentRGB)
+    /// The scarlet under a label the system draws in white.
+    static let signalDeep = Color(axisDark: axisAccentDeepRGB, light: axisAccentInkRGB)
+    /// The signal colour at text weight; passes AA on the paper.
+    static let signalText = Color(axisDark: axisAccentRGB, light: axisAccentInkRGB)
+    /// Carbon ink on any filled scarlet, alarm, or highlighter field.
+    static let onField = Color(axisRGB: axisCarbonRGB)
+    static let onSignal = onField
     static let signalWash = signal.opacity(0.12)
-    static let signalLine = signal.opacity(0.55)
+    static let signalLine = Color(axisRGB: axisAccentDeepRGB)
 
     // MARK: States
 
-    static let ok = Color(axisDark: 0x16B37D, light: 0x0C7A54)
+    static let ok = Color(axisDark: 0x5AA7FF, light: 0x1D5A96)
     static let okLine = ok.opacity(0.5)
-    static let warn = Color(axisDark: 0xE2A81E, light: 0x8F6600)
-    static let warnLine = warn.opacity(0.5)
-    static let danger = signalText
+    /// A warning's line and label. Never a solid frame.
+    static let warn = Color(axisDark: 0xF5FF00, light: 0x766800)
+    /// The highlighter chip fill, under `onField`, on either ground.
+    static let warnChip = Color(axisRGB: 0xF5FF00)
+    /// An alarm's hatch, strike, pulse, and label. Never a solid line.
+    static let alarm = Color(axisDark: 0xFF2BD6, light: 0xBF0099)
+    /// The filled alarm field, under `onField`, on either ground.
+    static let alarmField = Color(axisRGB: 0xFF2BD6)
 
     /// Fallback for invalid or low-contrast Live Activity accents.
     static let accent = signalText
@@ -70,23 +80,35 @@ nonisolated enum Axis {
     // MARK: Motion
 
     enum Motion {
-        static let fast: Double = 0.15
-        static let base: Double = 0.22
-        static var ease: Animation { .easeOut(duration: base) }
-        static var quick: Animation { .easeOut(duration: fast) }
+        /// Colour and opacity feedback on frequent interactions.
+        static let state: Double = 0.12
+        /// A small directional shift.
+        static let shift: Double = 0.17
+        /// An infrequent staged entrance.
+        static let enter: Double = 0.52
+        /// The scale a control compresses to while pressed.
+        static let press: CGFloat = 0.96
+        static var ease: Animation { .timingCurve(0.2, 0, 0, 1, duration: shift) }
+        static var quick: Animation { .timingCurve(0.2, 0, 0, 1, duration: state) }
     }
 }
 
-nonisolated private let axisPaperDarkRGB: UInt32 = 0x06080D
-nonisolated private let axisPaperLightRGB: UInt32 = 0xF4F5F8
+nonisolated private let axisVoidRGB: UInt32 = 0x0A0F1C
+nonisolated private let axisMistRGB: UInt32 = 0xF0F3FA
+nonisolated private let axisChalkRGB: UInt32 = 0xF3F7FF
+nonisolated private let axisCarbonRGB: UInt32 = 0x0A0F1C
 
-nonisolated private let axisAccentDarkRGB: UInt32 = 0xE64949
-nonisolated private let axisAccentLightRGB: UInt32 = 0xB91C1C
+nonisolated private let axisAccentRGB: UInt32 = 0xFE002A
+nonisolated private let axisAccentDeepRGB: UInt32 = 0xD4212C
+nonisolated private let axisAccentInkRGB: UInt32 = 0xBE0018
 
 /// The floor an accent has to clear against the paper it is drawn on: the
 /// 3:1 of WCAG's non-text contrast, since the accent carries glyphs, bars,
 /// and keylines rather than body copy.
 nonisolated private let axisAccentFloor: Double = 3
+
+/// The floor a label has to clear against the field it sits on.
+nonisolated private let axisLabelFloor: Double = 4.5
 
 /// A `#RRGGBB` string as channel values in 0…1, or nil when the string is
 /// not that form.
@@ -117,8 +139,21 @@ nonisolated private func axisContrast(_ one: Double, _ other: Double) -> Double 
     (max(one, other) + 0.05) / (min(one, other) + 0.05)
 }
 
-nonisolated private let axisPaperDarkLuminance = axisLuminance(axisChannels(axisPaperDarkRGB))
-nonisolated private let axisPaperLightLuminance = axisLuminance(axisChannels(axisPaperLightRGB))
+nonisolated private let axisPaperDarkLuminance = axisLuminance(axisChannels(axisVoidRGB))
+nonisolated private let axisPaperLightLuminance = axisLuminance(axisChannels(axisMistRGB))
+nonisolated private let axisCarbonLuminance = axisLuminance(axisChannels(axisCarbonRGB))
+
+/// The channels a server accent resolves to on one ground: the hex when it
+/// clears the accent floor, the brand's own accent otherwise.
+nonisolated private func axisAccentChannels(_ hex: String, dark: Bool) -> (red: Double, green: Double, blue: Double) {
+    if let channels = axisChannels(hex) {
+        let paper = dark ? axisPaperDarkLuminance : axisPaperLightLuminance
+        if axisContrast(axisLuminance(channels), paper) >= axisAccentFloor {
+            return channels
+        }
+    }
+    return axisChannels(dark ? axisAccentRGB : axisAccentInkRGB)
+}
 
 nonisolated private extension UIColor {
     convenience init(axisRGB value: UInt32) {
@@ -148,15 +183,19 @@ nonisolated extension Color {
 
     /// Returns a dynamic accent with a 3:1 contrast fallback.
     static func harkAccent(_ hex: String) -> Color {
-        guard let channels = axisChannels(hex) else { return Axis.accent }
-        let luminance = axisLuminance(channels)
-        return Color(uiColor: UIColor { traits in
-            let dark = traits.userInterfaceStyle == .dark
-            let paper = dark ? axisPaperDarkLuminance : axisPaperLightLuminance
-            guard axisContrast(luminance, paper) >= axisAccentFloor else {
-                return UIColor(axisRGB: dark ? axisAccentDarkRGB : axisAccentLightRGB)
-            }
+        Color(uiColor: UIColor { traits in
+            let channels = axisAccentChannels(hex, dark: traits.userInterfaceStyle == .dark)
             return UIColor(red: channels.red, green: channels.green, blue: channels.blue, alpha: 1)
+        })
+    }
+
+    /// The label ink on a field filled with `harkAccent`: carbon where it
+    /// clears AA, chalk where the accent is too deep for it.
+    static func harkAccentInk(_ hex: String) -> Color {
+        Color(uiColor: UIColor { traits in
+            let channels = axisAccentChannels(hex, dark: traits.userInterfaceStyle == .dark)
+            let carbon = axisContrast(axisLuminance(channels), axisCarbonLuminance) >= axisLabelFloor
+            return UIColor(axisRGB: carbon ? axisCarbonRGB : axisChalkRGB)
         })
     }
 }
