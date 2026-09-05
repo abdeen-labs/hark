@@ -22,8 +22,8 @@ struct Module<Content: View, Trailing: View>: View {
         case flat
         /// A signal strip down the left edge.
         case signal
-        /// A warning frame: a dashed leading edge, the label in the warning
-        /// colour behind a rotated square.
+        /// A warning: a dashed leading edge on the dark ground, and the label
+        /// behind a rotated square.
         case warning
         /// Corner brackets at two opposite corners.
         case marked
@@ -36,6 +36,8 @@ struct Module<Content: View, Trailing: View>: View {
     @ViewBuilder var content: () -> Content
     @ViewBuilder var trailing: () -> Trailing
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
@@ -43,12 +45,10 @@ struct Module<Content: View, Trailing: View>: View {
                     IndexLabel(index)
                 }
                 if variant == .warning {
-                    Rectangle()
-                        .fill(Axis.warn)
-                        .frame(width: 5, height: 5)
-                        .rotationEffect(.degrees(45))
+                    WarningLabel(label)
+                } else {
+                    Meta(label, color: Axis.inkSubtle)
                 }
-                Meta(label, color: variant == .warning ? Axis.warn : Axis.inkSubtle)
                 Spacer(minLength: 8)
                 trailing()
             }
@@ -84,7 +84,11 @@ struct Module<Content: View, Trailing: View>: View {
         case .signal:
             Rectangle().fill(Axis.signal).frame(width: 4)
         case .warning:
-            DashedEdge()
+            if scheme == .light {
+                Rectangle().fill(Axis.inkSubtle).frame(width: 3)
+            } else {
+                DashedEdge()
+            }
         default:
             EmptyView()
         }
@@ -137,7 +141,8 @@ struct AlarmBand: View {
     }
 }
 
-/// The warning's dashed leading edge.
+/// The warning's dashed leading edge. A dark-ground form: neon yellow does not
+/// read on mist, where the chip carries the warning instead.
 struct DashedEdge: View {
     var color: Color = Axis.warn
     var width: CGFloat = 3
@@ -182,8 +187,8 @@ struct CornerMarks: View {
 // MARK: - Notices
 
 /// A notice: a mono kind label, the message in primary ink, and the kind's
-/// form down the left edge — a hatched alarm edge, a dashed warning edge, or
-/// a plain rule.
+/// form down the left edge — a hatched alarm edge, a dashed warning edge on
+/// the dark ground, or a plain rule.
 struct Notice: View {
     enum Kind {
         case error, ok, warn, plain
@@ -192,11 +197,17 @@ struct Notice: View {
     var kind: Kind = .plain
     let message: String
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
-            HStack(spacing: 6) {
-                marker
-                Meta(label, color: tone)
+            if kind == .warn {
+                WarningLabel(label)
+            } else {
+                HStack(spacing: 6) {
+                    marker
+                    Meta(label, color: tone)
+                }
             }
             Text(message)
                 .font(AxisType.copy(14))
@@ -214,12 +225,7 @@ struct Notice: View {
         switch kind {
         case .error:
             AlarmBand().frame(width: 12, height: 6)
-        case .warn:
-            Rectangle()
-                .fill(tone)
-                .frame(width: 5, height: 5)
-                .rotationEffect(.degrees(45))
-        case .ok, .plain:
+        case .ok, .warn, .plain:
             EmptyView()
         }
     }
@@ -229,7 +235,11 @@ struct Notice: View {
         case .error:
             AlarmBand().frame(width: 8)
         case .warn:
-            DashedEdge(color: tone)
+            if scheme == .light {
+                Rectangle().fill(Axis.inkSubtle).frame(width: 3)
+            } else {
+                DashedEdge()
+            }
         case .ok, .plain:
             Rectangle().fill(tone).frame(width: 3)
         }
@@ -248,8 +258,7 @@ struct Notice: View {
         switch kind {
         case .error: Axis.alarm
         case .ok: Axis.ok
-        case .warn: Axis.warn
-        case .plain: Axis.inkSubtle
+        case .warn, .plain: Axis.inkSubtle
         }
     }
 }

@@ -55,17 +55,56 @@ struct IndexLabel: View {
     }
 }
 
+/// A warning's label: a rotated square ahead of the word. Neon on the dark
+/// ground; on the light ground the pair becomes the highlighter chip, carbon
+/// ink on neon, because neon yellow does not read on mist.
+struct WarningLabel: View {
+    let text: String
+    var size: CGFloat = 10
+
+    @Environment(\.colorScheme) private var scheme
+
+    init(_ text: String, size: CGFloat = 10) {
+        self.text = text
+        self.size = size
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Rectangle()
+                .fill(ink)
+                .frame(width: 5, height: 5)
+                .rotationEffect(.degrees(45))
+            Meta(text, size: size, color: ink)
+        }
+        .padding(.horizontal, padH)
+        .padding(.vertical, padV)
+        .background(chipped ? Axis.warn : Color.clear)
+    }
+
+    private var chipped: Bool { scheme == .light }
+
+    private var padH: CGFloat { chipped ? 6 : 0 }
+
+    private var padV: CGFloat { chipped ? 3 : 0 }
+
+    private var ink: Color { chipped ? Axis.onField : Axis.warn }
+}
+
 // MARK: - Lights and rules
 
-/// A square status light. A warning's light is the square rotated. Blinks in
-/// hard steps when asked to, unless motion is reduced.
+/// A square status light. A warning's light is the square rotated, and on the
+/// light ground it sits as carbon ink on a neon pad, because neon yellow does
+/// not read on mist. Blinks in hard steps when asked to, unless motion is
+/// reduced.
 struct StatusLight: View {
     var color: Color = Axis.signal
     var size: CGFloat = 6
     var blinking = false
-    var rotated = false
+    var warning = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         if blinking, !reduceMotion {
@@ -78,11 +117,17 @@ struct StatusLight: View {
         }
     }
 
+    private var chipped: Bool { warning && scheme == .light }
+
+    private var pad: CGFloat { chipped ? 3 : 0 }
+
     private var square: some View {
         Rectangle()
-            .fill(color)
+            .fill(chipped ? Axis.onField : color)
             .frame(width: size, height: size)
-            .rotationEffect(rotated ? .degrees(45) : .zero)
+            .rotationEffect(warning ? .degrees(45) : .zero)
+            .padding(pad)
+            .background(chipped ? Axis.warn : Color.clear)
     }
 }
 
@@ -178,8 +223,8 @@ struct Tag: View {
 
     private var fill: Color {
         switch tone {
-        case .warn: Axis.warnChip
-        case .danger: Axis.alarmField
+        case .warn: Axis.warn
+        case .danger: Axis.alarm
         default: .clear
         }
     }

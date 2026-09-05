@@ -51,14 +51,13 @@ nonisolated enum Axis {
 
     static let ok = Color(axisDark: 0x5AA7FF, light: 0x1D5A96)
     static let okLine = ok.opacity(0.5)
-    /// A warning's line and label. Never a solid frame.
-    static let warn = Color(axisDark: 0xF5FF00, light: 0x766800)
-    /// The highlighter chip fill, under `onField`, on either ground.
-    static let warnChip = Color(axisRGB: 0xF5FF00)
-    /// An alarm's hatch, strike, pulse, and label. Never a solid line.
-    static let alarm = Color(axisDark: 0xFF2BD6, light: 0xBF0099)
-    /// The filled alarm field, under `onField`, on either ground.
-    static let alarmField = Color(axisRGB: 0xFF2BD6)
+    /// Neon yellow. It sets a warning's line and label on the dark ground and
+    /// fills the highlighter chip under `onField` on either one. It measures
+    /// 1.01:1 on the light ground, so it never sets light-ground ink.
+    static let warn = Color(axisRGB: 0xF5FF00)
+    /// An alarm's hatch, strike, pulse, label, and filled field, on either
+    /// ground. Never a solid line.
+    static let alarm = Color(axisRGB: 0xFF2BD6)
 
     /// Fallback for invalid or low-contrast Live Activity accents.
     static let accent = signalText

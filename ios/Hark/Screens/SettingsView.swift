@@ -121,7 +121,7 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } trailing: {
             HStack(spacing: 8) {
-                StatusLight(color: model.deviceID != nil ? Axis.ok : Axis.warn, size: 5, rotated: model.deviceID == nil)
+                StatusLight(color: model.deviceID != nil ? Axis.ok : Axis.warn, size: 5, warning: model.deviceID == nil)
                 Meta(model.deviceID != nil ? "Registered" : "Registering", color: Axis.inkSubtle)
             }
         }
@@ -163,7 +163,7 @@ struct SettingsView: View {
             .padding(.vertical, 4)
         } trailing: {
             HStack(spacing: 8) {
-                StatusLight(color: criticalAlertsLight.color, size: 5, rotated: criticalAlertsLight.rotated)
+                StatusLight(color: criticalAlertsLight.color, size: 5, warning: criticalAlertsLight.warning)
                 Meta(criticalAlertsWord, color: Axis.inkSubtle)
             }
         }
@@ -179,7 +179,7 @@ struct SettingsView: View {
         }
     }
 
-    private var criticalAlertsLight: (color: Color, rotated: Bool) {
+    private var criticalAlertsLight: (color: Color, warning: Bool) {
         switch model.criticalAlertState {
         case .granted:
             model.criticalSettings?.criticalAlertsEnabled == true ? (Axis.ok, false) : (Axis.warn, true)

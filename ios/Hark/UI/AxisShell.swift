@@ -33,7 +33,7 @@ struct Mast: View {
                 Meta("Push relay")
                 Spacer(minLength: 12)
                 HStack(spacing: 8) {
-                    StatusLight(color: registered ? Axis.ok : Axis.warn, size: 5, blinking: !registered, rotated: !registered)
+                    StatusLight(color: registered ? Axis.ok : Axis.warn, size: 5, blinking: !registered, warning: !registered)
                     Meta(registered ? "Registered" : "Registering", color: Axis.inkSubtle)
                 }
                 .accessibilityElement(children: .ignore)

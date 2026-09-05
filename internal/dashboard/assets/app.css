@@ -48,9 +48,7 @@
   --accent-ink: #be0018;
 
   --alarm-500: #ff2bd6;
-  --alarm-700: #bf0099;
   --warn-400: #f5ff00;
-  --warn-700: #766800;
   --cobalt-400: #5aa7ff;
   --cobalt-700: #1d5a96;
 
@@ -116,7 +114,8 @@
   --signal-line: var(--accent-deep);
   --on-signal: var(--carbon-900);
 
-  /* Cobalt says verified; yellow frames a warning; magenta hatches an alarm. */
+  /* Cobalt says verified; yellow frames a warning on the dark ground and chips
+   * it on the light one; magenta hatches an alarm on both. */
   --ok: var(--cobalt-400);
   --warn: var(--warn-400);
   --alarm: var(--alarm-500);
@@ -172,8 +171,8 @@
   --on-signal: var(--carbon-900);
 
   --ok: var(--cobalt-700);
-  --warn: var(--warn-700);
-  --alarm: var(--alarm-700);
+  --warn: var(--warn-400);
+  --alarm: var(--alarm-500);
 
   --code: var(--mist-300);
   --code-ink: var(--carbon-900);
@@ -923,7 +922,8 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   background: repeating-linear-gradient(135deg, var(--alarm) 0 2px, transparent 2px 4px) left / 6px 100% no-repeat;
   color: var(--alarm);
 }
-/* A warning is a dashed frame with a rotated square ahead of the label. */
+/* A warning frames the label on the dark ground and chips it on the light one.
+ * A rotated square leads the label on both. */
 .tag--partial, .tag--warn, .tag--starting, .tag--pending {
   padding: 2px 6px;
   border: 2px dashed var(--warn);
@@ -935,6 +935,13 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   height: 5px;
   background: currentColor;
   transform: rotate(45deg);
+}
+/* Neon yellow measures 1.01:1 on mist: on the light ground it is a chip fill
+ * under carbon ink and never a line, a frame, or a glyph. */
+:root[data-theme="light"] :is(.tag--partial, .tag--warn, .tag--starting, .tag--pending) {
+  border-color: transparent;
+  background: var(--warn);
+  color: var(--carbon-900);
 }
 .tag--expired, .tag--ended, .tag--no_devices { border-color: var(--line); color: var(--ink-faint); }
 .tag--kind { color: var(--ink-subtle); }
@@ -1172,8 +1179,8 @@ select.input {
 }
 .notice--ok { box-shadow: inset 3px 0 0 var(--ok); }
 .notice--ok::before { content: "OK"; color: var(--ok); }
-/* A warning: a 2px dashed frame, a rotated square ahead of the label, and the
- * message on primary ink. */
+/* A warning: a 2px dashed frame on the dark ground, a rotated square ahead of
+ * the label, and the message on primary ink. */
 .notice--warn { padding: 11px 15px 11px 18px; border: 2px dashed var(--warn); box-shadow: none; }
 .notice--warn::before { content: "Warning"; color: var(--warn); }
 .notice--warn::after {
@@ -1185,6 +1192,26 @@ select.input {
   margin-right: -8px;
   background: var(--warn);
   transform: rotate(45deg);
+}
+/* On mist the frame goes and the label becomes the chip: the square and the
+ * word sit in carbon ink on warn-400. The 16px column gap and the 6px square
+ * set the pull that seats the square inside the chip's leading padding. */
+:root[data-theme="light"] .notice--warn {
+  padding: 12px 16px 12px 24px;
+  border: 1px solid var(--line);
+  box-shadow: inset 3px 0 0 var(--ink-subtle);
+}
+:root[data-theme="light"] .notice--warn::before {
+  align-self: center;
+  padding: 3px 7px 3px 17px;
+  background: var(--warn);
+  color: var(--carbon-900);
+}
+:root[data-theme="light"] .notice--warn::after {
+  position: relative;
+  z-index: 1;
+  margin-right: -27px;
+  background: var(--carbon-900);
 }
 /* An error: a hatched edge. */
 .notice--error {
