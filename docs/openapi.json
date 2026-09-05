@@ -4,7 +4,7 @@
     "title": "Hark HTTP API",
     "version": "1",
     "summary": "Send iOS notifications, approval prompts, and Live Activities from webhooks and API clients.",
-    "description": "OpenAPI definition for Hark. Each deployment has one owner. Sessions provide owner access, scoped API tokens provide software access, and webhook tokens identify services. See /docs.md for detailed behavior and examples.",
+    "description": "OpenAPI definition for Hark. Each deployment has one admin who provisions regular user accounts. Sessions provide account access, scoped API tokens provide software access, and webhook tokens identify services. Account provisioning requires an admin session. See /docs.md for detailed behavior and examples.",
     "license": { "name": "MIT", "identifier": "MIT" }
   },
   "externalDocs": { "description": "Complete API contract and examples", "url": "/docs" },
@@ -12,6 +12,7 @@
   "tags": [
     { "name": "Health" },
     { "name": "Authentication" },
+    { "name": "Accounts" },
     { "name": "Tokens" },
     { "name": "Services" },
     { "name": "Devices" },
@@ -62,6 +63,28 @@
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "requestBody": { "$ref": "#/components/requestBodies/ChangePassword" },
         "responses": { "204": { "description": "Password changed; other sessions retired." }, "default": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/accounts": {
+      "get": {
+        "tags": ["Accounts"], "summary": "List provisioned accounts", "operationId": "listAccounts",
+        "description": "Only the signed-in admin can list accounts. Returns accounts in creation order without password hashes. Regular sessions receive admin_required; API tokens receive session_required. Responses are not cached.",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "admin_session",
+        "responses": {
+          "200": { "description": "Provisioned accounts.", "content": { "application/json": { "schema": { "type": "object", "required": ["users"], "properties": { "users": { "type": "array", "items": { "$ref": "#/components/schemas/User" } } } } } } },
+          "401": { "$ref": "#/components/responses/Error" }, "403": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "post": {
+        "tags": ["Accounts"], "summary": "Provision a regular user account", "operationId": "provisionAccount",
+        "description": "Only the signed-in admin can provision accounts. New accounts always have the user role. Does not issue a session or send email. Responses are not cached.",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "admin_session",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProvisionAccountRequest" } } } },
+        "responses": {
+          "201": { "description": "Account created.", "content": { "application/json": { "schema": { "type": "object", "required": ["user"], "properties": { "user": { "$ref": "#/components/schemas/User" } } } } } },
+          "400": { "$ref": "#/components/responses/Error" }, "401": { "$ref": "#/components/responses/Error" }, "403": { "$ref": "#/components/responses/Error" },
+          "422": { "description": "Invalid fields or duplicate username/email.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
       }
     },
     "/auth/device/code": {
@@ -552,10 +575,19 @@
         "properties": { "error": { "$ref": "#/components/schemas/Error" } }
       },
       "User": {
-        "type": "object", "additionalProperties": false, "required": ["id", "username", "display_name", "email", "created_at"],
+        "type": "object", "additionalProperties": false, "required": ["id", "username", "display_name", "email", "role", "created_at"],
         "properties": {
           "id": { "$ref": "#/components/schemas/UUID" }, "username": { "type": "string" }, "display_name": { "type": "string" },
-          "email": { "type": "string", "format": "email" }, "created_at": { "$ref": "#/components/schemas/Timestamp" }
+          "email": { "type": "string", "format": "email" }, "role": { "type": "string", "enum": ["admin", "user"] }, "created_at": { "$ref": "#/components/schemas/Timestamp" }
+        }
+      },
+      "ProvisionAccountRequest": {
+        "type": "object", "additionalProperties": false, "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "minLength": 3, "maxLength": 30, "pattern": "^[A-Za-z0-9_.]+$" },
+          "password": { "type": "string", "minLength": 12, "maxLength": 256, "writeOnly": true },
+          "display_name": { "type": "string", "description": "Defaults to the supplied username." },
+          "email": { "type": "string", "description": "Display only; defaults to username@hark.local. Must be unique." }
         }
       },
       "Session": {

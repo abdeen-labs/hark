@@ -24,7 +24,7 @@ import (
 
 // Authenticator is the part of *auth.Service the dashboard uses.
 //
-// It is an interface so this package depends on the five operations it needs
+// It is an interface so this package depends on the operations it needs
 // rather than on the whole credential surface, and so the routing and CSRF
 // tests can run without a database.
 type Authenticator interface {
@@ -36,6 +36,8 @@ type Authenticator interface {
 	ListAPITokens(ctx context.Context, userID string) ([]db.APIToken, error)
 	CreateAPIToken(ctx context.Context, userID string, p auth.CreateAPITokenParams) (*db.APIToken, string, error)
 	RevokeAPIToken(ctx context.Context, tokenID, userID string) error
+	ListAccounts(ctx context.Context, actor *auth.Principal) ([]db.User, error)
+	ProvisionAccount(ctx context.Context, actor *auth.Principal, p auth.CreateAccountParams) (*db.User, error)
 
 	// The approval half of the device grant. It is the account owner's
 	// decision, which is why it lives on a session surface at all: an API token
@@ -94,6 +96,7 @@ const (
 	pathCriticalServices = httpapi.DashboardPrefix + "/critical-services"
 	pathDevices          = httpapi.DashboardPrefix + "/devices"
 	pathTokens           = httpapi.DashboardPrefix + "/tokens"
+	pathAccounts         = httpapi.DashboardPrefix + "/accounts"
 	pathTest             = httpapi.DashboardPrefix + "/test"
 	pathAssets           = httpapi.DashboardPrefix + "/assets"
 
@@ -137,6 +140,7 @@ type paths struct {
 	Home, Login, Logout, History, Services, CriticalServices, Devices, Tokens, Test string
 	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs                                    string
 	LiveOverview                                                                    string
+	Accounts                                                                        string
 }
 
 // New builds the dashboard handler.
@@ -172,6 +176,7 @@ func New(opts Options) *Dashboard {
 			Authorize: pathAuthorize, Docs: pathDocs, DocsMarkdown: pathDocsMD,
 			OpenAPI: pathOpenAPI, LLMs: pathLLMs,
 			LiveOverview: pathLiveOverview,
+			Accounts:     pathAccounts,
 		},
 	}
 	d.buildPublicDocs()
@@ -218,6 +223,9 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathTokens, d.page(d.showTokens))
 	d.mux.HandleFunc("POST "+pathTokens, d.form(d.createToken))
 	d.mux.HandleFunc("POST "+pathTokens+"/{id}/revoke", d.form(d.revokeToken))
+
+	d.mux.HandleFunc("GET "+pathAccounts, d.page(d.admin(d.showAccounts)))
+	d.mux.HandleFunc("POST "+pathAccounts, d.form(d.admin(d.provisionAccount)))
 
 	d.mux.HandleFunc("GET "+pathTest, d.page(d.showTest))
 	d.mux.HandleFunc("POST "+pathTest, d.form(d.sendTest))
@@ -432,6 +440,7 @@ func (d *Dashboard) redirect(w http.ResponseWriter, r *http.Request, path, outco
 var notices = map[string]notice{
 	"device_deleted":  {Kind: noticeOK, Message: "Device unregistered."},
 	"token_revoked":   {Kind: noticeOK, Message: "API token revoked."},
+	"account_created": {Kind: noticeOK, Message: "Account created. Share the username and password with its owner so they can sign in."},
 	"signed_out":      {Kind: noticeOK, Message: "Signed out."},
 	"client_approved": {Kind: noticeOK, Message: "Client authorized. Return to the client to continue."},
 	"client_denied":   {Kind: noticeOK, Message: "Request denied."},
@@ -478,6 +487,7 @@ type view struct {
 	// than Username, because the sign-in page echoes a typed username back
 	// under the same field name.
 	SignedIn bool
+	IsAdmin  bool
 	Username string
 	CSRF     string
 	Notice   *notice
@@ -488,6 +498,7 @@ type view struct {
 func (d *Dashboard) newView(r *http.Request, p *auth.Principal, title, section string) view {
 	v := d.shell(title, section, d.formToken(r), noticeFrom(r))
 	v.SignedIn = true
+	v.IsAdmin = p.IsAdmin()
 	v.Username = p.User.Username
 	return v
 }

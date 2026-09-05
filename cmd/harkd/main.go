@@ -1,9 +1,9 @@
 // Command harkd runs the Hark server — the API and the embedded dashboard —
-// and provisions its single account.
+// and bootstraps its administrator account.
 //
 //	harkd serve                 run the server (the default)
-//	harkd create-user           create the one account this deployment serves
-//	harkd set-password          replace that account's password
+//	harkd create-user           bootstrap the administrator account
+//	harkd set-password          replace an account's password
 //
 // All configuration comes from the environment; see the README for the full
 // list. The process exits non-zero with a single diagnostic line when the
@@ -96,8 +96,8 @@ func usage(w io.Writer) {
 
 Usage:
   harkd [serve]                          run the API and the dashboard
-  harkd create-user [flags]              create the single account
-  harkd set-password [flags]             replace that account's password
+  harkd create-user [flags]              bootstrap the administrator account
+  harkd set-password [flags]             replace an account's password
   harkd help                             show this message
 
 Configuration comes from the environment; see the README.
@@ -261,11 +261,10 @@ func newPushSender(cfg *config.Config, log *slog.Logger) (push.Sender, error) {
 	return apns.NewSender(client), nil
 }
 
-// createUserCommand provisions the deployment's one account.
+// createUserCommand bootstraps the deployment's administrator.
 //
-// There is no sign-up endpoint, so this and the boot-time seed are the only two
-// ways an account comes into being — and both go through the same guarded
-// insert, which refuses once an account exists.
+// This and the boot-time seed use the same guarded insert. After bootstrap,
+// additional accounts are provisioned through the administrator's session.
 func createUserCommand(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("create-user", flag.ContinueOnError)
 	username := fs.String("username", "", "sign-in handle (defaults to HARK_ADMIN_USERNAME)")
@@ -301,7 +300,7 @@ func createUserCommand(ctx context.Context, args []string) error {
 	})
 	switch {
 	case errors.Is(err, auth.ErrAccountExists):
-		return errors.New("an account already exists; Hark is single-user. Use `harkd set-password` to change its password")
+		return errors.New("the administrator is already provisioned; sign in and open Accounts to provision users, or use `harkd set-password` to reset a password")
 	case err != nil:
 		return err
 	}

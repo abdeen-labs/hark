@@ -19,9 +19,8 @@ const (
 
 // Principal is the resolved identity behind one request.
 //
-// The two kinds differ in authority, not in tenancy: both act for the single
-// account. A session has full account access; an API token is limited to its
-// granted scopes and cannot create tokens.
+// Both kinds act for their own account. A session has full account access;
+// an API token is limited to its granted scopes and cannot create tokens.
 type Principal struct {
 	Kind Kind
 	User db.User
@@ -47,6 +46,10 @@ func (p *Principal) UserID() string {
 
 // IsSession reports whether the caller signed in as the account owner.
 func (p *Principal) IsSession() bool { return p != nil && p.Kind == KindSession }
+
+// IsAdmin requires a signed-in administrator. Even an admin's API tokens
+// cannot provision accounts or list the deployment's users.
+func (p *Principal) IsAdmin() bool { return p.IsSession() && p.User.Role == db.RoleAdmin }
 
 // IsAPIToken reports whether the caller presented an agent token.
 func (p *Principal) IsAPIToken() bool { return p != nil && p.Kind == KindAPIToken }

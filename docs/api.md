@@ -236,6 +236,7 @@ Validation failures add a `fields` array naming each offending input:
 | 400 | `bad_request` | The request is malformed — unparseable JSON, a missing path parameter, a header the endpoint cannot honour. |
 | 401 | `unauthorized` | No credential was presented, or it is unknown, expired, or revoked. |
 | 403 | `session_required` | The endpoint requires an owner session. API tokens cannot call it. |
+| 403 | `admin_required` | The endpoint requires the administrator's session. Regular users cannot call it. |
 | 403 | `api_token_required` | The endpoint requires an API token. Owner sessions cannot call it. See [Who may send](#who-may-send). |
 | 403 | `insufficient_scope` | A valid API token is missing a scope the endpoint declares. The message names every scope the endpoint requires. |
 | 403 | `origin_not_allowed` | A cookie-authenticated state-changing request arrived from a foreign origin. |
@@ -261,8 +262,11 @@ The device grant adds five more codes — `authorization_pending`, `slow_down`,
 
 ## Authentication
 
-Hark supports exactly **one account**. Create it with `harkd create-user` or seed
-it at startup through environment variables. There is no sign-up endpoint.
+Hark has one **admin account**, bootstrapped with `harkd create-user` or startup
+environment variables. The admin can provision regular users through the
+dashboard's Accounts page or `POST /accounts`. There is no public sign-up.
+Existing deployments retain their original account as the admin after migration.
+Each account's devices, services, tokens, and history remain scoped to that account.
 
 ### Session
 
@@ -602,6 +606,7 @@ Content-Type: application/json
     "username": "admin",
     "display_name": "admin",
     "email": "admin@hark.local",
+    "role": "admin",
     "created_at": "2026-07-29T10:15:02.431Z"
   },
   "session": {
@@ -665,6 +670,7 @@ Use this endpoint to validate a credential and inspect its type and permissions.
     "username": "admin",
     "display_name": "admin",
     "email": "admin@hark.local",
+    "role": "admin",
     "created_at": "2026-07-29T10:15:02.431Z"
   },
   "session": {
@@ -700,6 +706,7 @@ Use this endpoint to validate a credential and inspect its type and permissions.
 | --- | --- | --- |
 | `kind` | string | `"session"` or `"api_token"`. |
 | `user` | object | The account. Always present. |
+| `user.role` | string | `admin` or `user`. Account management requires both the `admin` role and a session. |
 | `session` | object \| null | Present when `kind` is `session`. |
 | `api_token` | object \| null | Present when `kind` is `api_token`. |
 
@@ -743,6 +750,46 @@ Content-Type: application/json
 
 There is no password-reset flow — Hark sends no mail. An operator who has lost
 the password uses `harkd set-password` on the server; see the README.
+
+---
+
+### `GET /accounts`
+
+Lists all provisioned accounts in creation order. **Admin session only.**
+Returns **200 OK** with `{ "users": [...] }`; each user has `id`, `username`,
+`display_name`, `email`, `role`, and `created_at`. Passwords and hashes are never
+returned. The response carries `Cache-Control: no-store`.
+
+### `POST /accounts`
+
+Provisions a regular user who can sign in immediately. **Admin session only.**
+This does not change the administrator's session or send an invitation email.
+
+```json
+{
+  "username": "alice",
+  "password": "a long initial password",
+  "display_name": "Alice Example",
+  "email": "alice@example.com"
+}
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `username` | string | yes | 3–30 ASCII letters, digits, `_`, or `.`. Trimmed and lowercased; must be unique. |
+| `password` | string | yes | 12–256 characters, no control characters. Stored as an Argon2id hash. |
+| `display_name` | string | no | Defaults to the supplied username. |
+| `email` | string | no | Trimmed and lowercased; must be unique. Defaults to `<username>@hark.local`. Display only. |
+
+**201 Created** with `{ "user": {...} }`, using the user representation above
+and `role: "user"`. The response carries `Cache-Control: no-store`. A `role`
+request field is not accepted; this endpoint cannot create another admin.
+
+Both account endpoints return `401 unauthorized` without a session,
+`403 admin_required` for regular sessions, or `403 session_required` for API
+tokens, even an admin's token. Provisioning returns `422 validation_failed`
+with field errors for invalid input or a duplicate username/email. Cookie
+requests also require the same-origin protection described above.
 
 ---
 
@@ -2446,6 +2493,8 @@ separate from the JSON API:
 | `GET` | `/dashboard/tokens` | API tokens and the token creation form. |
 | `POST` | `/dashboard/tokens` | Creates a token and shows its secret once. |
 | `POST` | `/dashboard/tokens/{id}/revoke` | Revokes one. |
+| `GET` | `/dashboard/accounts` | Account directory and provisioning form. Admin session only. |
+| `POST` | `/dashboard/accounts` | Creates a regular user. Admin session and CSRF token required. |
 | `GET` | `/dashboard/test` | The test-notification form. |
 | `POST` | `/dashboard/test` | Sends one notification and reports what APNs said. |
 | `GET` | `/cli/authorize` | The [device authorization approval screen](#get-cliauthorize). |

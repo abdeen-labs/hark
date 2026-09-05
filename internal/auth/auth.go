@@ -1,5 +1,5 @@
-// Package auth owns every credential this deployment recognises: the single
-// account's password, browser and app sessions, agent API tokens, and the
+// Package auth owns every credential this deployment recognises: account
+// passwords, browser and app sessions, agent API tokens, and the
 // device-grant flow a CLI uses to pair itself.
 //
 // Nothing here formats HTTP. The package issues and resolves credentials and
@@ -33,9 +33,11 @@ var (
 	// token, expired session, revoked API token.
 	ErrInvalidCredentials = errors.New("auth: invalid credentials")
 
-	// ErrAccountExists reports that the deployment already has its one account.
-	// Hark is single-user by construction, so provisioning is a one-time act.
+	// ErrAccountExists reports that the deployment is already bootstrapped.
 	ErrAccountExists = errors.New("auth: an account already exists")
+
+	// ErrAdminRequired reports an attempt to manage users without an admin session.
+	ErrAdminRequired = errors.New("auth: an administrator session is required")
 
 	// ErrNotFound reports that the addressed credential or pairing request does
 	// not exist.

@@ -5,7 +5,8 @@ Activities, and approval prompts you can answer from the Lock Screen. It runs as
 one Go binary backed by PostgreSQL. The binary includes the API, admin dashboard,
 and API documentation.
 
-Hark is free, open source, and self-hosted. Each deployment supports one account.
+Hark is free, open source, and self-hosted. Each deployment has one admin who
+can provision additional user accounts.
 There is no sign-up flow, billing, or analytics. Abdeen Labs does not provide a
 hosted Hark service.
 
@@ -91,13 +92,16 @@ database and resume after restart.
 
 ---
 
-## The account
+## Accounts
 
-Hark is single-user. **There is no sign-up endpoint.** The database enforces the
-one-account limit, including when multiple processes try to create an account at
-the same time.
+**There is no public sign-up endpoint.** Only the signed-in admin can provision
+accounts. Regular users have their own devices, services, tokens, and history;
+they cannot view the account directory or create accounts. API tokens cannot
+provision accounts, including tokens belonging to the admin.
 
-Create the account in one of two ways.
+Bootstrap the admin account in one of two ways. Existing deployments keep their
+original account as the admin when migration `0002_account_roles` runs. The
+database enforces one admin, including during concurrent startup.
 
 ### Seeded at boot
 
@@ -123,13 +127,24 @@ Otherwise it uses `HARK_ADMIN_PASSWORD`. Standard input keeps the password out
 of shell history and process arguments. Passwords must be 12–256 characters;
 there are no composition rules.
 
-Running it a second time fails: the account already exists.
+Running it a second time fails: the admin is already provisioned.
 
 Under Compose the same command is:
 
 ```sh
 printf '%s' 'correct horse battery staple' | docker compose run --rm -T harkd create-user -username admin
 ```
+
+### Provision additional accounts
+
+Sign in as the admin and open **Accounts** (`/dashboard/accounts`). Enter a
+username and password, plus an optional display name and email, then select
+**Create account**. Share the credentials with the account owner; Hark sends no
+invitation emails. New accounts always have the `user` role and can sign in
+immediately through the dashboard or app.
+
+The same operation is available through [`POST /accounts`](docs/api.md#post-accounts)
+with an admin session. `GET /accounts` lists provisioned accounts for the admin.
 
 ### Recovering a lost password
 
@@ -230,8 +245,8 @@ status.
 
 ### Account
 
-Hark is single-user. The account is seeded at boot when the user table is
-empty; there is no sign-up endpoint.
+The admin is seeded at boot when the user table is empty. Additional accounts
+are provisioned by the signed-in admin; there is no public sign-up endpoint.
 
 | Variable | Default | Notes |
 | --- | --- | --- |

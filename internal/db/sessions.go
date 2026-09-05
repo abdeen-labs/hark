@@ -62,7 +62,7 @@ type Authenticated struct {
 func (s *Sessions) ByTokenHash(ctx context.Context, tokenHash string) (*Authenticated, error) {
 	const q = `
 		SELECT s.id, s.user_id, s.token_hash, s.created_at, s.refreshed_at, s.expires_at,
-		       u.id, u.username, u.email, u.display_name, u.password_hash,
+		       u.id, u.username, u.email, u.role, u.display_name, u.password_hash,
 		       u.password_updated_at, u.welcome_sent_at, u.created_at, u.updated_at
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
@@ -72,7 +72,7 @@ func (s *Sessions) ByTokenHash(ctx context.Context, tokenHash string) (*Authenti
 	err := s.q.QueryRow(ctx, q, tokenHash).Scan(
 		&a.Session.ID, &a.Session.UserID, &a.Session.TokenHash,
 		&a.Session.CreatedAt, &a.Session.RefreshedAt, &a.Session.ExpiresAt,
-		&a.User.ID, &a.User.Username, &a.User.Email, &a.User.DisplayName, &a.User.PasswordHash,
+		&a.User.ID, &a.User.Username, &a.User.Email, &a.User.Role, &a.User.DisplayName, &a.User.PasswordHash,
 		&a.User.PasswordUpdatedAt, &a.User.WelcomeSentAt, &a.User.CreatedAt, &a.User.UpdatedAt,
 	)
 	if err != nil {

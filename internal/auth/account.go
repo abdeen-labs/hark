@@ -17,7 +17,7 @@ const (
 	MaxUsernameLength = 30
 )
 
-// CreateAccountParams provisions the deployment's single account.
+// CreateAccountParams describes an account. The caller cannot choose a role.
 type CreateAccountParams struct {
 	Username string
 	Password string
@@ -29,24 +29,64 @@ type CreateAccountParams struct {
 	DisplayName string
 }
 
-// CreateAccount provisions the one account this deployment serves.
-//
-// It is the only path that creates a user, and it refuses once an account
-// exists — the guard lives in the INSERT itself, so two processes racing at
-// boot cannot both win. There is no sign-up endpoint precisely because this is
-// the whole surface: `harkd create-user`, or the boot-time seed reading the
-// same values from the environment.
+// CreateAccount bootstraps the initial administrator from the CLI or boot-time
+// seed. It refuses once an account exists and is never exposed over HTTP.
 func (s *Service) CreateAccount(ctx context.Context, p CreateAccountParams) (*db.User, error) {
-	username, err := normalizeUsername(p.Username)
+	params, err := s.accountParams(p)
 	if err != nil {
 		return nil, err
+	}
+	user, err := s.store.Users.CreateFirst(ctx, params)
+	switch {
+	case errors.Is(err, db.ErrNotFound):
+		return nil, ErrAccountExists
+	case err != nil:
+		return nil, fmt.Errorf("auth: create admin account: %w", err)
+	}
+	return user, nil
+}
+
+// ProvisionAccount creates a regular user on behalf of the signed-in admin.
+// Authorization is checked here as well as at each transport boundary.
+func (s *Service) ProvisionAccount(ctx context.Context, actor *Principal, p CreateAccountParams) (*db.User, error) {
+	if !actor.IsAdmin() {
+		return nil, ErrAdminRequired
+	}
+	params, err := s.accountParams(p)
+	if err != nil {
+		return nil, err
+	}
+	user, err := s.store.Users.Create(ctx, params)
+	switch {
+	case db.IsUniqueViolation(err, "users_username_key"):
+		return nil, invalid("username", "is already in use")
+	case db.IsUniqueViolation(err, "users_email_key"):
+		return nil, invalid("email", "is already in use")
+	case err != nil:
+		return nil, fmt.Errorf("auth: provision account: %w", err)
+	}
+	return user, nil
+}
+
+// ListAccounts exposes the account directory only to the signed-in admin.
+func (s *Service) ListAccounts(ctx context.Context, actor *Principal) ([]db.User, error) {
+	if !actor.IsAdmin() {
+		return nil, ErrAdminRequired
+	}
+	return s.store.Users.List(ctx)
+}
+
+func (s *Service) accountParams(p CreateAccountParams) (db.CreateUserParams, error) {
+	username, err := normalizeUsername(p.Username)
+	if err != nil {
+		return db.CreateUserParams{}, err
 	}
 
 	email := strings.ToLower(strings.TrimSpace(p.Email))
 	if email == "" {
 		email = username + "@hark.local"
 	} else if !strings.Contains(email, "@") {
-		return nil, invalid("email", "must be an email address")
+		return db.CreateUserParams{}, invalid("email", "must be an email address")
 	}
 
 	display := strings.TrimSpace(p.DisplayName)
@@ -56,27 +96,17 @@ func (s *Service) CreateAccount(ctx context.Context, p CreateAccountParams) (*db
 
 	hash, err := HashPassword(p.Password)
 	if err != nil {
-		return nil, passwordInputError("password", err)
+		return db.CreateUserParams{}, passwordInputError("password", err)
 	}
 
-	now := s.Now()
-	user, err := s.store.Users.CreateFirst(ctx, db.CreateUserParams{
+	return db.CreateUserParams{
 		ID:           id.New(),
 		Username:     username,
 		Email:        email,
 		DisplayName:  display,
 		PasswordHash: &hash,
-		Now:          now,
-	})
-	switch {
-	case errors.Is(err, db.ErrNotFound):
-		// The guarded INSERT matched no row, which can only mean the table was
-		// already occupied.
-		return nil, ErrAccountExists
-	case err != nil:
-		return nil, fmt.Errorf("auth: create account: %w", err)
-	}
-	return user, nil
+		Now:          s.Now(),
+	}, nil
 }
 
 // SetPassword replaces an account's password without knowing the old one. It is

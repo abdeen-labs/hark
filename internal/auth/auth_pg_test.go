@@ -132,12 +132,14 @@ func seedAccount(t *testing.T, ctx context.Context, s *Service) *db.User {
 	return user
 }
 
-// TestCreateAccountIsSingleUser is the invariant that replaces a closed sign-up
-// route: there is no second way in because there is no second account.
-func TestCreateAccountIsSingleUser(t *testing.T) {
+// Bootstrap cannot be reused to create additional accounts or administrators.
+func TestCreateAccountBootstrapsOnlyOnce(t *testing.T) {
 	ctx, service, _ := requireService(t)
 
 	user := seedAccount(t, ctx, service)
+	if user.Role != db.RoleAdmin {
+		t.Fatalf("bootstrap role = %q, want admin", user.Role)
+	}
 	if user.Username != "admin" || user.Email != "admin@hark.local" {
 		t.Errorf("seeded account = %+v, want a lowercased handle and a derived email", user)
 	}

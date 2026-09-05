@@ -29,6 +29,8 @@ const (
 	// CodeSessionRequired: the endpoint manages credentials, so an API token
 	// may not call it however broad its scopes.
 	CodeSessionRequired = "session_required"
+	// CodeAdminRequired: account management requires an administrator session.
+	CodeAdminRequired = "admin_required"
 	// CodeInsufficientScope: a valid token missing a scope the route declares.
 	CodeInsufficientScope = "insufficient_scope"
 	// CodeOriginNotAllowed: a cookie-authenticated state-changing request from

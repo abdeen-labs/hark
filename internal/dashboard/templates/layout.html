@@ -50,6 +50,7 @@
     </nav>
     <form class="mast__out" method="post" action="{{.Paths.Logout}}" hx-disabled-elt="find button[type=submit]">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      {{if .IsAdmin}}<a class="btn btn--ghost btn--sm" href="{{.Paths.Accounts}}"{{if eq .Section "accounts"}} aria-current="page"{{end}}>Accounts</a>{{end}}
       <button class="btn btn--ghost btn--sm theme-toggle" type="button" data-theme-toggle aria-label="Change theme"></button>
       <span class="mast__user meta">{{.Username}}</span>
       <button class="btn btn--ghost btn--sm" type="submit">Sign out</button>

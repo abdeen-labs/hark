@@ -219,6 +219,11 @@ func (s *server) routes(rt *router) {
 	rt.handle(http.MethodPost, "/auth/password",
 		RequireSession(http.HandlerFunc(s.handleChangePassword)))
 
+	rt.handle(http.MethodGet, "/accounts",
+		RequireAdmin(http.HandlerFunc(s.handleListAccounts)))
+	rt.handle(http.MethodPost, "/accounts",
+		RequireAdmin(http.HandlerFunc(s.handleProvisionAccount)))
+
 	// Device authorization starts and polls without a credential, so both routes
 	// are rate limited.
 	rt.handle(http.MethodPost, "/auth/device/code",

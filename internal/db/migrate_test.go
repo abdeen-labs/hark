@@ -102,8 +102,8 @@ func TestEmbeddedMigrationsLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("embedded migrations are invalid: %v", err)
 	}
-	if len(migrations) != 1 || migrations[0].Version != 1 {
-		t.Fatalf("embedded schema = %v, want one clean initial schema", migrations)
+	if len(migrations) != 2 || migrations[0].Version != 1 || migrations[1].Version != 2 {
+		t.Fatalf("embedded schema = %v, want initial schema and account roles", migrations)
 	}
 	for i, m := range migrations {
 		if i > 0 && m.Version <= migrations[i-1].Version {

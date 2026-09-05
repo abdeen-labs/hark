@@ -25,6 +25,7 @@ var (
 	tmplCriticalServices = mustParse("critical_services.html")
 	tmplDevices          = mustParse("devices.html")
 	tmplTokens           = mustParse("tokens.html")
+	tmplAccounts         = mustParse("accounts.html")
 	tmplTest             = mustParse("test.html")
 	tmplAuthorize        = mustParse("authorize.html")
 	tmplError            = mustParse("error.html")

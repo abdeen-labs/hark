@@ -24,6 +24,8 @@ func TestCredentialRoutesAreClosedByDefault(t *testing.T) {
 		{http.MethodPost, "/auth/logout"},
 		{http.MethodGet, "/auth/session"},
 		{http.MethodPost, "/auth/password"},
+		{http.MethodGet, "/accounts"},
+		{http.MethodPost, "/accounts"},
 		{http.MethodGet, "/auth/device/requests/K7QM-3XPD"},
 		{http.MethodPost, "/auth/device/requests/K7QM-3XPD/approve"},
 		{http.MethodPost, "/auth/device/requests/K7QM-3XPD/deny"},

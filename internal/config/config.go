@@ -113,9 +113,8 @@ type Database struct {
 	AutoMigrate     bool
 }
 
-// Admin seeds the single account of this deployment. Hark is a private,
-// single-user service: there is no sign-up surface, so the one account is
-// created at boot from these values when the user table is empty.
+// Admin bootstraps the administrator when the user table is empty. The admin
+// provisions additional accounts after signing in; there is no public sign-up.
 type Admin struct {
 	Username string
 	Password string // empty means "do not seed"; sign-in remains unavailable

@@ -58,6 +58,14 @@ func (f *fakeAuth) CreateAPIToken(context.Context, string, auth.CreateAPITokenPa
 
 func (f *fakeAuth) RevokeAPIToken(context.Context, string, string) error { return nil }
 
+func (f *fakeAuth) ListAccounts(context.Context, *auth.Principal) ([]db.User, error) {
+	return nil, nil
+}
+
+func (f *fakeAuth) ProvisionAccount(context.Context, *auth.Principal, auth.CreateAccountParams) (*db.User, error) {
+	return &db.User{}, nil
+}
+
 func (f *fakeAuth) DeviceGrantByUserCode(_ context.Context, code string) (*db.DeviceAuthorization, error) {
 	if f.grantErr != nil {
 		return nil, f.grantErr

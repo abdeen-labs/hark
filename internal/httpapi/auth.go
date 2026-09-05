@@ -289,6 +289,18 @@ func RequireSession(next http.Handler) http.Handler {
 	})
 }
 
+// RequireAdmin admits only the signed-in deployment administrator.
+func RequireAdmin(next http.Handler) http.Handler {
+	return RequireSession(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !auth.PrincipalFrom(r.Context()).IsAdmin() {
+			WriteError(w, r, http.StatusForbidden, CodeAdminRequired,
+				"Only the administrator can manage accounts.")
+			return
+		}
+		next.ServeHTTP(w, r)
+	}))
+}
+
 // RequireScopes admits callers granted every listed scope.
 //
 // Scopes constrain API tokens only. Owner sessions pass unconditionally.

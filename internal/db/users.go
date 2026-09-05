@@ -5,12 +5,17 @@ import (
 	"time"
 )
 
-// User is the single account this deployment serves. There is no sign-up
-// surface: the row is seeded at boot and never created by a request.
+const (
+	RoleAdmin = "admin"
+	RoleUser  = "user"
+)
+
+// User is an account. The initial admin provisions all additional users.
 type User struct {
 	ID       string `db:"id"`
 	Username string `db:"username"`
 	Email    string `db:"email"`
+	Role     string `db:"role"`
 	// DisplayName is the human-facing name; Username is the sign-in handle and
 	// is stored already normalised (lowercased) by the caller.
 	DisplayName string `db:"display_name"`
@@ -31,10 +36,10 @@ type User struct {
 // Users stores accounts.
 type Users struct{ q Querier }
 
-const userColumns = `id, username, email, display_name, password_hash,
+const userColumns = `id, username, email, role, display_name, password_hash,
 	password_updated_at, welcome_sent_at, critical_alerts_enabled, created_at, updated_at`
 
-// CreateUserParams seeds the account.
+// CreateUserParams describes a new account. Callers cannot choose its role.
 type CreateUserParams struct {
 	ID           string
 	Username     string
@@ -44,8 +49,8 @@ type CreateUserParams struct {
 	Now          time.Time
 }
 
-// Create inserts the account. A duplicate username or email is a unique
-// violation, which the boot-time seeder treats as "someone else seeded first".
+// Create inserts a regular user. A duplicate username or email is a unique
+// violation. Only CreateFirst can create an admin.
 func (s *Users) Create(ctx context.Context, p CreateUserParams) (*User, error) {
 	const q = `
 		INSERT INTO users (id, username, email, display_name, password_hash,
@@ -57,23 +62,30 @@ func (s *Users) Create(ctx context.Context, p CreateUserParams) (*User, error) {
 		p.ID, p.Username, p.Email, p.DisplayName, p.PasswordHash, now)
 }
 
-// CreateFirst inserts the account only while the table is still empty,
+// CreateFirst inserts the admin only while the table is still empty,
 // returning [ErrNotFound] when one already exists.
 //
-// The INSERT guard enforces the single-account invariant even when two startup
-// processes, or startup and the CLI, attempt account creation concurrently.
+// The unique admin index and ON CONFLICT guard allow only one startup process
+// or CLI invocation to win, even if both see an empty table.
 func (s *Users) CreateFirst(ctx context.Context, p CreateUserParams) (*User, error) {
 	const q = `
 		INSERT INTO users (id, username, email, display_name, password_hash,
-		                   password_updated_at, created_at, updated_at)
+		                   password_updated_at, created_at, updated_at, role)
 		SELECT $1::text, $2::text, $3::text, $4::text, $5::text,
 		       CASE WHEN $5::text IS NULL THEN NULL ELSE $6::timestamptz END,
-		       $6::timestamptz, $6::timestamptz
+		       $6::timestamptz, $6::timestamptz, 'admin'
 		WHERE NOT EXISTS (SELECT 1 FROM users)
+		ON CONFLICT DO NOTHING
 		RETURNING ` + userColumns
 	now := Millis(p.Now)
 	return queryOne[User](ctx, s.q, "create first user", q,
 		p.ID, p.Username, p.Email, p.DisplayName, p.PasswordHash, now)
+}
+
+// List returns accounts in creation order for the administrator.
+func (s *Users) List(ctx context.Context) ([]User, error) {
+	const q = `SELECT ` + userColumns + ` FROM users ORDER BY created_at, id`
+	return queryAll[User](ctx, s.q, "list users", q)
 }
 
 // ByID loads one account.

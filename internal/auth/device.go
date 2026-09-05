@@ -273,9 +273,9 @@ func (s *Service) PollDeviceGrant(ctx context.Context, deviceCode string) (*Devi
 // DeviceGrantByUserCode loads a pairing request for the approval screen,
 // expiring it lazily when its time has passed.
 //
-// There is no ownership check because there is exactly one account: every
-// pending request is by definition this user's. Growing a second account would
-// make that false, and this is the line that would have to change.
+// Pending requests have no owner: the signed-in user holding the user code
+// chooses whether to pair the client with their account. Approval binds the
+// request to that user's ID; later decisions cannot change that binding.
 func (s *Service) DeviceGrantByUserCode(ctx context.Context, userCode string) (*db.DeviceAuthorization, error) {
 	code, ok := NormalizeUserCode(userCode)
 	if !ok {

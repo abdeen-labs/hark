@@ -8,14 +8,13 @@ import (
 	"github.com/abdeen-labs/hark/internal/db"
 )
 
-// userDTO is the account as every response renders it. There is no avatar, no
-// verification state, and no role: the deployment has one account and it is
-// always the caller's.
+// userDTO is the public account representation. Password hashes stay private.
 type userDTO struct {
 	ID          string    `json:"id"`
 	Username    string    `json:"username"`
 	DisplayName string    `json:"display_name"`
 	Email       string    `json:"email"`
+	Role        string    `json:"role"`
 	CreatedAt   Timestamp `json:"created_at"`
 }
 
@@ -25,6 +24,7 @@ func newUserDTO(u db.User) userDTO {
 		Username:    u.Username,
 		DisplayName: u.DisplayName,
 		Email:       u.Email,
+		Role:        u.Role,
 		CreatedAt:   Timestamp(u.CreatedAt),
 	}
 }
@@ -180,6 +180,9 @@ func (s *server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 func (s *server) writeAuthError(w http.ResponseWriter, r *http.Request, what string, err error) {
 	var invalid *auth.InvalidInputError
 	switch {
+	case errors.Is(err, auth.ErrAdminRequired):
+		WriteError(w, r, http.StatusForbidden, CodeAdminRequired,
+			"Only the administrator can manage accounts.")
 	case errors.As(err, &invalid):
 		WriteFieldErrors(w, r, "The request body is invalid.",
 			[]FieldError{{Field: invalid.Field, Message: invalid.Message}})
