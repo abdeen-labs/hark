@@ -100,12 +100,6 @@ func (s *Users) ByUsername(ctx context.Context, username string) (*User, error) 
 	return queryOne[User](ctx, s.q, "load user by username", q, username)
 }
 
-// Count reports how many accounts exist. The seeder uses it to decide whether
-// there is anything to seed.
-func (s *Users) Count(ctx context.Context) (int, error) {
-	return queryValue[int](ctx, s.q, "count users", `SELECT count(*) FROM users`)
-}
-
 // SetPassword replaces the stored password hash.
 func (s *Users) SetPassword(ctx context.Context, id, hash string, now time.Time) error {
 	const q = `

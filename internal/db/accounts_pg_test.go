@@ -40,8 +40,8 @@ func TestConcurrentBootstrapCreatesOneAdmin(t *testing.T) {
 	if wins.Load() != 1 {
 		t.Fatalf("bootstrap winners = %d, want 1", wins.Load())
 	}
-	if count, err := store.Users.Count(ctx); err != nil || count != 1 {
-		t.Fatalf("count = %d, err = %v", count, err)
+	if users, err := store.Users.List(ctx); err != nil || len(users) != 1 {
+		t.Fatalf("account count = %d, err = %v", len(users), err)
 	}
 }
 

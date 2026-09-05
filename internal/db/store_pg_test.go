@@ -182,8 +182,8 @@ func TestUsersAndSessions(t *testing.T) {
 	now := time.Now()
 
 	user := mustUser(ctx, t, s, "ali")
-	if n, err := s.Users.Count(ctx); err != nil || n != 1 {
-		t.Fatalf("Count() = (%d, %v), want (1, nil)", n, err)
+	if users, err := s.Users.List(ctx); err != nil || len(users) != 1 || users[0].ID != user.ID {
+		t.Fatalf("List() = (%v, %v), want the created user", users, err)
 	}
 
 	// Timestamps must survive the round trip at millisecond resolution: HMACs

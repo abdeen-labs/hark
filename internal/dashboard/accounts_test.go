@@ -97,7 +97,7 @@ func TestProvisionAccountThroughDashboard(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Alice Example") {
 		t.Fatalf("directory: %d %s", rec.Code, rec.Body)
 	}
-	if count, err := store.Users.Count(ctx); err != nil || count != 2 {
-		t.Fatalf("account count = %d, err = %v", count, err)
+	if users, err := service.ListAccounts(ctx, admin); err != nil || len(users) != 2 {
+		t.Fatalf("account count = %d, err = %v", len(users), err)
 	}
 }

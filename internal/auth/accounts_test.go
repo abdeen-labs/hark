@@ -83,7 +83,7 @@ func TestProvisionedAccountCanSignInButCannotProvision(t *testing.T) {
 			t.Errorf("%s: error = %v, want field validation", name, err)
 		}
 	}
-	if count, err := service.store.Users.Count(ctx); err != nil || count != 2 {
-		t.Fatalf("count after rejected requests = %d, err = %v", count, err)
+	if users, err := service.ListAccounts(ctx, admin); err != nil || len(users) != 2 {
+		t.Fatalf("count after rejected requests = %d, err = %v", len(users), err)
 	}
 }
