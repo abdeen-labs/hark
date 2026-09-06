@@ -391,12 +391,10 @@ struct HistoryRow: View {
                             .foregroundStyle(Axis.ink)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(EdgeInsets(top: 6, leading: 18, bottom: 6, trailing: 10))
+                            .padding(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Axis.surface)
-                            .overlay(alignment: .leading) {
-                                AlarmBand().frame(width: 8)
-                            }
+                            .overlay { DashedFrame(color: Axis.alarm) }
                             .padding(.top, 4)
                     }
                 }

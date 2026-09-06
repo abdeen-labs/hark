@@ -22,8 +22,8 @@ struct Module<Content: View, Trailing: View>: View {
         case flat
         /// A signal strip down the left edge.
         case signal
-        /// A warning: a dashed leading edge on the dark ground, and the label
-        /// behind a rotated square.
+        /// A warning: a 2px dashed frame on the dark ground; on the light
+        /// ground the label is the highlighter chip behind a plain rule.
         case warning
         /// Corner brackets at two opposite corners.
         case marked
@@ -63,7 +63,7 @@ struct Module<Content: View, Trailing: View>: View {
         .padding(.leading, edgeWidth)
         .background(variant == .flat ? Color.clear : Axis.surface)
         .overlay(alignment: .leading) { edge }
-        .overlay(Rectangle().strokeBorder(border, lineWidth: 1))
+        .overlay { outline }
         .overlay {
             if variant == .marked {
                 CornerMarks()
@@ -71,10 +71,12 @@ struct Module<Content: View, Trailing: View>: View {
         }
     }
 
+    private var framedWarning: Bool { variant == .warning && scheme != .light }
+
     private var edgeWidth: CGFloat {
         switch variant {
         case .signal: 4
-        case .warning: 3
+        case .warning: framedWarning ? 0 : 3
         default: 0
         }
     }
@@ -83,14 +85,18 @@ struct Module<Content: View, Trailing: View>: View {
         switch variant {
         case .signal:
             Rectangle().fill(Axis.signal).frame(width: 4)
-        case .warning:
-            if scheme == .light {
-                Rectangle().fill(Axis.inkSubtle).frame(width: 3)
-            } else {
-                DashedEdge()
-            }
+        case .warning where !framedWarning:
+            Rectangle().fill(Axis.inkSubtle).frame(width: 3)
         default:
             EmptyView()
+        }
+    }
+
+    @ViewBuilder private var outline: some View {
+        if framedWarning {
+            DashedFrame(color: Axis.warn)
+        } else {
+            Rectangle().strokeBorder(border, lineWidth: 1)
         }
     }
 
@@ -116,47 +122,17 @@ extension Module where Trailing == EmptyView {
     }
 }
 
-/// The alarm's hatched edge: stripes at 135° in the alarm colour.
-struct AlarmBand: View {
-    var color: Color = Axis.alarm
+/// The frame a warning and an alarm share: a 2px dashed border in the
+/// signal's colour. The colour and the label beside it say which signal it is.
+struct DashedFrame: View {
+    var color: Color
+    var width: CGFloat = 2
 
     var body: some View {
-        Canvas { context, size in
-            let period: CGFloat = 8
-            let band: CGFloat = 4
-            var path = Path()
-            var x = -size.height
-            while x < size.width + size.height {
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x + band, y: 0))
-                path.addLine(to: CGPoint(x: x + band - size.height, y: size.height))
-                path.addLine(to: CGPoint(x: x - size.height, y: size.height))
-                path.closeSubpath()
-                x += period
-            }
-            context.fill(path, with: .color(color))
-        }
-        .clipped()
-        .accessibilityHidden(true)
-    }
-}
-
-/// The warning's dashed leading edge. A dark-ground form: neon yellow does not
-/// read on mist, where the chip carries the warning instead.
-struct DashedEdge: View {
-    var color: Color = Axis.warn
-    var width: CGFloat = 3
-
-    var body: some View {
-        GeometryReader { proxy in
-            Path { path in
-                path.move(to: CGPoint(x: width / 2, y: 0))
-                path.addLine(to: CGPoint(x: width / 2, y: proxy.size.height))
-            }
-            .stroke(color, style: StrokeStyle(lineWidth: width, dash: [6, 4]))
-        }
-        .frame(width: width)
-        .accessibilityHidden(true)
+        Rectangle()
+            .strokeBorder(color, style: StrokeStyle(lineWidth: width, dash: [6, 4]))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
@@ -186,9 +162,10 @@ struct CornerMarks: View {
 
 // MARK: - Notices
 
-/// A notice: a mono kind label, the message in primary ink, and the kind's
-/// form down the left edge — a hatched alarm edge, a dashed warning edge on
-/// the dark ground, or a plain rule.
+/// A notice: a mono kind label and the message in primary ink. An error takes
+/// the 2px dashed alarm frame on either ground; a warning takes the dashed
+/// frame on the dark ground and the highlighter chip on the light one; the
+/// rest carry a plain rule down the left edge.
 struct Notice: View {
     enum Kind {
         case error, ok, warn, plain
@@ -215,33 +192,43 @@ struct Notice: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(EdgeInsets(top: 12, leading: kind == .error ? 24 : 16, bottom: 12, trailing: 16))
+        .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
         .background(Axis.surface)
-        .overlay(Rectangle().strokeBorder(Axis.line, lineWidth: 1))
+        .overlay { outline }
         .overlay(alignment: .leading) { edge }
     }
 
     @ViewBuilder private var marker: some View {
         switch kind {
         case .error:
-            AlarmBand().frame(width: 12, height: 6)
+            Rectangle()
+                .fill(tone)
+                .frame(width: 5, height: 5)
+                .rotationEffect(.degrees(45))
         case .ok, .warn, .plain:
             EmptyView()
         }
     }
 
-    @ViewBuilder private var edge: some View {
+    @ViewBuilder private var outline: some View {
         switch kind {
         case .error:
-            AlarmBand().frame(width: 8)
-        case .warn:
-            if scheme == .light {
-                Rectangle().fill(Axis.inkSubtle).frame(width: 3)
-            } else {
-                DashedEdge()
-            }
+            DashedFrame(color: Axis.alarm)
+        case .warn where scheme != .light:
+            DashedFrame(color: Axis.warn)
+        case .ok, .warn, .plain:
+            Rectangle().strokeBorder(Axis.line, lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder private var edge: some View {
+        switch kind {
+        case .warn where scheme == .light:
+            Rectangle().fill(Axis.inkSubtle).frame(width: 3)
         case .ok, .plain:
             Rectangle().fill(tone).frame(width: 3)
+        case .error, .warn:
+            EmptyView()
         }
     }
 
@@ -256,7 +243,7 @@ struct Notice: View {
 
     private var tone: Color {
         switch kind {
-        case .error: Axis.alarm
+        case .error: Axis.alarmText
         case .ok: Axis.ok
         case .warn, .plain: Axis.inkSubtle
         }

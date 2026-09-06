@@ -33,17 +33,15 @@ nonisolated enum Axis {
 
     // MARK: Signal
 
-    /// Lines, strips, rules, and lights. Not small text.
+    /// Lines, strips, rules, and lights. Not small text, and never a fill.
     static let signal = Color(axisDark: axisAccentRGB, light: axisAccentDeepRGB)
-    /// The filled scarlet field. Its label is `onSignal`.
-    static let signalField = Color(axisRGB: axisAccentRGB)
-    /// The scarlet under a label the system draws in white.
-    static let signalDeep = Color(axisDark: axisAccentDeepRGB, light: axisAccentInkRGB)
+    /// The one filled scarlet, on either ground: accent-deep under
+    /// `onAlarmField`, or under the white a system control draws itself.
+    static let signalDeep = Color(axisRGB: axisAccentDeepRGB)
     /// The signal colour at text weight; passes AA on the paper.
     static let signalText = Color(axisDark: axisAccentRGB, light: axisAccentInkRGB)
-    /// Carbon ink on any filled scarlet, alarm, or highlighter field.
+    /// Carbon ink on the highlighter chip.
     static let onField = Color(axisRGB: axisCarbonRGB)
-    static let onSignal = onField
     static let signalWash = signal.opacity(0.12)
     static let signalLine = Color(axisRGB: axisAccentDeepRGB)
 
@@ -55,9 +53,17 @@ nonisolated enum Axis {
     /// fills the highlighter chip under `onField` on either one. It measures
     /// 1.01:1 on the light ground, so it never sets light-ground ink.
     static let warn = Color(axisRGB: 0xF5FF00)
-    /// An alarm's hatch, strike, pulse, label, and filled field, on either
-    /// ground. Never a solid line.
-    static let alarm = Color(axisRGB: 0xFF2BD6)
+    /// The alarm step: identity scarlet in a dashed frame, a struck rule, a
+    /// pulse, or a status light. It follows the Key's line — accent on the
+    /// dark ground, accent-deep on the light one — and is never a solid line.
+    static let alarm = Color(axisDark: axisAccentRGB, light: axisAccentDeepRGB)
+    /// The alarm label, on the link steps: accent on dark, accent-ink on light.
+    static let alarmText = signalText
+    /// The alarm chip and the destructive control: accent-deep on either
+    /// ground, under `onAlarmField`.
+    static let alarmField = signalDeep
+    /// Chalk ink on a filled scarlet field.
+    static let onAlarmField = Color(axisRGB: axisChalkRGB)
 
     /// Fallback for invalid or low-contrast Live Activity accents.
     static let accent = signalText

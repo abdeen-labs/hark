@@ -171,8 +171,9 @@ struct ThinBar: View {
 // MARK: - Tags
 
 /// A status or kind in a one-pixel frame. State tags carry a square light in
-/// their colour; kind tags do not. A warning is the highlighter chip with a
-/// rotated square; a fault is the filled alarm field. Both take carbon ink.
+/// their colour; kind tags do not. A warning is the highlighter chip, carbon
+/// ink on neon; a fault is the alarm chip, chalk ink on accent-deep. Both lead
+/// with a rotated square.
 struct Tag: View {
     enum Tone {
         case kind, ok, warn, danger, muted, signal
@@ -194,7 +195,7 @@ struct Tag: View {
                 Rectangle()
                     .fill(color)
                     .frame(width: 5, height: 5)
-                    .rotationEffect(tone == .warn ? .degrees(45) : .zero)
+                    .rotationEffect(chip ? .degrees(45) : .zero)
             }
             Text(text)
                 .axisMeta(10)
@@ -211,11 +212,14 @@ struct Tag: View {
         )
     }
 
+    private var chip: Bool { tone == .warn || tone == .danger }
+
     private var color: Color {
         switch tone {
         case .kind: Axis.inkSubtle
         case .ok: Axis.ok
-        case .warn, .danger: Axis.onField
+        case .warn: Axis.onField
+        case .danger: Axis.onAlarmField
         case .muted: Axis.inkFaint
         case .signal: Axis.signalText
         }
@@ -224,7 +228,7 @@ struct Tag: View {
     private var fill: Color {
         switch tone {
         case .warn: Axis.warn
-        case .danger: Axis.alarm
+        case .danger: Axis.alarmField
         default: .clear
         }
     }
@@ -275,7 +279,9 @@ struct StateTag: View {
 // MARK: - Buttons
 
 /// An instrument control: compact, square-cornered, labelled in capitals, and
-/// a press that compresses rather than lifts.
+/// a press that compresses rather than lifts. A primary control takes the
+/// ground's ink as its field; a danger control is the one filled scarlet,
+/// accent-deep under chalk.
 struct InstrumentButtonStyle: ButtonStyle {
     enum Kind {
         case primary, secondary, danger, ghost
@@ -289,8 +295,8 @@ struct InstrumentButtonStyle: ButtonStyle {
     var arrow: Arrow?
     var compact = false
     var fill = true
-    /// Overrides the signal colour for a primary control — a Live Activity
-    /// answers in the accent its server chose.
+    /// Overrides the field of a primary control — a Live Activity answers in
+    /// the accent its server chose.
     var tint: Color?
     /// The label ink on a tinted primary control.
     var ink: Color?
@@ -333,8 +339,8 @@ struct InstrumentButtonStyle: ButtonStyle {
         .animation(Axis.Motion.quick, value: pressed)
     }
 
-    private var field: Color { tint ?? Axis.signalField }
-    private var fieldInk: Color { ink ?? Axis.onSignal }
+    private var field: Color { tint ?? Axis.ink }
+    private var fieldInk: Color { ink ?? Axis.paper }
 
     private func foreground(pressed: Bool) -> Color {
         guard isEnabled else {
@@ -343,7 +349,7 @@ struct InstrumentButtonStyle: ButtonStyle {
         switch kind {
         case .primary: return fieldInk
         case .secondary: return Axis.ink
-        case .danger: return pressed ? Axis.onSignal : Axis.signalText
+        case .danger: return Axis.onAlarmField
         case .ghost: return pressed ? Axis.ink : Axis.inkSubtle
         }
     }
@@ -355,7 +361,7 @@ struct InstrumentButtonStyle: ButtonStyle {
         switch kind {
         case .primary: return field
         case .secondary: return pressed ? Axis.surface3 : .clear
-        case .danger: return pressed ? Axis.signalField : .clear
+        case .danger: return Axis.alarmField
         case .ghost: return .clear
         }
     }
@@ -367,7 +373,7 @@ struct InstrumentButtonStyle: ButtonStyle {
         switch kind {
         case .primary: return .clear
         case .secondary: return pressed ? Axis.ink : Axis.lineStrong
-        case .danger: return pressed ? Axis.signalField : Axis.signalLine
+        case .danger: return pressed ? Axis.ink : Axis.alarmField
         case .ghost: return pressed ? Axis.lineStrong : .clear
         }
     }

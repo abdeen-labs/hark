@@ -47,7 +47,6 @@
   --accent-deep: #d4212c;
   --accent-ink: #be0018;
 
-  --alarm-500: #ff2bd6;
   --warn-400: #f5ff00;
   --cobalt-400: #5aa7ff;
   --cobalt-700: #1d5a96;
@@ -107,18 +106,22 @@
    * the panel behind it, which a rule never has to. */
   --line-control: var(--graphite-500);
 
-  /* Scarlet is identity: a solid line, or a filled field under carbon ink. */
+  /* Scarlet is identity: a line, never a filled control. */
   --signal: var(--accent);
-  --signal-fill: var(--accent);
   --signal-text: var(--accent);
   --signal-line: var(--accent-deep);
-  --on-signal: var(--carbon-900);
 
   /* Cobalt says verified; yellow frames a warning on the dark ground and chips
-   * it on the light one; magenta hatches an alarm on both. */
+   * it on the light one. The alarm is scarlet in alarm forms: its step follows
+   * the Key's line on each ground and its label follows the links. The one
+   * filled scarlet is accent-deep under chalk on either ground — the alarm
+   * chip or a destructive control. */
   --ok: var(--cobalt-400);
   --warn: var(--warn-400);
-  --alarm: var(--alarm-500);
+  --alarm: var(--accent);
+  --alarm-text: var(--accent);
+  --alarm-field: var(--accent-deep);
+  --on-alarm-field: var(--chalk-100);
 
   --code: var(--pitch-900);
   --code-ink: var(--chalk-100);
@@ -165,14 +168,13 @@
   --line-control: var(--carbon-500);
 
   --signal: var(--accent-deep);
-  --signal-fill: var(--accent);
   --signal-text: var(--accent-ink);
   --signal-line: var(--accent-deep);
-  --on-signal: var(--carbon-900);
 
   --ok: var(--cobalt-700);
   --warn: var(--warn-400);
-  --alarm: var(--alarm-500);
+  --alarm: var(--accent-deep);
+  --alarm-text: var(--accent-ink);
 
   --code: var(--mist-300);
   --code-ink: var(--carbon-900);
@@ -231,7 +233,7 @@ body::before {
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
 }
 
-::selection { background: var(--signal-fill); color: var(--on-signal); }
+::selection { background: var(--accent); color: var(--carbon-900); }
 
 :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
@@ -312,7 +314,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .meta a:hover { color: var(--ink); text-decoration: none; }
 .meta--ink { color: var(--ink-subtle); }
 .meta--signal { color: var(--signal-text); }
-.meta--alarm { color: var(--alarm); }
+.meta--alarm { color: var(--alarm-text); }
 
 .lede {
   max-width: 46ch;
@@ -665,18 +667,8 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .module--signal { border-color: var(--signal-line); box-shadow: inset 4px 0 0 var(--signal); }
 .module--signal > .module__head, .module--signal > .module__body { padding-left: 20px; }
 
-/* Alarm marking: a hatched band down the left edge of a destructive region. */
-.module--alarm { border-color: var(--line-strong); }
-.module--alarm::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  bottom: -1px;
-  left: -1px;
-  width: 8px;
-  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px);
-}
-.module--alarm > .module__head, .module--alarm > .module__body { padding-left: 24px; }
+/* Alarm marking: a 2px dashed frame around a destructive region. */
+.module--alarm { border: 2px dashed var(--alarm); }
 
 /* Corner brackets at two opposite corners. */
 .module--marked::before, .module--marked::after {
@@ -916,11 +908,19 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 }
 .tag--state::before { content: ""; width: 5px; height: 5px; background: currentColor; }
 .tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok { color: var(--ok); }
-/* An alarm carries a hatched edge, never a solid frame. */
+/* An alarm is the highlighter chip: chalk ink and a rotated square on
+ * accent-deep, on either ground. */
 .tag--failed, .tag--error, .tag--denied, .tag--retired {
-  padding-left: 13px;
-  background: repeating-linear-gradient(135deg, var(--alarm) 0 2px, transparent 2px 4px) left / 6px 100% no-repeat;
-  color: var(--alarm);
+  border-color: transparent;
+  background: var(--alarm-field);
+  color: var(--on-alarm-field);
+}
+.tag--failed::before, .tag--error::before, .tag--denied::before, .tag--retired::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  transform: rotate(45deg);
 }
 /* A warning frames the label on the dark ground and chips it on the light one.
  * A rotated square leads the label on both. */
@@ -980,10 +980,11 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .feed__title { max-width: 72ch; margin: 5px 0 0; color: var(--ink); font-size: 15px; line-height: 1.35; text-wrap: pretty; }
 .feed__detail { max-width: 80ch; margin: 2px 0 0; color: var(--ink-subtle); font-size: 13px; line-height: 1.45; }
 .feed__meta { margin: 6px 0 0; }
+/* A fault message: primary ink inside a 2px dashed alarm frame. */
 .feed__error {
   margin: 8px 0 0;
-  padding: 6px 10px 6px 18px;
-  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px) left / 8px 100% no-repeat;
+  padding: 6px 10px;
+  border: 2px dashed var(--alarm);
   color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
@@ -1079,8 +1080,8 @@ select.input {
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 .check input:hover { border-color: var(--ink-faint); }
-.check input:checked { border-color: var(--signal-fill); background: var(--signal-fill); }
-.check input:checked::before { content: ""; width: 6px; height: 6px; background: var(--on-signal); }
+.check input:checked { border-color: var(--signal); }
+.check input:checked::before { content: ""; width: 6px; height: 6px; background: var(--signal); }
 .check__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .check__name { color: var(--ink); font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; }
 .check__description { color: var(--ink-faint); font-size: 12px; line-height: 1.4; text-wrap: pretty; }
@@ -1133,18 +1134,17 @@ select.input {
 /* htmx disables the submitting button for the life of its request. That is a
  * control at work, not one that is unavailable: it keeps its colours. */
 .btn[data-disabled-by-htmx] { opacity: 0.6; cursor: progress; transform: none; }
-.btn--primary { background: var(--signal-fill); border-color: var(--signal-fill); color: var(--on-signal); }
+/* A primary action takes the ground's ink as its field; identity stays a
+ * line beside it. */
+.btn--primary { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.btn--primary:hover { background: var(--ink-muted); border-color: var(--ink-muted); }
 .btn--ghost { border-color: transparent; color: var(--ink-subtle); }
 .btn--ghost:hover { background: transparent; border-color: var(--line-strong); color: var(--ink); }
-/* Destructive: a hatched leading edge at rest, a filled alarm field on hover. */
-.btn--danger {
-  padding-left: 20px;
-  background: repeating-linear-gradient(135deg, var(--alarm) 0 2px, transparent 2px 4px) left / 6px 100% no-repeat;
-  color: var(--alarm);
-}
-.btn--danger:hover { background: var(--alarm); border-color: var(--alarm); color: var(--carbon-900); }
+/* Destructive: the one filled scarlet control, accent-deep under chalk on
+ * either ground, labelled with what it destroys. */
+.btn--danger { background: var(--alarm-field); border-color: var(--alarm-field); color: var(--on-alarm-field); }
+.btn--danger:hover { background: var(--alarm-field); border-color: var(--ink); color: var(--on-alarm-field); }
 .btn--sm { min-height: 30px; padding: 0 10px; font-size: 11px; }
-.btn--danger.btn--sm { padding-left: 16px; }
 
 @media (max-width: 640px) {
   .btn { min-height: 44px; }
@@ -1213,13 +1213,20 @@ select.input {
   margin-right: -27px;
   background: var(--carbon-900);
 }
-/* An error: a hatched edge. */
-.notice--error {
-  padding-left: 24px;
-  box-shadow: none;
-  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px) left / 8px 100% no-repeat, var(--panel);
+/* An error: a 2px dashed alarm frame on either ground, a rotated square ahead
+ * of the label, the label on the alarm step, and the message on primary ink. */
+.notice--error { padding: 11px 15px 11px 18px; border: 2px dashed var(--alarm); box-shadow: none; }
+.notice--error::before { content: "Error"; color: var(--alarm-text); }
+.notice--error::after {
+  content: "";
+  order: -1;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  margin-right: -8px;
+  background: var(--alarm-text);
+  transform: rotate(45deg);
 }
-.notice--error::before { content: "Error"; color: var(--alarm); }
 
 .secret { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
 .secret__value {
@@ -1247,11 +1254,11 @@ select.input {
   font-size: 12px;
 }
 .failures li {
-  padding: 6px 0 6px 16px;
-  border-top: 1px solid var(--line);
-  background: repeating-linear-gradient(135deg, var(--alarm) 0 4px, transparent 4px 8px) left / 8px 100% no-repeat;
+  padding: 6px 10px;
+  border: 2px dashed var(--alarm);
   overflow-wrap: anywhere;
 }
+.failures li + li { margin-top: 6px; }
 
 /* The confirmation dialog --------------------------------------------------- */
 
@@ -1352,8 +1359,8 @@ select.input {
   top: -1px;
   right: -1px;
   padding: 6px 10px;
-  background: var(--signal-fill);
-  color: var(--on-signal);
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--mono);
   font-size: 10px;
   font-weight: 600;
@@ -1478,7 +1485,6 @@ select.input {
   .table th, .table td { padding: 10px 14px; }
   .feed__item { padding-inline: 14px; }
   .module--signal > .module__head, .module--signal > .module__body { padding-left: 18px; }
-  .module--alarm > .module__head, .module--alarm > .module__body { padding-left: 22px; }
 }
 
 /* Compositions that span two blocks --------------------------------------------- */
