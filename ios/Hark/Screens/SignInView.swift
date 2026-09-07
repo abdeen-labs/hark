@@ -58,7 +58,7 @@ struct SignInView: View {
                 .padding(.bottom, -Self.titleSize * 0.14)
                 .offset(x: -Self.titleSize * 0.05)
                 .accessibilityAddTraits(.isHeader)
-            Text("Receive push notifications and Live Activities from webhooks and API clients.")
+            Text("Notifications from your services, scripts, and automations. Connect them through webhooks or the API.")
                 .font(AxisType.copy(15))
                 .lineSpacing(3)
                 .foregroundStyle(Axis.inkSubtle)

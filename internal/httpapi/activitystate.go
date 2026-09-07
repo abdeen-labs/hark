@@ -165,19 +165,19 @@ func resolvedInteractionState(state activityState, in db.Interaction, now time.T
 	var status, detail, symbol string
 	switch in.Status {
 	case db.InteractionApproved:
-		status, detail, symbol = "Approved", "The agent has your answer.", symbolSuccess
+		status, detail, symbol = "Approved", "Your answer was recorded.", symbolSuccess
 	case db.InteractionYes:
-		status, detail, symbol = "Yes", "The agent has your answer.", symbolSuccess
+		status, detail, symbol = "Yes", "Your answer was recorded.", symbolSuccess
 	case db.InteractionDenied:
-		status, detail, symbol = "Denied", "The agent has your answer.", symbolWarning
+		status, detail, symbol = "Denied", "Your answer was recorded.", symbolWarning
 	case db.InteractionNo:
-		status, detail, symbol = "No", "The agent has your answer.", symbolWarning
+		status, detail, symbol = "No", "Your answer was recorded.", symbolWarning
 	case db.InteractionReplied:
-		status, detail, symbol = "Replied", "The agent has your answer.", symbolSuccess
+		status, detail, symbol = "Replied", "Your answer was recorded.", symbolSuccess
 	case db.InteractionExpired:
 		status, detail, symbol = "Expired", "No answer made it back in time.", symbolWarning
 	default:
-		status, detail, symbol = "Canceled", "Nothing went back to the agent.", symbolWarning
+		status, detail, symbol = "Canceled", "No answer was sent.", symbolWarning
 	}
 
 	state.Status, state.Detail, state.Symbol = status, &detail, symbol

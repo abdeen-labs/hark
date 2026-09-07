@@ -1,6 +1,6 @@
 # Hark
 
-> Hark is a self-hosted service for sending iOS notifications, Live Activities, and interactive prompts from webhooks and API clients.
+> Hark is a self-hosted notification app for services, scripts, and automations. Send iOS push notifications and Live Activities through webhooks or the API, with optional questions, replies, and answer callbacks.
 
 Each Hark deployment has one admin who provisions additional user accounts. Its JSON API is served directly from the deployment root. Identifiers are UUIDv7, timestamps use RFC 3339 UTC, and errors include a stable `error.code`. Account sessions, scoped `hark_…` API tokens, and service-specific webhook URLs provide access.
 

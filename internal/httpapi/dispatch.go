@@ -167,7 +167,7 @@ func activityBanner(props json.RawMessage) push.ActivityBanner {
 	state, err := decodeActivityState(props)
 	if err != nil || state.PrivacyMode != privacyStandard {
 		return push.ActivityBanner{
-			Title: "An agent is at work",
+			Title: "A Live Activity has started",
 			Body:  "Open Hark to follow along.",
 		}
 	}

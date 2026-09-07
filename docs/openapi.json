@@ -3,7 +3,7 @@
   "info": {
     "title": "Hark HTTP API",
     "version": "1",
-    "summary": "Send iOS notifications, approval prompts, and Live Activities from webhooks and API clients.",
+    "summary": "Send iOS push notifications and Live Activities from your services, scripts, and automations through webhooks or the API.",
     "description": "OpenAPI definition for Hark. Each deployment has one admin who provisions regular user accounts. Sessions provide account access, scoped API tokens provide software access, and webhook tokens identify services. Account provisioning requires an admin session. See /docs.md for detailed behavior and examples.",
     "license": { "name": "MIT", "identifier": "MIT" }
   },

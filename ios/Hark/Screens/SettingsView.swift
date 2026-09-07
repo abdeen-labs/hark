@@ -73,7 +73,7 @@ struct SettingsView: View {
     private var route: some View {
         Module(index: "00", label: "Route", variant: .flat, flush: true) {
             Schematic(
-                nodes: ["Agent", "harkd", "APNs", "This phone"],
+                nodes: ["Source", "harkd", "APNs", "This phone"],
                 signalSegment: 2,
                 note: AppModel.apnsEnvironment,
                 height: 60

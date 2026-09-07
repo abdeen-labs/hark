@@ -1,5 +1,9 @@
 # Hark HTTP API
 
+Hark delivers iOS push notifications and Live Activities from your services,
+scripts, and automations through webhooks or the API. Notifications can also
+ask questions and collect replies, with optional callbacks to the sender.
+
 This document defines the Hark HTTP API, including authentication, request and
 response formats, delivery behavior, push payloads, and dashboard routes. It is
 the API reference used by the iOS app, web dashboard, and command-line clients.

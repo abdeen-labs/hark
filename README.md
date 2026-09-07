@@ -1,9 +1,12 @@
 # Hark
 
-Hark turns webhooks and API client requests into iOS push notifications, Live
-Activities, and approval prompts you can answer from the Lock Screen. It runs as
-one Go binary backed by PostgreSQL. The binary includes the API, admin dashboard,
-and API documentation.
+Hark is a notification app for your services, scripts, and automations. Send
+push notifications to your iPhone through webhooks or the API, and follow
+ongoing updates with Live Activities. Notifications can also ask a question
+or collect a reply from the Lock Screen.
+
+The server runs as one Go binary backed by PostgreSQL. The binary includes the
+API, admin dashboard, and API documentation.
 
 Hark is free, open source, and self-hosted. Each deployment has one admin who
 can provision additional user accounts.
@@ -51,6 +54,25 @@ Open <http://localhost:8080/> to use the admin dashboard. It includes the curren
 delivery status, history, webhook services, registered devices, API tokens, test
 notifications, and command-line client authorization. See the
 [dashboard reference](docs/api.md#dashboard) for its routes and behavior.
+
+### Send a notification with a webhook
+
+Sign in to the iOS app and enable notifications. In the dashboard, create a
+service under **Services** and copy its webhook URL. Send a JSON body from a
+script, monitoring tool, or automation:
+
+```sh
+curl --fail-with-body 'https://hark.example.com/hooks/YOUR_WEBHOOK_TOKEN' \
+  --header 'Content-Type: application/json' \
+  --data '{"title":"Backup complete","body":"All files backed up successfully."}'
+```
+
+Replace the example URL with the one you copied. Only `body` is required;
+the service supplies notification defaults. Push delivery requires configured
+APNs credentials and a registered device. See the
+[webhook reference](docs/api.md#webhooks) for options, replies, and callbacks,
+or the [API quickstart](docs/api.md#send-your-first-notification) to send with
+an API token.
 
 ### The published contract
 

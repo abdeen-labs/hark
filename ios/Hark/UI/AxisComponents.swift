@@ -664,7 +664,7 @@ struct ColumnRuler: View {
 /// Linework for the route a push takes: nodes on a rule, one segment in
 /// signal, mono labels beneath. Purely decorative.
 struct Schematic: View {
-    var nodes: [String] = ["Agent", "harkd", "APNs", "Phone"]
+    var nodes: [String] = ["Source", "harkd", "APNs", "Phone"]
     /// The segment drawn in signal, counted from the left.
     var signalSegment = 2
     /// A label under the signal segment.
