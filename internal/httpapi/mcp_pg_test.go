@@ -70,7 +70,10 @@ func TestMCPToolCallsRunThroughTheAPI(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	device := f.registerDevice(strings.Repeat("c3", 32))
 
-	args := map[string]any{"title": "Deploy bot", "body": "Build 4821 succeeded", "idempotency_key": "mcp-1"}
+	args := map[string]any{
+		"title": "Deploy bot", "body": "Build 4821 succeeded", "idempotency_key": "mcp-1",
+		"pass_url": "https://example.com/passes/4821.pkpass",
+	}
 	out := f.toolCall(f.token, "send_notification", args)
 	if out.Result.IsError {
 		t.Fatalf("send_notification is an error result: %s", out.Result.Content)
@@ -82,12 +85,18 @@ func TestMCPToolCallsRunThroughTheAPI(t *testing.T) {
 	if sent.Notification.AcceptedCount != 1 || sent.Replayed {
 		t.Errorf("response = %+v, want one accepted delivery", sent)
 	}
+	if sent.Notification.PassURL == nil || *sent.Notification.PassURL != "https://example.com/passes/4821.pkpass" {
+		t.Errorf("notification pass_url = %v, want the pass_url argument", sent.Notification.PassURL)
+	}
 	if len(out.Result.Content) != 1 || out.Result.Content[0].Type != "text" {
 		t.Errorf("content = %+v, want one text block", out.Result.Content)
 	}
 	alert := f.sender.lastAlert(t)
 	if alert.Target.DeviceID != device.ID || alert.Body != "Build 4821 succeeded" {
 		t.Errorf("alert = %+v, want the body delivered to the registered device", alert)
+	}
+	if alert.PassURL == nil || *alert.PassURL != "https://example.com/passes/4821.pkpass" {
+		t.Errorf("alert PassURL = %v, want the pass_url argument", alert.PassURL)
 	}
 
 	out = f.toolCall(f.token, "send_notification", args)

@@ -268,6 +268,7 @@ struct HistoryView: View {
                 source: source,
                 priority: priority
             )
+            HarkPassStore.deleteAll()
             await reload()
         } catch let error as HarkClientError where error.isUnauthorized {
             model.handleUnauthorized()
@@ -284,6 +285,7 @@ struct HistoryView: View {
             for item in doomed {
                 do {
                     try await model.client.deleteHistoryItem(id: item.id)
+                    HarkPassStore.delete(recordID: item.recordID)
                 } catch let error as HarkClientError where error.isUnauthorized {
                     model.handleUnauthorized()
                     return
@@ -332,8 +334,12 @@ private struct FilterChip: View {
 }
 
 struct HistoryRow: View {
+    @Environment(AppModel.self) private var model
+
     let number: Int
     let item: HistoryItem
+
+    @State private var addingPass = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -396,6 +402,18 @@ struct HistoryRow: View {
                             .background(Axis.surface)
                             .overlay { DashedFrame(color: Axis.alarm) }
                             .padding(.top, 4)
+                    }
+                    if let passURL = item.passURL {
+                        Button(addingPass ? "Adding…" : "Add to Wallet") {
+                            addingPass = true
+                            Task {
+                                await model.addPassToWallet(recordID: item.recordID, passURL: passURL)
+                                addingPass = false
+                            }
+                        }
+                        .buttonStyle(.instrument(.secondary, compact: true, fill: false))
+                        .disabled(addingPass)
+                        .padding(.top, 8)
                     }
                 }
             }

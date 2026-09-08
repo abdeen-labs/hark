@@ -79,6 +79,8 @@ type Alert struct {
 	ImageURL *string
 	// URL is the tap destination: a web URL or an app deep link.
 	URL *string
+	// PassURL is an Apple Wallet pass: the public HTTPS URL of a .pkpass file.
+	PassURL *string
 
 	// ThreadKey groups related alerts into one conversation on the phone. Alerts
 	// from one service, or one agent title, share a key.

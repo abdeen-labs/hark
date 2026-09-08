@@ -19,6 +19,7 @@ type eventDTO struct {
 	Body        string  `json:"body"`
 	ImageURL    *string `json:"image_url"`
 	URL         *string `json:"url"`
+	PassURL     *string `json:"pass_url"`
 	Priority    string  `json:"priority"`
 	Status      string  `json:"status"`
 	// DeliveredCount counts the messages APNs accepted. It says nothing about
@@ -40,6 +41,7 @@ func newEventDTO(e db.Event, serviceName string) eventDTO {
 		Body:           e.Body,
 		ImageURL:       e.ImageURL,
 		URL:            e.URL,
+		PassURL:        e.PassURL,
 		Priority:       e.Priority,
 		Status:         e.Status,
 		DeliveredCount: e.DeliveredCount,
@@ -110,6 +112,7 @@ type historyItemDTO struct {
 	Title          string  `json:"title"`
 	Detail         *string `json:"detail"`
 	URL            *string `json:"url"`
+	PassURL        *string `json:"pass_url"`
 	// Result is the outcome for the kinds that have one: how a question was
 	// answered, or which change a Live Activity entry describes.
 	Result *string `json:"result"`
@@ -131,6 +134,7 @@ func newHistoryItemDTO(i db.FeedItem) historyItemDTO {
 		Title:          i.Title,
 		Detail:         i.Detail,
 		URL:            i.URL,
+		PassURL:        i.PassURL,
 		Result:         i.Result,
 		Status:         i.Status,
 		DeliveredCount: i.DeliveredCount,

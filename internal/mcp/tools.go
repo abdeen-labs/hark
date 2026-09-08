@@ -36,6 +36,7 @@ type sendNotificationArgs struct {
 	Title          string   `json:"title,omitempty" jsonschema:"Shown as the sender, 1-80 characters. Defaults to Hark."`
 	ImageURL       string   `json:"image_url,omitempty" jsonschema:"Public HTTPS URL of an image to show. Defaults to the picture set for this connection."`
 	URL            string   `json:"url,omitempty" jsonschema:"Where a tap on the notification goes."`
+	PassURL        string   `json:"pass_url,omitempty" jsonschema:"Public HTTPS URL of an Apple Wallet .pkpass file. The phone downloads it on arrival, and a tap adds it to Wallet instead of opening url."`
 	Priority       string   `json:"priority,omitempty" jsonschema:"normal (default) or time_sensitive."`
 	DeviceIDs      []string `json:"device_ids,omitempty" jsonschema:"Device ids to send to, 1-50. Absent means every reachable device."`
 	IdempotencyKey string   `json:"idempotency_key,omitempty" jsonschema:"1-200 characters. Repeating a call with the same key and arguments returns the first outcome instead of sending again."`

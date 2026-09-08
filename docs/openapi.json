@@ -765,6 +765,7 @@
         "properties": {
           "title": { "type": "string", "minLength": 1, "maxLength": 80 }, "body": { "type": "string", "minLength": 1, "maxLength": 2000 },
           "image_url": { "type": ["string", "null"], "format": "uri" }, "url": { "type": ["string", "null"], "format": "uri" },
+          "pass_url": { "type": ["string", "null"], "format": "uri", "maxLength": 2048, "description": "Public https URL of an Apple Wallet .pkpass file. The app downloads it on arrival; a tap adds it to Wallet, ahead of url." },
           "priority": { "$ref": "#/components/schemas/RequestPriority" },
           "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }
         }
@@ -849,7 +850,8 @@
         "type": "object", "additionalProperties": false, "required": ["body"],
         "properties": {
           "body": { "type": "string", "minLength": 1, "maxLength": 2000 }, "title": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "image_url": { "type": "string", "format": "uri" }, "url": { "type": "string", "format": "uri" }, "priority": { "$ref": "#/components/schemas/Priority", "description": "Regular service webhooks accept Normal or Time Sensitive. Critical-capable service webhooks also accept Critical." },
+          "image_url": { "type": "string", "format": "uri" }, "url": { "type": "string", "format": "uri" },
+          "pass_url": { "type": "string", "format": "uri", "maxLength": 2048, "description": "Public https URL of an Apple Wallet .pkpass file. A tap adds it to Wallet, ahead of url. Has no service default." }, "priority": { "$ref": "#/components/schemas/Priority", "description": "Regular service webhooks accept Normal or Time Sensitive. Critical-capable service webhooks also accept Critical." },
           "device_ids": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/components/schemas/UUID" } }, "response": { "$ref": "#/components/schemas/WebhookResponseOptions" }
         }
       },

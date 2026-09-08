@@ -101,6 +101,7 @@ type FeedItem struct {
 	Title          string  `db:"title"`
 	Detail         *string `db:"detail"`
 	URL            *string `db:"url"`
+	PassURL        *string `db:"pass_url"`
 	// Result is the outcome for kinds that have one: an interaction status, or
 	// a Live Activity operation event.
 	Result *string `db:"result"`
@@ -137,6 +138,7 @@ const feedQuery = `
 		       e.title                                 AS title,
 		       e.body                                  AS detail,
 		       e.url                                   AS url,
+		       e.pass_url                              AS pass_url,
 		       NULL::text                              AS result,
 		       e.status                                AS status,
 		       e.delivered_count                       AS delivered_count,
@@ -152,7 +154,7 @@ const feedQuery = `
 		UNION ALL
 
 		SELECT 'notification:' || n.id, 'notification'::text, t.name, n.image_url,
-		       n.title, n.body, n.url, NULL::text,
+		       n.title, n.body, n.url, n.pass_url, NULL::text,
 		       n.status, n.accepted_count, NULL::text, n.priority, n.created_at
 		FROM agent_notifications n
 		JOIN api_tokens t ON t.id = n.requester_token_id
@@ -164,7 +166,7 @@ const feedQuery = `
 
 		SELECT 'response:' || i.id, 'response'::text,
 		       coalesce(sv.title, t.name, i.title), coalesce(i.image_url, sv.image_url),
-		       i.title, i.prompt, i.url, i.status,
+		       i.title, i.prompt, i.url, NULL::text, i.status,
 		       NULL::text, NULL::integer, NULL::text, NULL::text, i.responded_at
 		FROM interactions i
 		LEFT JOIN services sv  ON sv.id = i.requester_service_id
@@ -181,7 +183,7 @@ const feedQuery = `
 		       coalesce(sv.title, t.name, 'Hark'), sv.image_url,
 		       coalesce(o.props->>'title', a.props->>'title', 'Live Activity'),
 		       coalesce(o.props->>'status', a.props->>'status'),
-		       NULL::text, o.event,
+		       NULL::text, NULL::text, o.event,
 		       NULL::text, NULL::integer, NULL::text, NULL::text, o.created_at
 		FROM live_activity_operations o
 		JOIN live_activities a ON a.id = o.activity_id
@@ -192,7 +194,7 @@ const feedQuery = `
 		  AND ($3::text IS NULL OR coalesce(sv.title, t.name, 'Hark') = $3)
 		  AND $4::text IS NULL
 	)
-	SELECT id, kind, source_name, source_image_url, title, detail, url, result,
+	SELECT id, kind, source_name, source_image_url, title, detail, url, pass_url, result,
 	       status, delivered_count, error, priority, created_at
 	FROM feed
 	WHERE ($5::timestamptz IS NULL OR (created_at, id) < ($5, $6))

@@ -144,6 +144,7 @@ func TestSendNotificationForwardsThePost(t *testing.T) {
 	res := callTool(t, session, "send_notification", map[string]any{
 		"title":           "Deploy",
 		"body":            "v42 is live.",
+		"pass_url":        "https://example.com/passes/42.pkpass",
 		"idempotency_key": "deploy-42",
 	})
 	if res.IsError {
@@ -175,7 +176,8 @@ func TestSendNotificationForwardsThePost(t *testing.T) {
 	if _, leaked := body["idempotency_key"]; leaked {
 		t.Error("idempotency_key reached the endpoint's body")
 	}
-	if string(body["body"]) != `"v42 is live."` || string(body["title"]) != `"Deploy"` {
+	if string(body["body"]) != `"v42 is live."` || string(body["title"]) != `"Deploy"` ||
+		string(body["pass_url"]) != `"https://example.com/passes/42.pkpass"` {
 		t.Errorf("body = %s", call.Body)
 	}
 
@@ -186,6 +188,26 @@ func TestSendNotificationForwardsThePost(t *testing.T) {
 	notification, _ := structured["notification"].(map[string]any)
 	if notification["id"] != "n1" {
 		t.Errorf("structuredContent = %v, want the response", structured)
+	}
+}
+
+func TestAWalletPassIsASendNotificationArgumentOnly(t *testing.T) {
+	h := newHarness(t)
+	session := h.connect(t, nil)
+	list, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	offers := map[string]bool{}
+	for _, tool := range list.Tools {
+		props, _ := asJSON(t, tool.InputSchema)["properties"].(map[string]any)
+		_, offers[tool.Name] = props["pass_url"]
+	}
+	if !offers["send_notification"] {
+		t.Error("send_notification does not publish pass_url")
+	}
+	if offers["ask_question"] {
+		t.Error("ask_question publishes pass_url")
 	}
 }
 

@@ -124,6 +124,7 @@ CREATE TABLE events (
     body            text        NOT NULL,
     image_url       text,
     url             text,
+    pass_url        text,
     priority        text        NOT NULL DEFAULT 'normal'
                       CHECK (priority IN ('normal', 'time_sensitive', 'critical')),
     status          text        NOT NULL
@@ -147,6 +148,7 @@ CREATE TABLE agent_notifications (
     body               text        NOT NULL,
     image_url          text,
     url                text,
+    pass_url           text,
     priority           text        NOT NULL DEFAULT 'normal'
                          CHECK (priority IN ('normal', 'time_sensitive')),
     status             text        NOT NULL

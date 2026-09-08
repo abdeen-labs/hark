@@ -434,6 +434,35 @@ func TestURLValidationRefusesUnreachableHosts(t *testing.T) {
 }
 
 // decodeErrorBody reads the error envelope off a raw recorder.
+// TestSendNotificationHoldsAPassToTheAvatarRule pins pass_url to the rule
+// image_url follows: the phone fetches both, so neither may send it to a
+// private host or over plain HTTP.
+func TestSendNotificationHoldsAPassToTheAvatarRule(t *testing.T) {
+	tests := map[string]string{
+		"plain http":   "http://tickets.example.com/4821.pkpass",
+		"private host": "https://10.0.0.5/4821.pkpass",
+		"app scheme":   "wallet://4821",
+	}
+	for name, raw := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := newRequest(t, http.MethodPost, "/notifications", `{"body":"Your ticket","pass_url":"`+raw+`"}`)
+			req.Header.Set("Content-Type", "application/json")
+			req = req.WithContext(auth.WithPrincipal(req.Context(), &auth.Principal{}))
+			rec := httptest.NewRecorder()
+
+			s := &server{}
+			s.handleSendNotification(rec, req)
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422: %s", rec.Code, rec.Body)
+			}
+			got := decodeErrorBody(t, rec)
+			if len(got.Error.Fields) != 1 || got.Error.Fields[0].Field != "pass_url" {
+				t.Errorf("fields = %+v, want one entry naming pass_url", got.Error.Fields)
+			}
+		})
+	}
+}
+
 func decodeErrorBody(t *testing.T, rec *httptest.ResponseRecorder) ErrorResponse {
 	t.Helper()
 	return decodeError(t, rec)

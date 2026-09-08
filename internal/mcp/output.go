@@ -50,7 +50,7 @@ func toolOutputSchemas() map[string]outputSchema {
 
 	notification := outputObject(map[string]outputSchema{
 		"id": str, "title": str, "body": str, "image_url": nullStr, "url": nullStr,
-		"priority": str, "accepted_count": accepted, "created_at": timestamp,
+		"pass_url": nullStr, "priority": str, "accepted_count": accepted, "created_at": timestamp,
 	})
 	question := outputObject(map[string]outputSchema{
 		"id": str, "title": str, "prompt": str,
@@ -104,7 +104,7 @@ func toolOutputSchemas() map[string]outputSchema {
 	})
 	event := outputObject(map[string]outputSchema{
 		"id": str, "service_id": str, "service_name": str, "title": str, "body": str,
-		"image_url": nullStr, "url": nullStr, "priority": str, "status": str,
+		"image_url": nullStr, "url": nullStr, "pass_url": nullStr, "priority": str, "status": str,
 		"delivered_count": accepted, "error": nullStr, "created_at": timestamp,
 	})
 	questionRead := outputObject(map[string]outputSchema{"interaction": question})

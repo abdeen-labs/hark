@@ -115,6 +115,10 @@ type alertData struct {
 	// URL is the tap destination: a web URL, a universal link, or a custom app
 	// scheme. Omitted when the sender named none.
 	URL string `json:"url,omitempty"`
+	// PassURL is an Apple Wallet pass, the public HTTPS URL of a .pkpass file.
+	// The phone downloads it as the notification arrives, and a tap adds the
+	// pass rather than opening URL. Omitted when the sender named none.
+	PassURL string `json:"pass_url,omitempty"`
 	// Source is the sender as the phone should show it.
 	Source alertSource `json:"source"`
 	// Question is present exactly when this notification asks something.
@@ -180,6 +184,7 @@ func buildAlert(alert push.Alert) ([]byte, error) {
 		RecordID:      alert.RecordID,
 		ThreadKey:     alert.ThreadKey,
 		URL:           deref(alert.URL),
+		PassURL:       deref(alert.PassURL),
 		Source: alertSource{
 			ID:       alert.SourceID,
 			Name:     alert.SourceName,

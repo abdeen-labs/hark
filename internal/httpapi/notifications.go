@@ -15,6 +15,7 @@ type notificationDTO struct {
 	Body     string  `json:"body"`
 	ImageURL *string `json:"image_url"`
 	URL      *string `json:"url"`
+	PassURL  *string `json:"pass_url"`
 	Priority string  `json:"priority"`
 	// AcceptedCount is how many messages APNs took. It is not proof that a phone
 	// showed anything, and a caller that treats it as delivery confirmation will
@@ -30,6 +31,7 @@ func newNotificationDTO(n db.AgentNotification) notificationDTO {
 		Body:          n.Body,
 		ImageURL:      n.ImageURL,
 		URL:           n.URL,
+		PassURL:       n.PassURL,
 		Priority:      n.Priority,
 		AcceptedCount: n.AcceptedCount,
 		CreatedAt:     Timestamp(n.CreatedAt),
@@ -51,6 +53,7 @@ type sendNotificationRequest struct {
 	Title    *string `json:"title"`
 	ImageURL *string `json:"image_url"`
 	URL      *string `json:"url"`
+	PassURL  *string `json:"pass_url"`
 	Priority *string `json:"priority"`
 	// DeviceIDs narrows the send to specific phones. Absent means every device
 	// that can receive one.
@@ -66,6 +69,7 @@ type notificationPayload struct {
 	Body      string   `json:"body"`
 	ImageURL  *string  `json:"image_url"`
 	URL       *string  `json:"url"`
+	PassURL   *string  `json:"pass_url"`
 	Priority  string   `json:"priority"`
 	DeviceIDs []string `json:"device_ids"`
 }
@@ -99,6 +103,7 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 		Body:      v.text("body", body.Body, 1, maxBodyLen),
 		ImageURL:  v.httpsURL("image_url", body.ImageURL),
 		URL:       v.linkURL("url", body.URL),
+		PassURL:   v.httpsURL("pass_url", body.PassURL),
 		Priority:  v.enum("priority", body.Priority, db.Priorities, db.PriorityNormal),
 		DeviceIDs: v.ids("device_ids", body.DeviceIDs),
 	}
@@ -146,6 +151,7 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 		Body:             payload.Body,
 		ImageURL:         payload.ImageURL,
 		URL:              payload.URL,
+		PassURL:          payload.PassURL,
 		Priority:         payload.Priority,
 		IdempotencyKey:   key,
 		RequestHash:      storedHash(key, hash),
@@ -175,6 +181,7 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 		Body:       payload.Body,
 		ImageURL:   payload.ImageURL,
 		URL:        payload.URL,
+		PassURL:    payload.PassURL,
 		Priority:   payload.Priority,
 		SourceID:   *req.TokenID,
 		SourceName: req.Name,

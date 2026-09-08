@@ -27,5 +27,13 @@ struct RootView: View {
                 RootTabView()
             }
         }
+        .alert("Wallet", isPresented: Binding(
+            get: { model.walletError != nil },
+            set: { if !$0 { model.walletError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.walletError ?? "")
+        }
     }
 }

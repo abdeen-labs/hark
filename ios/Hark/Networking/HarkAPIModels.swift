@@ -297,6 +297,7 @@ nonisolated struct HistoryItem: Decodable, Hashable, Identifiable, Sendable {
     var title: String?
     var detail: String?
     var url: String?
+    var passUrl: String?
     var result: String?
     var status: String?
     var deliveredCount: Int?
@@ -312,6 +313,7 @@ nonisolated struct HistoryItem: Decodable, Hashable, Identifiable, Sendable {
         case title
         case detail
         case url
+        case passUrl = "pass_url"
         case result
         case status
         case deliveredCount = "delivered_count"
@@ -319,6 +321,12 @@ nonisolated struct HistoryItem: Decodable, Hashable, Identifiable, Sendable {
         case priority
         case createdAt = "created_at"
     }
+
+    /// The row id behind the composite: what a push carries as `record_id`.
+    var recordID: String { HarkPassStore.recordID(historyID: id) }
+
+    /// The pass this entry carries, when its URL passes the HTTPS check.
+    var passURL: URL? { passUrl.flatMap(HarkNotification.httpsURL) }
 }
 
 nonisolated struct HistoryPage: Decodable, Sendable {

@@ -36,6 +36,7 @@ type Event struct {
 	Body     string  `db:"body"`
 	ImageURL *string `db:"image_url"`
 	URL      *string `db:"url"`
+	PassURL  *string `db:"pass_url"`
 	Priority string  `db:"priority"`
 	Status   string  `db:"status"`
 	// DeliveredCount counts APNs acceptances, which is not the same as
@@ -60,7 +61,7 @@ type EventListItem struct {
 // Events stores the webhook delivery log.
 type Events struct{ q Querier }
 
-const eventColumns = `id, service_id, title, body, image_url, url, priority, status,
+const eventColumns = `id, service_id, title, body, image_url, url, pass_url, priority, status,
 	delivered_count, error, idempotency_key, request_hash, created_at`
 
 // CreateEventParams records a webhook request.
@@ -71,6 +72,7 @@ type CreateEventParams struct {
 	Body      string
 	ImageURL  *string
 	URL       *string
+	PassURL   *string
 	Priority  string
 	Status    string
 	// IdempotencyKey and RequestHash are set together or not at all: the hash
@@ -88,12 +90,12 @@ type CreateEventParams struct {
 // events_service_idempotency_key as "re-read and replay", not as an error.
 func (s *Events) Create(ctx context.Context, p CreateEventParams) (*Event, error) {
 	const q = `
-		INSERT INTO events (id, service_id, title, body, image_url, url, priority, status,
-		                    delivered_count, idempotency_key, request_hash, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $10, $11)
+		INSERT INTO events (id, service_id, title, body, image_url, url, pass_url, priority,
+		                    status, delivered_count, idempotency_key, request_hash, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, $11, $12)
 		RETURNING ` + eventColumns
 	return queryOne[Event](ctx, s.q, "create event", q,
-		p.ID, p.ServiceID, p.Title, p.Body, p.ImageURL, p.URL, p.Priority, p.Status,
+		p.ID, p.ServiceID, p.Title, p.Body, p.ImageURL, p.URL, p.PassURL, p.Priority, p.Status,
 		p.IdempotencyKey, p.RequestHash, Millis(p.Now))
 }
 
@@ -123,7 +125,7 @@ func (s *Events) Settle(ctx context.Context, id, status string, deliveredCount i
 // ListForUser pages the account's events across every service, newest first.
 func (s *Events) ListForUser(ctx context.Context, userID string, cursor Cursor, limit int) (Page[EventListItem], error) {
 	const q = `
-		SELECT e.id, e.service_id, e.title, e.body, e.image_url, e.url, e.priority, e.status,
+		SELECT e.id, e.service_id, e.title, e.body, e.image_url, e.url, e.pass_url, e.priority, e.status,
 		       e.delivered_count, e.error, e.idempotency_key, e.request_hash, e.created_at,
 		       s.title AS service_title, s.image_url AS service_image_url
 		FROM events e
@@ -149,7 +151,7 @@ func (s *Events) ListForUser(ctx context.Context, userID string, cursor Cursor, 
 // service id alone must never be enough to read another account's log.
 func (s *Events) ListForService(ctx context.Context, serviceID, userID string, cursor Cursor, limit int) (Page[EventListItem], error) {
 	const q = `
-		SELECT e.id, e.service_id, e.title, e.body, e.image_url, e.url, e.priority, e.status,
+		SELECT e.id, e.service_id, e.title, e.body, e.image_url, e.url, e.pass_url, e.priority, e.status,
 		       e.delivered_count, e.error, e.idempotency_key, e.request_hash, e.created_at,
 		       s.title AS service_title, s.image_url AS service_image_url
 		FROM events e

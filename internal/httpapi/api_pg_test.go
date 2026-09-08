@@ -941,6 +941,82 @@ func TestIdempotencyKeyReplaysRatherThanResends(t *testing.T) {
 		IdempotencyKeyHeader, "   ", http.StatusBadRequest, nil)
 }
 
+// TestWalletPassTravelsWithTheNotification follows pass_url from both send
+// paths into the alert, the record and the history feed. A pass is fetched by
+// the phone, so it is held to the public-HTTPS rule on both paths, and unlike
+// a tap destination it has no service default to fall back on.
+func TestWalletPassTravelsWithTheNotification(t *testing.T) {
+	f := newFixture(t, fixtureOptions{})
+	f.registerDevice(strings.Repeat("d4", 32))
+	_, hook := f.createService("Box office")
+	const pass = "https://tickets.example.com/passes/4821.pkpass"
+
+	var sent notificationResponse
+	f.expect(http.MethodPost, "/notifications", f.token,
+		`{"title":"Box office","body":"Your ticket is ready","url":"https://tickets.example.com/orders/4821","pass_url":"`+pass+`"}`,
+		http.StatusCreated, &sent)
+	if sent.Notification.PassURL == nil || *sent.Notification.PassURL != pass {
+		t.Errorf("notification pass_url = %v, want %q", sent.Notification.PassURL, pass)
+	}
+	alert := f.sender.lastAlert(t)
+	if alert.PassURL == nil || *alert.PassURL != pass {
+		t.Errorf("alert PassURL = %v, want %q", alert.PassURL, pass)
+	}
+	if alert.URL == nil || *alert.URL != "https://tickets.example.com/orders/4821" {
+		t.Errorf("alert URL = %v, want the tap destination kept beside the pass", alert.URL)
+	}
+
+	f.expect(http.MethodPost, hook, "", `{"body":"Doors open at 7","pass_url":"`+pass+`"}`, http.StatusCreated, nil)
+	alert = f.sender.lastAlert(t)
+	if alert.PassURL == nil || *alert.PassURL != pass {
+		t.Errorf("webhook alert PassURL = %v, want %q", alert.PassURL, pass)
+	}
+	f.expect(http.MethodPost, hook, "", `{"body":"No pass here"}`, http.StatusCreated, nil)
+	if alert = f.sender.lastAlert(t); alert.PassURL != nil {
+		t.Errorf("webhook alert PassURL = %q, want none when the request named none", *alert.PassURL)
+	}
+
+	var events eventListResponse
+	f.expect(http.MethodGet, "/events", f.session, "", http.StatusOK, &events)
+	if len(events.Events) != 2 || events.Events[0].PassURL != nil ||
+		events.Events[1].PassURL == nil || *events.Events[1].PassURL != pass {
+		t.Errorf("events = %+v, want the pass only on the delivery that carried it", events.Events)
+	}
+
+	var history historyListResponse
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	withPass := 0
+	for _, item := range history.Items {
+		if item.PassURL != nil && *item.PassURL == pass {
+			withPass++
+		}
+	}
+	if len(history.Items) != 3 || withPass != 2 {
+		t.Errorf("history = %+v, want three entries of which two carry the pass", history.Items)
+	}
+
+	refused := map[string]string{
+		"plain http":   `{"body":"x","pass_url":"http://tickets.example.com/4821.pkpass"}`,
+		"private host": `{"body":"x","pass_url":"https://10.0.0.5/4821.pkpass"}`,
+		"app scheme":   `{"body":"x","pass_url":"wallet://4821"}`,
+	}
+	for name, body := range refused {
+		for path, credential := range map[string]string{"/notifications": f.token, hook: ""} {
+			rec := f.request(http.MethodPost, path, credential, body)
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Errorf("%s via %s: status = %d, want 422: %s", name, path, rec.Code, rec.Body)
+				continue
+			}
+			if got := decodeError(t, rec); len(got.Error.Fields) != 1 || got.Error.Fields[0].Field != "pass_url" {
+				t.Errorf("%s via %s: fields = %+v, want pass_url named", name, path, got.Error.Fields)
+			}
+		}
+	}
+	if got := len(f.sender.alerts); got != 3 {
+		t.Errorf("sent %d alerts, want the three accepted sends and none of the refused", got)
+	}
+}
+
 // TestDeliveryQuotaRefusesWithRetryAfter covers the ceiling that bounds a
 // runaway agent. It is counted from the rows that were written rather than from
 // an in-memory counter, so restarts do not reset the allowance.

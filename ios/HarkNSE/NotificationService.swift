@@ -6,8 +6,10 @@
 //  run. It downloads the sender's avatar and redraws the notification in
 //  the communication style — an INSendMessageIntent donation with the
 //  sender's name and image — so a service's notification reads like a
-//  message from that service. Anything that fails falls back to the plain
-//  alert; a degraded notification always beats a dropped one.
+//  message from that service. When the push names a Wallet pass, it also
+//  downloads the pass and stages it for the app. Anything that fails falls
+//  back to the plain alert; a degraded notification always beats a dropped
+//  one.
 //
 
 import Intents
@@ -33,7 +35,9 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         task = Task {
+            async let staged: Void = Self.stagePass(payload)
             let updated = await Self.communicationContent(for: content, payload: payload)
+            await staged
             self.deliver(updated ?? content)
         }
     }
@@ -62,6 +66,16 @@ final class NotificationService: UNNotificationServiceExtension {
         else { return content }
         mutable.sound = UNNotificationSound(named: UNNotificationSoundName(tone.file))
         return mutable
+    }
+
+    // MARK: - Wallet pass
+
+    /// Downloads the pass a push names and stages it for the app. Failure
+    /// leaves nothing behind; the app fetches the pass again on tap.
+    private static func stagePass(_ payload: HarkPushPayload) async {
+        guard let url = payload.passURL else { return }
+        guard let data = await HarkPassStore.download(from: url) else { return }
+        try? HarkPassStore.write(data, recordID: payload.recordId)
     }
 
     // MARK: - Communication rendering

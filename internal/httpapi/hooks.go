@@ -86,6 +86,7 @@ type webhookNotifyRequest struct {
 	Title    *string `json:"title"`
 	ImageURL *string `json:"image_url"`
 	URL      *string `json:"url"`
+	PassURL  *string `json:"pass_url"`
 	Priority *string `json:"priority"`
 	// DeviceIDs narrows the send. Absent means every device that can receive
 	// one.
@@ -116,6 +117,7 @@ type webhookPayload struct {
 	Body             string   `json:"body"`
 	ImageURL         *string  `json:"image_url"`
 	URL              *string  `json:"url"`
+	PassURL          *string  `json:"pass_url"`
 	Priority         string   `json:"priority"`
 	DeviceIDs        []string `json:"device_ids"`
 	Kind             *string  `json:"kind"`
@@ -148,6 +150,7 @@ func (s *server) handleWebhookNotify(w http.ResponseWriter, r *http.Request) {
 		Body:      v.text("body", body.Body, 1, maxBodyLen),
 		ImageURL:  svc.ImageURL,
 		URL:       svc.URL,
+		PassURL:   v.httpsURL("pass_url", body.PassURL),
 		Priority:  svc.Priority,
 		DeviceIDs: v.ids("device_ids", body.DeviceIDs),
 	}
@@ -219,6 +222,7 @@ func (s *server) handleWebhookNotify(w http.ResponseWriter, r *http.Request) {
 		Body:           payload.Body,
 		ImageURL:       payload.ImageURL,
 		URL:            payload.URL,
+		PassURL:        payload.PassURL,
 		Priority:       payload.Priority,
 		Status:         db.EventProcessing,
 		IdempotencyKey: key,
@@ -363,6 +367,7 @@ func (s *server) fanOutWebhook(r *http.Request, svc *db.Service, event *db.Event
 		Body:       payload.Body,
 		ImageURL:   payload.ImageURL,
 		URL:        payload.URL,
+		PassURL:    payload.PassURL,
 		Priority:   payload.Priority,
 		SourceID:   svc.ID,
 		SourceName: svc.Title,

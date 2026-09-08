@@ -53,6 +53,9 @@ nonisolated struct HarkPushPayload: Codable, Hashable, Sendable {
     var recordId: String
     var threadKey: String
     var url: String?
+    /// A `.pkpass` for Wallet. HTTPS only; when present, a tap offers it to
+    /// Wallet instead of opening `url`.
+    var passURL: URL?
     var source: Source
     var question: Question?
 
@@ -62,8 +65,22 @@ nonisolated struct HarkPushPayload: Codable, Hashable, Sendable {
         case recordId = "record_id"
         case threadKey = "thread_key"
         case url
+        case passURL = "pass_url"
         case source
         case question
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        deviceId = try container.decode(String.self, forKey: .deviceId)
+        recordId = try container.decode(String.self, forKey: .recordId)
+        threadKey = try container.decode(String.self, forKey: .threadKey)
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        passURL = try container.decodeIfPresent(String.self, forKey: .passURL)
+            .flatMap(HarkNotification.httpsURL)
+        source = try container.decode(Source.self, forKey: .source)
+        question = try container.decodeIfPresent(Question.self, forKey: .question)
     }
 
     /// Pulls the `hark` object out of a notification's userInfo. Returns nil
@@ -110,6 +127,17 @@ nonisolated enum HarkNotification {
         guard let scheme = url.scheme?.lowercased(), !blockedURLSchemes.contains(scheme) else {
             return nil
         }
+        return url
+    }
+
+    /// A pass destination: the same length limit, and HTTPS alone.
+    static func httpsURL(_ string: String) -> URL? {
+        guard
+            string.count <= 2048,
+            let url = URL(string: string),
+            url.scheme?.lowercased() == "https",
+            url.host != nil
+        else { return nil }
         return url
     }
 }

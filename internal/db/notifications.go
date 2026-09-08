@@ -20,6 +20,7 @@ type AgentNotification struct {
 	Body             string  `db:"body"`
 	ImageURL         *string `db:"image_url"`
 	URL              *string `db:"url"`
+	PassURL          *string `db:"pass_url"`
 	Priority         string  `db:"priority"`
 	// Status speaks the same vocabulary as an event's, for the same reason: the
 	// history feed shows both, and the difference between "nothing to send to"
@@ -37,7 +38,7 @@ type AgentNotification struct {
 // Notifications stores agent pushes.
 type Notifications struct{ q Querier }
 
-const notificationColumns = `id, user_id, requester_token_id, title, body, image_url, url,
+const notificationColumns = `id, user_id, requester_token_id, title, body, image_url, url, pass_url,
 	priority, status, accepted_count, idempotency_key, request_hash, created_at`
 
 // CreateNotificationParams records an agent push.
@@ -49,6 +50,7 @@ type CreateNotificationParams struct {
 	Body             string
 	ImageURL         *string
 	URL              *string
+	PassURL          *string
 	Priority         string
 	IdempotencyKey   *string
 	RequestHash      *string
@@ -62,12 +64,12 @@ type CreateNotificationParams struct {
 func (s *Notifications) Create(ctx context.Context, p CreateNotificationParams) (*AgentNotification, error) {
 	const q = `
 		INSERT INTO agent_notifications (id, user_id, requester_token_id, title, body,
-		                                 image_url, url, priority, status, accepted_count,
+		                                 image_url, url, pass_url, priority, status, accepted_count,
 		                                 idempotency_key, request_hash, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'processing', 0, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'processing', 0, $10, $11, $12)
 		RETURNING ` + notificationColumns
 	return queryOne[AgentNotification](ctx, s.q, "create agent notification", q,
-		p.ID, p.UserID, p.RequesterTokenID, p.Title, p.Body, p.ImageURL, p.URL,
+		p.ID, p.UserID, p.RequesterTokenID, p.Title, p.Body, p.ImageURL, p.URL, p.PassURL,
 		p.Priority, p.IdempotencyKey, p.RequestHash, Millis(p.Now))
 }
 

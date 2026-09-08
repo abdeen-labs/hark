@@ -1678,8 +1678,8 @@ func TestFeedUnionAndDelete(t *testing.T) {
 
 	event, err := s.Events.Create(ctx, CreateEventParams{
 		ID: id.New(), ServiceID: svc.ID, Title: "Deploy bot", Body: "Build 4821 succeeded",
-		URL: ptr("https://example.com/builds/4821"), Priority: PriorityNormal,
-		Status: EventAccepted, Now: base,
+		URL: ptr("https://example.com/builds/4821"), PassURL: ptr("https://example.com/passes/4821.pkpass"),
+		Priority: PriorityNormal, Status: EventAccepted, Now: base,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1690,7 +1690,8 @@ func TestFeedUnionAndDelete(t *testing.T) {
 
 	notification, err := s.Notifications.Create(ctx, CreateNotificationParams{
 		ID: id.New(), UserID: user.ID, RequesterTokenID: tok.ID, Title: "Hark",
-		Body: "Agent finished", Priority: PriorityNormal, Now: base.Add(time.Minute),
+		Body: "Agent finished", PassURL: ptr("https://example.com/passes/agent.pkpass"),
+		Priority: PriorityNormal, Now: base.Add(time.Minute),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1750,15 +1751,17 @@ func TestFeedUnionAndDelete(t *testing.T) {
 		byID[item.ID] = item
 	}
 	if got := byID[FeedSourceEvent+":"+event.ID]; got.Kind != FeedKindNotification ||
-		got.SourceName != "Deploy bot" || got.DeliveredCount == nil || *got.DeliveredCount != 1 {
+		got.SourceName != "Deploy bot" || got.DeliveredCount == nil || *got.DeliveredCount != 1 ||
+		got.PassURL == nil || *got.PassURL != "https://example.com/passes/4821.pkpass" {
 		t.Errorf("event item = %+v", got)
 	}
 	if got := byID[FeedSourceNotification+":"+notification.ID]; got.SourceName != "harkctl" ||
-		got.Status == nil || *got.Status != EventAccepted {
+		got.Status == nil || *got.Status != EventAccepted ||
+		got.PassURL == nil || *got.PassURL != "https://example.com/passes/agent.pkpass" {
 		t.Errorf("notification item = %+v", got)
 	}
 	if got := byID[FeedSourceResponse+":"+interaction.ID]; got.Kind != FeedKindResponse ||
-		got.Result == nil || *got.Result != InteractionApproved || got.Status != nil {
+		got.Result == nil || *got.Result != InteractionApproved || got.Status != nil || got.PassURL != nil {
 		t.Errorf("response item = %+v", got)
 	}
 	if got := byID[FeedSourceLiveActivity+":"+started.Operation.ID]; got.Kind != FeedKindLiveActivity ||

@@ -16,6 +16,7 @@ type alertContent struct {
 	Body     string
 	ImageURL *string
 	URL      *string
+	PassURL  *string
 	Priority string
 	// SourceID and SourceName say who is sending: a service, or an API token.
 	SourceID   string
@@ -49,6 +50,7 @@ func (s *server) fanOut(r *http.Request, content alertContent, devices []db.Devi
 			Priority:    content.Priority,
 			ImageURL:    content.ImageURL,
 			URL:         content.URL,
+			PassURL:     content.PassURL,
 			ThreadKey:   content.ThreadKey,
 			SourceID:    content.SourceID,
 			SourceName:  content.SourceName,

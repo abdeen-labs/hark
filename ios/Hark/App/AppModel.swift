@@ -9,6 +9,7 @@
 
 import ActivityKit
 import Foundation
+import PassKit
 import SwiftUI
 import UserNotifications
 import UIKit
@@ -55,6 +56,10 @@ final class AppModel {
     private(set) var criticalAlertState: CriticalAlertState = .unknown
     private(set) var criticalSettings: APICriticalSettings?
     private(set) var criticalSettingsError: String?
+
+    /// Why the last add-to-Wallet attempt stopped; the root view shows it.
+    var walletError: String?
+    private let walletSheetDelegate = WalletSheetDelegate()
 
     private var activityTokenTasks: [String: Task<Void, Never>] = [:]
     private var pushToStartTask: Task<Void, Never>?
@@ -168,6 +173,7 @@ final class AppModel {
         criticalSettings = nil
         criticalSettingsError = nil
         phase = .signedOut
+        HarkPassStore.deleteAll()
         try? await UNUserNotificationCenter.current().setBadgeCount(0)
     }
 
@@ -522,6 +528,10 @@ final class AppModel {
         }
 
         if actionIdentifier == UNNotificationDefaultActionIdentifier {
+            if let passURL = payload.passURL {
+                await addPassToWallet(recordID: payload.recordId, passURL: passURL)
+                return
+            }
             if let urlString = payload.url, let url = HarkNotification.sanitizedTapURL(urlString) {
                 await UIApplication.shared.open(url)
                 return
@@ -529,6 +539,61 @@ final class AppModel {
             selectedTab = payload.question != nil ? .inbox : .history
             if payload.question != nil { await refreshInbox() }
         }
+    }
+
+    // MARK: - Wallet
+
+    /// Offers a pass to Wallet: the staged copy when the extension left one,
+    /// otherwise a fresh download. Any failure lands in `walletError`.
+    func addPassToWallet(recordID: String, passURL: URL) async {
+        guard PKAddPassesViewController.canAddPasses() else {
+            walletError = "Wallet can't add passes on this device."
+            return
+        }
+        var pass = HarkPassStore.read(recordID: recordID).flatMap { try? PKPass(data: $0) }
+        if pass == nil {
+            HarkPassStore.delete(recordID: recordID)
+            if let data = await HarkPassStore.download(from: passURL), let fetched = try? PKPass(data: data) {
+                try? HarkPassStore.write(data, recordID: recordID)
+                pass = fetched
+            }
+        }
+        guard let pass, let sheet = PKAddPassesViewController(pass: pass) else {
+            walletError = "The pass couldn't be loaded. The link may have expired."
+            return
+        }
+        guard let presenter = await Self.presentingViewController() else {
+            walletError = "Wallet couldn't be opened."
+            return
+        }
+        sheet.delegate = walletSheetDelegate
+        presenter.present(sheet, animated: true)
+    }
+
+    /// The top of the presented chain over the key window's root. After a
+    /// cold-launch tap the window arrives a beat later, so this waits for it.
+    private static func presentingViewController() async -> UIViewController? {
+        for _ in 0 ..< 50 {
+            if let root = keyRootViewController() {
+                var top = root
+                while let presented = top.presentedViewController {
+                    top = presented
+                }
+                return top
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return nil
+    }
+
+    private static func keyRootViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        guard
+            let root = scene?.keyWindow?.rootViewController,
+            root.viewIfLoaded?.window != nil
+        else { return nil }
+        return root
     }
 
     // MARK: - Deep links
@@ -557,5 +622,14 @@ final class AppModel {
 
     nonisolated static func hex(_ data: Data) -> String {
         data.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// Dismisses the Wallet sheet when the user is done with it.
+private final class WalletSheetDelegate: NSObject, PKAddPassesViewControllerDelegate {
+    nonisolated func addPassesViewControllerDidFinish(_ controller: PKAddPassesViewController) {
+        MainActor.assumeIsolated {
+            controller.dismiss(animated: true)
+        }
     }
 }

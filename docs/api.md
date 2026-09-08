@@ -1405,6 +1405,7 @@ Sends a one-shot push. **API token with `notifications:send`.** Supports
 | `title` | string | no | 1–80 characters. Defaults to `"Hark"`; it is shown as the sender. |
 | `image_url` | string | no | Public HTTPS URL. |
 | `url` | string | no | Tap destination. |
+| `pass_url` | string | no | Public HTTPS URL of an Apple Wallet `.pkpass` file, ≤2048 characters. The app downloads the pass as the notification arrives, and a tap opens the Add to Wallet sheet for it, ahead of `url`. |
 | `priority` | enum | no | `normal` (default) or `time_sensitive`. Critical is available only through a [critical service](#critical-services) webhook. |
 | `device_ids` | array of id | no | 1–50 entries. Absent means every reachable device. |
 
@@ -1418,6 +1419,7 @@ Sends a one-shot push. **API token with `notifications:send`.** Supports
     "body": "Build 4821 succeeded",
     "image_url": null,
     "url": null,
+    "pass_url": null,
     "priority": "normal",
     "accepted_count": 1,
     "created_at": "2026-08-09T13:20:11.000Z"
@@ -1963,6 +1965,7 @@ sends one payload per device.
     "record_id": "0198f3a1-2b4c-7d8e-9f01-000000000002",
     "thread_key": "service-0198f3a1-2b4c-7d8e-9f01-000000000001",
     "url": "https://acme.example/signups/1042",
+    "pass_url": "https://acme.example/passes/1042.pkpass",
     "source": {
       "id": "0198f3a1-2b4c-7d8e-9f01-000000000001",
       "name": "Acme CRM",
@@ -2005,6 +2008,7 @@ deliver at that level. Hark declares the entitlement on its app target.
 | `record_id` | always | The related event, notification, or interaction id used to open the history entry. Welcome notifications use a synthetic id. |
 | `thread_key` | always | The conversation. Group the inbox by it the way `aps.thread-id` groups the Lock Screen. |
 | `url` | omitted when absent | The tap destination. See below. |
+| `pass_url` | omitted when absent | An Apple Wallet pass: the public HTTPS URL of a `.pkpass` file. See below. |
 | `source.id` / `source.name` | always | The sender: a regular or critical service, or the API token that sent it. |
 | `source.image_url` | omitted when absent | A public HTTPS avatar. |
 | `question` | only on a question | Below. |
@@ -2018,6 +2022,11 @@ tapped, not when an action button is used. The value is at most 2048 characters
 and cannot use `about:`, `blob:`, `data:`, `file:`, or `javascript:`. HTTPS,
 universal links, and custom app schemes are allowed. The client must validate the
 length and scheme again before opening the URL.
+
+**Wallet passes.** When `hark.pass_url` is present, the app downloads the pass
+as the notification arrives, and a tap opens the Add to Wallet sheet for it
+instead of `hark.url`. The value is a public HTTPS URL of at most 2048
+characters.
 
 ### Question payload
 
@@ -2223,6 +2232,7 @@ The account's webhook deliveries, newest first. **Session, or a token with
       "body": "Build 4821 succeeded",
       "image_url": null,
       "url": "https://example.com/builds/4821",
+      "pass_url": null,
       "priority": "normal",
       "status": "accepted",
       "delivered_count": 1,
@@ -2273,6 +2283,7 @@ validation_failed` naming the field.
       "title": "Deploy bot",
       "detail": "Build 4821 succeeded",
       "url": "https://example.com/builds/4821",
+      "pass_url": null,
       "result": null,
       "status": "accepted",
       "delivered_count": 1,
@@ -2289,6 +2300,8 @@ Fields that do not apply to an item's `kind` are `null`.
 
 * `id` is `"<source>:<row id>"`. The sources are `event`, `notification`,
   `response` and `live_activity`.
+* `url` and `pass_url` are the tap destination and the Apple Wallet pass a
+  notification carried. `pass_url` is `null` for every other kind.
 * Answered interactions are ordered by `responded_at`, not by the time they
   were created. Their `result` is `approved`, `denied`, `yes`, `no` or
   `replied`. For Live Activity entries, `result` is `start`, `update` or `end`.
@@ -2352,6 +2365,7 @@ Sends a notification, optionally as a question. Supports
 | `title` | string | no | 1–80 characters. Defaults to the service's title. |
 | `image_url` | string | no | Public HTTPS URL. Defaults to the service's. |
 | `url` | string | no | Tap destination. Defaults to the service's. |
+| `pass_url` | string | no | Public HTTPS URL of an Apple Wallet `.pkpass` file, ≤2048 characters. A tap opens the Add to Wallet sheet for it, ahead of `url`. Has no service default. |
 | `priority` | enum | no | Defaults to the service's. Regular service webhooks accept `normal` or `time_sensitive`; [critical service](#critical-services) webhooks also accept `critical`. |
 | `device_ids` | array of id | no | 1–50 entries. |
 | `response` | object | no | Turns the notification into a question. |

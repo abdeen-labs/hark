@@ -64,6 +64,7 @@ func TestBuildAlert(t *testing.T) {
 	alert := sampleAlert()
 	alert.ImageURL = ptr("https://example.com/a.png")
 	alert.URL = ptr("things:///show?id=abc")
+	alert.PassURL = ptr("https://example.com/passes/abc.pkpass")
 
 	encoded, err := buildAlert(alert)
 	if err != nil {
@@ -108,6 +109,7 @@ func TestBuildAlert(t *testing.T) {
 		"record_id":      alert.RecordID,
 		"thread_key":     alert.ThreadKey,
 		"url":            "things:///show?id=abc",
+		"pass_url":       "https://example.com/passes/abc.pkpass",
 	}
 	for key, value := range want {
 		if hark[key] != value {
@@ -137,6 +139,9 @@ func TestBuildAlertOmitsAbsentFields(t *testing.T) {
 	hark := object(t, decodePayload(t, encoded), "hark")
 	if _, present := hark["url"]; present {
 		t.Error("hark.url is present with no tap destination")
+	}
+	if _, present := hark["pass_url"]; present {
+		t.Error("hark.pass_url is present with no Wallet pass")
 	}
 	if _, present := object(t, hark, "source")["image_url"]; present {
 		t.Error("hark.source.image_url is present with no avatar")
