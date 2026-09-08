@@ -9,9 +9,12 @@
   {{with .Consent}}
   <div class="consent__panel" data-consent>
     <div class="consent__client">
-      <div>
-        <p class="meta">Application</p>
-        <p class="consent__client-name">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>{{else}}{{.Client.Name}}{{end}}</p>
+      <div class="consent__app">
+        {{with text .Client.LogoURI}}<img class="consent__logo" src="{{.}}" alt="">{{end}}
+        <div>
+          <p class="meta">Application</p>
+          <p class="consent__client-name">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>{{else}}{{.Client.Name}}{{end}}</p>
+        </div>
       </div>
       <div class="consent__destination">
         <p class="meta">{{if .Loopback}}Returns to this computer{{else}}Returns to{{end}}</p>

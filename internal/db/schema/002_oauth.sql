@@ -17,6 +17,7 @@ CREATE TABLE oauth_authorization_codes (
     -- Metadata-document client IDs have no oauth_clients row.
     client_id        text        NOT NULL,
     client_name      text        NOT NULL,
+    client_logo_uri  text,
     user_id          text        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     redirect_uri     text        NOT NULL,
     scopes           text[]      NOT NULL

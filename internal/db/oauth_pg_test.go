@@ -80,7 +80,8 @@ func TestOAuthCodesConsumeIsGuarded(t *testing.T) {
 		t.Helper()
 		code, err := s.OAuthCodes.Create(ctx, CreateOAuthCodeParams{
 			ID: id.New(), CodeHash: hash, ClientID: "https://claude.ai/.well-known/oauth-client.json",
-			ClientName: "Claude", UserID: user.ID, RedirectURI: "https://claude.ai/api/mcp/auth_callback",
+			ClientName: "Claude", ClientLogoURI: ptr("https://claude.ai/logo.png"),
+			UserID: user.ID, RedirectURI: "https://claude.ai/api/mcp/auth_callback",
 			Scopes: []string{ScopeNotificationsNew, ScopeDevicesRead}, CodeChallenge: "challenge",
 			Resource:  ptr("https://hark.example.com/mcp"),
 			ExpiresAt: expiresAt, Now: now,
@@ -94,6 +95,9 @@ func TestOAuthCodesConsumeIsGuarded(t *testing.T) {
 	live := create("hash-live", now.Add(10*time.Minute))
 	if live.ConsumedAt != nil {
 		t.Errorf("ConsumedAt = %v on a fresh code, want nil", live.ConsumedAt)
+	}
+	if live.ClientLogoURI == nil || *live.ClientLogoURI != "https://claude.ai/logo.png" {
+		t.Errorf("ClientLogoURI = %v, want the logo recorded with the code", live.ClientLogoURI)
 	}
 
 	// The scope constraint is the database's, not only the validator's.

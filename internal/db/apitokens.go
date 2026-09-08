@@ -92,6 +92,9 @@ type APIToken struct {
 	TokenHash string   `db:"token_hash"`
 	Prefix    string   `db:"prefix"`
 	Scopes    []string `db:"scopes"`
+	// ImageURL is the logo of the OAuth client the token was issued to, a
+	// public HTTPS URL. Nil for tokens minted by hand or by the device grant.
+	ImageURL *string `db:"image_url"`
 	// ExpiresAt nil means the token never expires.
 	ExpiresAt *time.Time `db:"expires_at"`
 	// LastUsedAt is written at most once a minute per token.
@@ -126,7 +129,7 @@ func (t APIToken) HasScopes(scopes ...string) bool {
 // APITokens stores agent credentials.
 type APITokens struct{ q Querier }
 
-const apiTokenColumns = `id, user_id, name, token_hash, prefix, scopes,
+const apiTokenColumns = `id, user_id, name, token_hash, prefix, scopes, image_url,
 	expires_at, last_used_at, revoked_at, created_at`
 
 // CreateAPITokenParams mints a token.
@@ -137,6 +140,7 @@ type CreateAPITokenParams struct {
 	TokenHash string
 	Prefix    string
 	Scopes    []string
+	ImageURL  *string
 	ExpiresAt *time.Time
 	Now       time.Time
 }
@@ -145,11 +149,11 @@ type CreateAPITokenParams struct {
 // [APITokens.CountActiveForUpdate] so the active-token cap cannot be raced.
 func (s *APITokens) Create(ctx context.Context, p CreateAPITokenParams) (*APIToken, error) {
 	const q = `
-		INSERT INTO api_tokens (id, user_id, name, token_hash, prefix, scopes, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO api_tokens (id, user_id, name, token_hash, prefix, scopes, image_url, expires_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING ` + apiTokenColumns
 	return queryOne[APIToken](ctx, s.q, "create API token", q,
-		p.ID, p.UserID, p.Name, p.TokenHash, p.Prefix, p.Scopes, millisPtr(p.ExpiresAt), Millis(p.Now))
+		p.ID, p.UserID, p.Name, p.TokenHash, p.Prefix, p.Scopes, p.ImageURL, millisPtr(p.ExpiresAt), Millis(p.Now))
 }
 
 // ByTokenHash resolves a bearer credential.

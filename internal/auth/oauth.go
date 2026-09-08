@@ -82,6 +82,9 @@ type OAuthClient struct {
 	Name         string
 	RedirectURIs []string
 	ClientURI    *string
+	// LogoURI is a public https image shown beside Name and carried by the
+	// issued token.
+	LogoURI *string
 	// MetadataDocument reports that the client is identified by a document at
 	// ID rather than by a registration.
 	MetadataDocument bool
@@ -347,14 +350,19 @@ func validateOAuthRedirectURIs(raw []string) ([]string, error) {
 	return out, nil
 }
 
-// validOAuthLink reports whether raw is an https URL fit to be linked or
-// stored: client_uri and logo_uri.
+// validOAuthLink reports whether raw is an https URL fit to be linked: client_uri.
 func validOAuthLink(raw string) bool {
 	if len(raw) > MaxOAuthRedirectURILength {
 		return false
 	}
 	u, err := url.Parse(raw)
 	return err == nil && u.Scheme == "https" && u.Hostname() != ""
+}
+
+// validOAuthLogo reports whether raw is fit to be loaded as an image by the
+// owner's browser: the public https rule every avatar URL is held to.
+func validOAuthLogo(raw string) bool {
+	return len(raw) <= MaxOAuthRedirectURILength && netpolicy.PublicHTTPSURL(raw)
 }
 
 func oauthClientName(raw string, redirectURIs []string) (string, bool) {
@@ -395,8 +403,8 @@ func (s *Service) RegisterOAuthClient(ctx context.Context, p RegisterOAuthClient
 		clientURI = &p.ClientURI
 	}
 	if p.LogoURI != "" {
-		if !validOAuthLink(p.LogoURI) {
-			return nil, invalid("logo_uri", "must be an https URL")
+		if !validOAuthLogo(p.LogoURI) {
+			return nil, invalid("logo_uri", "must be a public https URL")
 		}
 		logoURI = &p.LogoURI
 	}
@@ -460,6 +468,7 @@ func (s *Service) OAuthClientByID(ctx context.Context, clientID string) (*OAuthC
 		Name:         row.Name,
 		RedirectURIs: row.RedirectURIs,
 		ClientURI:    row.ClientURI,
+		LogoURI:      row.LogoURI,
 	}, nil
 }
 
@@ -555,6 +564,7 @@ type oauthMetadataDocument struct {
 	ClientName              string   `json:"client_name"`
 	RedirectURIs            []string `json:"redirect_uris"`
 	ClientURI               string   `json:"client_uri"`
+	LogoURI                 string   `json:"logo_uri"`
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
 }
 
@@ -619,6 +629,9 @@ func (s *Service) oauthClientFromDocument(ctx context.Context, clientID string, 
 	}
 	if validOAuthLink(doc.ClientURI) {
 		client.ClientURI = &doc.ClientURI
+	}
+	if validOAuthLogo(doc.LogoURI) {
+		client.LogoURI = &doc.LogoURI
 	}
 	s.metadata.remember(clientID, client, now)
 	return &client, nil
@@ -711,6 +724,7 @@ func (s *Service) ApproveOAuth(ctx context.Context, consent *OAuthConsent, userI
 		CodeHash:      OAuthCodeHash(code),
 		ClientID:      consent.Client.ID,
 		ClientName:    consent.Client.Name,
+		ClientLogoURI: consent.Client.LogoURI,
 		UserID:        userID,
 		RedirectURI:   consent.RedirectURI,
 		Scopes:        consent.Scopes,
@@ -825,6 +839,7 @@ func (s *Service) ExchangeOAuthCode(ctx context.Context, p ExchangeOAuthCodePara
 			TokenHash: APITokenHash(secret),
 			Prefix:    APITokenDisplayPrefix(secret),
 			Scopes:    code.Scopes,
+			ImageURL:  code.ClientLogoURI,
 			Now:       now,
 		})
 		if err != nil {

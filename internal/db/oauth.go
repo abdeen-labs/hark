@@ -67,10 +67,13 @@ func (s *OAuthClients) Purge(ctx context.Context, now time.Time, unusedFor, idle
 
 // OAuthCode is an authorization code awaiting exchange, or already spent.
 type OAuthCode struct {
-	ID            string   `db:"id"`
-	CodeHash      string   `db:"code_hash"`
-	ClientID      string   `db:"client_id"`
-	ClientName    string   `db:"client_name"`
+	ID         string `db:"id"`
+	CodeHash   string `db:"code_hash"`
+	ClientID   string `db:"client_id"`
+	ClientName string `db:"client_name"`
+	// ClientLogoURI is the client's logo as it was at consent, kept with the
+	// code because a registration may be purged before its code is exchanged.
+	ClientLogoURI *string  `db:"client_logo_uri"`
 	UserID        string   `db:"user_id"`
 	RedirectURI   string   `db:"redirect_uri"`
 	Scopes        []string `db:"scopes"`
@@ -87,7 +90,7 @@ type OAuthCode struct {
 // OAuthCodes stores authorization codes.
 type OAuthCodes struct{ q Querier }
 
-const oauthCodeColumns = `id, code_hash, client_id, client_name, user_id, redirect_uri, scopes,
+const oauthCodeColumns = `id, code_hash, client_id, client_name, client_logo_uri, user_id, redirect_uri, scopes,
 	code_challenge, resource, expires_at, consumed_at, created_at`
 
 // CreateOAuthCodeParams records an approval.
@@ -96,6 +99,7 @@ type CreateOAuthCodeParams struct {
 	CodeHash      string
 	ClientID      string
 	ClientName    string
+	ClientLogoURI *string
 	UserID        string
 	RedirectURI   string
 	Scopes        []string
@@ -109,12 +113,12 @@ type CreateOAuthCodeParams struct {
 func (s *OAuthCodes) Create(ctx context.Context, p CreateOAuthCodeParams) (*OAuthCode, error) {
 	const q = `
 		INSERT INTO oauth_authorization_codes
-			(id, code_hash, client_id, client_name, user_id, redirect_uri, scopes,
+			(id, code_hash, client_id, client_name, client_logo_uri, user_id, redirect_uri, scopes,
 			 code_challenge, resource, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING ` + oauthCodeColumns
 	return queryOne[OAuthCode](ctx, s.q, "create OAuth code", q,
-		p.ID, p.CodeHash, p.ClientID, p.ClientName, p.UserID, p.RedirectURI, p.Scopes,
+		p.ID, p.CodeHash, p.ClientID, p.ClientName, p.ClientLogoURI, p.UserID, p.RedirectURI, p.Scopes,
 		p.CodeChallenge, p.Resource, Millis(p.ExpiresAt), Millis(p.Now))
 }
 

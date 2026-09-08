@@ -15,7 +15,10 @@ import (
 	"github.com/abdeen-labs/hark/internal/id"
 )
 
-const registeredRedirectURI = "https://claude.ai/api/mcp/auth_callback"
+const (
+	registeredRedirectURI = "https://claude.ai/api/mcp/auth_callback"
+	registeredLogoURI     = "https://claude.ai/logo.png"
+)
 
 func registerClient(t *testing.T, ctx context.Context, s *Service) *db.OAuthClient {
 	t.Helper()
@@ -23,6 +26,7 @@ func registerClient(t *testing.T, ctx context.Context, s *Service) *db.OAuthClie
 		Name:                    "  Claude  ",
 		RedirectURIs:            []string{registeredRedirectURI, registeredRedirectURI, "http://127.0.0.1/cb"},
 		ClientURI:               "https://claude.ai",
+		LogoURI:                 registeredLogoURI,
 		GrantTypes:              []string{"authorization_code"},
 		ResponseTypes:           []string{"code"},
 		TokenEndpointAuthMethod: "none",
@@ -95,6 +99,9 @@ func TestOAuthEndToEnd(t *testing.T) {
 	if client.ClientURI == nil || *client.ClientURI != "https://claude.ai" || client.LastUsedAt != nil {
 		t.Errorf("client = %+v", client)
 	}
+	if client.LogoURI == nil || *client.LogoURI != registeredLogoURI {
+		t.Errorf("LogoURI = %v, want %q", client.LogoURI, registeredLogoURI)
+	}
 
 	resolved, err := service.OAuthClientByID(ctx, client.ID)
 	if err != nil {
@@ -102,6 +109,9 @@ func TestOAuthEndToEnd(t *testing.T) {
 	}
 	if resolved.MetadataDocument || resolved.Name != "Claude" || !equalStrings(resolved.RedirectURIs, client.RedirectURIs) {
 		t.Errorf("resolved = %+v, want the registration", resolved)
+	}
+	if resolved.LogoURI == nil || *resolved.LogoURI != registeredLogoURI {
+		t.Errorf("resolved LogoURI = %v, want %q", resolved.LogoURI, registeredLogoURI)
 	}
 
 	verifier := strings.Repeat("v", 64)
@@ -115,6 +125,9 @@ func TestOAuthEndToEnd(t *testing.T) {
 	}
 	if stored.CodeHash == code || stored.ClientName != "Claude" || stored.UserID != user.ID {
 		t.Errorf("stored code = %+v", stored)
+	}
+	if stored.ClientLogoURI == nil || *stored.ClientLogoURI != registeredLogoURI {
+		t.Errorf("stored code carries logo %v, want %q", stored.ClientLogoURI, registeredLogoURI)
 	}
 	if want := clock.Now().Add(OAuthCodeTTL); !stored.ExpiresAt.Equal(db.Millis(want)) {
 		t.Errorf("code expiry = %s, want %s", stored.ExpiresAt, want)
@@ -130,6 +143,9 @@ func TestOAuthEndToEnd(t *testing.T) {
 	}
 	if grant.Token.Name != "Claude" {
 		t.Errorf("token name = %q, want the client name", grant.Token.Name)
+	}
+	if grant.Token.ImageURL == nil || *grant.Token.ImageURL != registeredLogoURI {
+		t.Errorf("token image = %v, want the client's logo %q", grant.Token.ImageURL, registeredLogoURI)
 	}
 	if want := []string{"interactions:create", "notifications:send"}; !equalStrings(grant.Scopes, want) || !equalStrings(grant.Token.Scopes, want) {
 		t.Errorf("scopes = %v / %v, want %v", grant.Scopes, grant.Token.Scopes, want)
@@ -313,6 +329,9 @@ func TestOAuthConsentAndExchangeWithADocumentClient(t *testing.T) {
 	if grant.Token.Name != "Example Agent" || !equalStrings(grant.Scopes, []string{"devices:read"}) {
 		t.Errorf("token = %+v, want the document's name and the consented scope", grant.Token)
 	}
+	if grant.Token.ImageURL == nil || *grant.Token.ImageURL != documentLogoURI {
+		t.Errorf("token image = %v, want the document's logo %q", grant.Token.ImageURL, documentLogoURI)
+	}
 	// The document is fetched at consent and not again at the exchange.
 	if transport.count() != 1 {
 		t.Errorf("the document was fetched %d times, want 1", transport.count())
@@ -337,6 +356,7 @@ func TestRegisterOAuthClientValidates(t *testing.T) {
 		"control name": {RegisterOAuthClientParams{RedirectURIs: valid, Name: "bad\nname"}, "client_name"},
 		"client_uri":   {RegisterOAuthClientParams{RedirectURIs: valid, ClientURI: "http://example.com"}, "client_uri"},
 		"logo_uri":     {RegisterOAuthClientParams{RedirectURIs: valid, LogoURI: "javascript:alert(1)"}, "logo_uri"},
+		"private logo": {RegisterOAuthClientParams{RedirectURIs: valid, LogoURI: "https://localhost/logo.png"}, "logo_uri"},
 		"grant type":   {RegisterOAuthClientParams{RedirectURIs: valid, GrantTypes: []string{"authorization_code", "refresh_token"}}, "grant_types"},
 		"response":     {RegisterOAuthClientParams{RedirectURIs: valid, ResponseTypes: []string{"token"}}, "response_types"},
 		"auth method":  {RegisterOAuthClientParams{RedirectURIs: valid, TokenEndpointAuthMethod: "client_secret_post"}, "token_endpoint_auth_method"},

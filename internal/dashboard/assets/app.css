@@ -882,6 +882,8 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   vertical-align: -5px;
   background: var(--panel-3);
 }
+.identity { display: flex; align-items: flex-start; }
+.identity > .avatar { flex: 0 0 20px; margin-top: 1px; }
 
 /* Tags ----------------------------------------------------------------------
  *
@@ -1411,6 +1413,8 @@ select.input {
 .consent__client { display: flex; justify-content: space-between; gap: 24px; padding: 22px 28px; border-bottom: 1px solid var(--line); background: var(--field); }
 .consent__client > div { min-width: 0; }
 .consent__client .meta { margin: 0 0 8px; }
+.consent__app { display: flex; align-items: center; gap: 16px; }
+.consent__logo { flex: 0 0 44px; width: 44px; height: 44px; border-radius: var(--r-sm); outline: 1px solid var(--line); outline-offset: -1px; object-fit: cover; background: var(--panel-3); }
 .consent__client-name { margin: 0; color: var(--ink); font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
 .consent__client-name a { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration-color: var(--line-control); }
 .consent__client-name svg { flex: 0 0 16px; width: 16px; height: 16px; color: var(--ink-faint); }

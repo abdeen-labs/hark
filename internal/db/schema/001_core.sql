@@ -85,6 +85,8 @@ CREATE TABLE api_tokens (
                      'interactions:create', 'interactions:read', 'notifications:send',
                      'services:read', 'services:write'
                    ]::text[]),
+    -- The logo of the OAuth client a token was issued to; NULL otherwise.
+    image_url    text,
     expires_at   timestamptz,
     last_used_at timestamptz,
     revoked_at   timestamptz,

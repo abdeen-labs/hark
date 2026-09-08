@@ -15,6 +15,7 @@ type tokenDTO struct {
 	Name       string     `json:"name"`
 	Prefix     string     `json:"prefix"`
 	Scopes     []string   `json:"scopes"`
+	ImageURL   *string    `json:"image_url"`
 	ExpiresAt  *Timestamp `json:"expires_at"`
 	LastUsedAt *Timestamp `json:"last_used_at"`
 	RevokedAt  *Timestamp `json:"revoked_at"`
@@ -27,6 +28,7 @@ func newTokenDTO(t db.APIToken) tokenDTO {
 		Name:       t.Name,
 		Prefix:     t.Prefix,
 		Scopes:     t.Scopes,
+		ImageURL:   t.ImageURL,
 		ExpiresAt:  TimestampPtr(t.ExpiresAt),
 		LastUsedAt: TimestampPtr(t.LastUsedAt),
 		RevokedAt:  TimestampPtr(t.RevokedAt),

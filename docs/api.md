@@ -707,6 +707,7 @@ Use this endpoint to validate a credential and inspect its type and permissions.
     "name": "harkctl",
     "prefix": "hark_c2xLm9J",
     "scopes": ["interactions:create", "interactions:read", "notifications:send"],
+    "image_url": null,
     "expires_at": "2026-11-07T09:41:17.882Z",
     "last_used_at": "2026-08-09T09:52:03.117Z",
     "revoked_at": null,
@@ -896,6 +897,7 @@ Content-Type: application/json
     "name": "harkctl",
     "prefix": "hark_c2xLm9J",
     "scopes": ["interactions:create", "interactions:read", "notifications:send"],
+    "image_url": null,
     "expires_at": "2026-11-07T09:41:17.882Z",
     "last_used_at": null,
     "revoked_at": null,
@@ -1013,6 +1015,7 @@ Revoked and expired tokens remain in the list for auditing.
       "name": "harkctl",
       "prefix": "hark_c2xLm9J",
       "scopes": ["interactions:create", "notifications:send"],
+      "image_url": null,
       "expires_at": "2026-11-07T09:41:17.882Z",
       "last_used_at": "2026-08-09T09:52:03.117Z",
       "revoked_at": null,
@@ -1025,6 +1028,7 @@ Revoked and expired tokens remain in the list for auditing.
 | Field | Type | Notes |
 | --- | --- | --- |
 | `prefix` | string | First 13 characters of the secret, used to identify the token in logs. It is not a usable credential. |
+| `image_url` | string \| null | The logo of the client a token was issued to through [OAuth](#oauth), a public HTTPS URL taken from its `logo_uri`. `null` for tokens created here or by the device grant. |
 | `expires_at` | string \| null | `null` means the token never expires. |
 | `last_used_at` | string \| null | Stamped at most once a minute per token, so it is accurate to within a minute and no more. |
 | `revoked_at` | string \| null | Non-null means the token has been revoked. |
@@ -1065,6 +1069,7 @@ Content-Type: application/json
     "name": "CI deploy bot",
     "prefix": "hark_c2xLm9J",
     "scopes": ["notifications:send"],
+    "image_url": null,
     "expires_at": "2026-11-07T09:41:17.882Z",
     "last_used_at": null,
     "revoked_at": null,
@@ -2662,7 +2667,8 @@ grant with PKCE. Hark serves both the protected resource and authorization
 endpoints described by the
 [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
 
-OAuth tokens appear on the Tokens page. They do not expire; revoke them there
+OAuth tokens appear on the Tokens page under the client's name and, when the
+client published one, its logo. They do not expire; revoke them there
 or with [`DELETE /tokens/{id}`](#delete-tokensid). Hark supports public clients
 without client secrets or refresh tokens.
 
@@ -2696,7 +2702,8 @@ publishes. When an authorization request names one, Hark fetches it — from a
 public address only, over TLS, following no redirects, at most 64 KiB, within
 five seconds — and requires a JSON document whose `client_id` is exactly that
 URL and which lists `redirect_uris`. `client_name`, `client_uri` and `logo_uri`
-are used as a registration's would be; `token_endpoint_auth_method`, if present,
+are used as a registration's would be, except that a `logo_uri` a registration
+would be refused for is ignored; `token_endpoint_auth_method`, if present,
 must be `none`. Documents are cached for ten minutes. The authorization server
 advertises this support as `client_id_metadata_document_supported`.
 
@@ -2782,7 +2789,7 @@ Content-Type: application/json
 | `redirect_uris` | array of string | yes | 1–10 entries, each up to 2048 characters, each valid under the [redirect URI rules](#client-identity). |
 | `client_name` | string | no | 1–80 characters, trimmed. Shown on the consent screen and used as the issued token's name. Defaults to the host of the first redirect URI. |
 | `client_uri` | string | no | An `https` URL, linked from the consent screen. |
-| `logo_uri` | string | no | An `https` URL. Stored, not shown. |
+| `logo_uri` | string | no | A public `https` URL of the client's logo. Shown beside its name on the consent screen and on the Tokens page, and returned as the `image_url` of the tokens it is issued. |
 | `grant_types` | array of string | no | If present, only `authorization_code`. |
 | `response_types` | array of string | no | If present, only `code`. |
 | `token_endpoint_auth_method` | string | no | If present, `none`. |
@@ -2901,7 +2908,7 @@ separate from the JSON API:
 | `POST` | `/dashboard/critical-services/{id}/delete` | Deletes the service and its delivery history. |
 | `GET` | `/dashboard/devices` | Registered phones. |
 | `POST` | `/dashboard/devices/{id}/delete` | Unregisters one. |
-| `GET` | `/dashboard/tokens` | API tokens and the token creation form. |
+| `GET` | `/dashboard/tokens` | API tokens, each OAuth-issued one with its client's logo, and the token creation form. |
 | `POST` | `/dashboard/tokens` | Creates a token and shows its secret once. |
 | `POST` | `/dashboard/tokens/{id}/revoke` | Revokes one. |
 | `GET` | `/dashboard/accounts` | Account directory and provisioning form. Admin session only. |

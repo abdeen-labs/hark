@@ -22,6 +22,7 @@ type fakeAuth struct {
 	now       time.Time
 	loginErr  error
 	loggedOut []string
+	tokens    []db.APIToken
 
 	// Device authorization request, configured result, and recorded decision.
 	grant     *db.DeviceAuthorization
@@ -58,7 +59,9 @@ func (f *fakeAuth) Logout(_ context.Context, sessionID string) error {
 	return nil
 }
 
-func (f *fakeAuth) ListAPITokens(context.Context, string) ([]db.APIToken, error) { return nil, nil }
+func (f *fakeAuth) ListAPITokens(context.Context, string) ([]db.APIToken, error) {
+	return f.tokens, nil
+}
 
 func (f *fakeAuth) CreateAPIToken(context.Context, string, auth.CreateAPITokenParams) (*db.APIToken, string, error) {
 	return nil, "", nil
@@ -283,6 +286,28 @@ func TestTokenPageOffersEveryScope(t *testing.T) {
 		if !strings.Contains(body, scope) {
 			t.Errorf("the token page does not offer %q", scope)
 		}
+	}
+}
+
+func TestTokenPageShowsTheLogoOfAConnectedClient(t *testing.T) {
+	d, service := newTestDashboard(t)
+	service.tokens = []db.APIToken{
+		{ID: "token-1", Name: "ChatGPT", Prefix: "hark_c2xLm9J", Scopes: []string{db.ScopeDevicesRead},
+			ImageURL: ptr("https://chatgpt.example/logo.png"), CreatedAt: service.now},
+		{ID: "token-2", Name: "deploy-bot", Prefix: "hark_d3yMn0K", Scopes: []string{db.ScopeNotificationsNew},
+			CreatedAt: service.now},
+	}
+	rec := send(d, signedIn(http.MethodGet, pathTokens, ""))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `<img class="avatar" src="https://chatgpt.example/logo.png"`) {
+		t.Errorf("the connected token's logo is not rendered:\n%s", body)
+	}
+	if n := strings.Count(body, `class="avatar"`); n != 1 {
+		t.Errorf("the page renders %d avatars, want one: a hand-made token has no logo", n)
 	}
 }
 

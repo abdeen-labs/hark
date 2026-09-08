@@ -40,6 +40,7 @@ func grantedConsent() *auth.OAuthConsent {
 			Name:             "Claude",
 			RedirectURIs:     []string{consentRedirectURI},
 			ClientURI:        ptr("https://client.example"),
+			LogoURI:          ptr("https://client.example/logo.png"),
 			MetadataDocument: true,
 		},
 		RedirectURI:   consentRedirectURI,
@@ -130,6 +131,7 @@ func TestConsentShowsTheRequestAndCarriesItInTheForm(t *testing.T) {
 		`value="approve"`,
 		`value="deny"`,
 		`rel="noopener noreferrer"`,
+		`src="https://client.example/logo.png"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the page does not contain %q:\n%s", want, body)

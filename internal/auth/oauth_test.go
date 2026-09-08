@@ -59,10 +59,13 @@ func document(status int, body string, header http.Header) *http.Response {
 	return &http.Response{StatusCode: status, Header: header, Body: io.NopCloser(strings.NewReader(body))}
 }
 
+const documentLogoURI = "https://client.example/logo.png"
+
 const validDocument = `{
 	"client_id": "` + testClientID + `",
 	"client_name": "Example Agent",
 	"client_uri": "https://client.example",
+	"logo_uri": "` + documentLogoURI + `",
 	"redirect_uris": ["` + testRedirectURI + `", "http://localhost:8080/cb", "custom://cb"],
 	"token_endpoint_auth_method": "none",
 	"grant_types": ["authorization_code"],
@@ -242,6 +245,25 @@ func TestOAuthRedirectURL(t *testing.T) {
 	}
 }
 
+func TestClientMetadataDocumentIgnoresAnUnusableLogo(t *testing.T) {
+	for name, logo := range map[string]string{
+		"private host": "https://localhost/logo.png",
+		"plain http":   "http://client.example/logo.png",
+		"not a URL":    "javascript:alert(1)",
+	} {
+		s, _, _ := newDocumentService(t, map[string]*http.Response{
+			testClientID: document(http.StatusOK, strings.Replace(validDocument, documentLogoURI, logo, 1), nil),
+		})
+		client, err := s.OAuthClientByID(context.Background(), testClientID)
+		if err != nil {
+			t.Fatalf("%s: OAuthClientByID = %v, want the client without its logo", name, err)
+		}
+		if client.LogoURI != nil {
+			t.Errorf("%s: LogoURI = %q, want none", name, *client.LogoURI)
+		}
+	}
+}
+
 func TestClientMetadataDocument(t *testing.T) {
 	s, transport, clock := newDocumentService(t, map[string]*http.Response{
 		testClientID: document(http.StatusOK, validDocument, nil),
@@ -260,6 +282,9 @@ func TestClientMetadataDocument(t *testing.T) {
 	}
 	if client.ClientURI == nil || *client.ClientURI != "https://client.example" {
 		t.Errorf("ClientURI = %v", client.ClientURI)
+	}
+	if client.LogoURI == nil || *client.LogoURI != documentLogoURI {
+		t.Errorf("LogoURI = %v", client.LogoURI)
 	}
 	// The custom-scheme URI is dropped; the two the rules accept are kept.
 	if want := []string{testRedirectURI, "http://localhost:8080/cb"}; !equalStrings(client.RedirectURIs, want) {

@@ -39,6 +39,7 @@ func TestOAuthFlowIssuesAUsableToken(t *testing.T) {
 		"response_types": ["code"],
 		"token_endpoint_auth_method": "none",
 		"client_uri": "https://claude.ai",
+		"logo_uri": "https://claude.ai/logo.png",
 		"software_id": "ignored"
 	}`, http.StatusCreated, &registered)
 	assertOAuthHeaders(t, rec)
@@ -50,6 +51,9 @@ func TestOAuthFlowIssuesAUsableToken(t *testing.T) {
 	}
 	if registered.ClientName != "Claude" || !slices.Equal(registered.RedirectURIs, []string{redirectURI}) {
 		t.Errorf("registration = %+v", registered)
+	}
+	if registered.LogoURI == nil || *registered.LogoURI != "https://claude.ai/logo.png" {
+		t.Errorf("logo_uri = %v, want the registered logo echoed", registered.LogoURI)
 	}
 	if !slices.Equal(registered.GrantTypes, []string{"authorization_code"}) ||
 		!slices.Equal(registered.ResponseTypes, []string{"code"}) ||
@@ -135,6 +139,9 @@ func TestOAuthFlowIssuesAUsableToken(t *testing.T) {
 	}
 	if !slices.Equal(listed.Tokens[index].Scopes, []string{"devices:read", "interactions:read"}) || listed.Tokens[index].ExpiresAt != nil {
 		t.Errorf("granted token = %+v, want the consented scopes and no expiry", listed.Tokens[index])
+	}
+	if image := listed.Tokens[index].ImageURL; image == nil || *image != "https://claude.ai/logo.png" {
+		t.Errorf("granted token image_url = %v, want the client's logo", image)
 	}
 	f.expect(http.MethodDelete, "/tokens/"+listed.Tokens[index].ID, f.session, "", http.StatusNoContent, nil)
 	if rec := f.request(http.MethodGet, "/devices", granted.AccessToken, ""); rec.Code != http.StatusUnauthorized {
