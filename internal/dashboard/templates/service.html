@@ -1,27 +1,20 @@
 {{define "content"}}
 <header class="page-head">
-  <p class="page-head__eyebrow meta">
-    <span><span class="idx">03</span> Service</span>
-    <a href="{{.BasePath}}"><span class="arrow arrow--back">←</span> {{.BackLabel}}</a>
-    <span>{{.Service.ID}}</span>
-  </p>
-  <h1 class="page-head__title headline">{{.Service.Title}}</h1>
-  <dl class="page-head__lede spec">
-    <dt class="meta">Created</dt>
-    <dd><time datetime="{{iso .Service.CreatedAt}}" title="{{when .Service.CreatedAt}}">{{ago .Service.CreatedAt}}</time></dd>
-    <dt class="meta">Updated</dt>
-    <dd><time datetime="{{iso .Service.UpdatedAt}}" title="{{when .Service.UpdatedAt}}">{{ago .Service.UpdatedAt}}</time></dd>
-    <dt class="meta">Priority</dt>
-    <dd>{{title .Service.Priority}}</dd>
-    <dt class="meta">Recent</dt>
-    <dd>{{len .Deliveries}} deliveries</dd>
-  </dl>
+  <div class="page-head__text">
+    <a class="page-head__back" href="{{.Paths.Services}}"><span class="arrow arrow--back">←</span> All services</a>
+    <h1 class="page-head__title h-ui">{{.Service.Title}}</h1>
+    <p class="page-head__lede lede">
+      Created <time datetime="{{iso .Service.CreatedAt}}" title="{{when .Service.CreatedAt}}">{{ago .Service.CreatedAt}}</time>
+      · Updated <time datetime="{{iso .Service.UpdatedAt}}" title="{{when .Service.UpdatedAt}}">{{ago .Service.UpdatedAt}}</time>
+      {{if .Service.CriticalCapable}}· Critical-capable{{end}}
+    </p>
+  </div>
 </header>
 
 <div class="grid">
   <section class="module module--signal span-12">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">01</span>Webhook URL</h2>
+      <h2 class="module__label">Webhook URL</h2>
       <span class="meta">Keep this URL secret</span>
     </div>
     <div class="module__body">
@@ -30,7 +23,7 @@
         <code class="secret__value">{{.}}</code>
         <div class="secret__actions">
           <button class="btn btn--primary" type="button" data-copy="{{.}}">Copy</button>
-          <form method="post" action="{{$.BasePath}}/{{$.Service.ID}}/rotate"
+          <form method="post" action="{{$.Paths.Services}}/{{$.Service.ID}}/rotate"
                 data-confirm="Rotate this webhook URL? The current one stops working immediately."
                 hx-disabled-elt="find button[type=submit]">
             <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
@@ -40,7 +33,7 @@
       </div>
       {{else}}
       <p class="module__note">This webhook URL is unavailable. Rotate it to create a new one.</p>
-      <form method="post" action="{{.BasePath}}/{{.Service.ID}}/rotate"
+      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/rotate"
             data-confirm="Rotate this webhook URL? The current one stops working immediately."
             hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
@@ -50,12 +43,12 @@
     </div>
   </section>
 
-  <section class="module module--marked span-5">
+  <section class="module span-5">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">02</span>Defaults</h2>
+      <h2 class="module__label">Defaults</h2>
     </div>
     <div class="module__body">
-      <form method="post" action="{{.BasePath}}/{{.Service.ID}}" class="stack" hx-disabled-elt="find button[type=submit]">
+      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}" class="stack" hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
 
         <div class="row">
@@ -86,12 +79,12 @@
                  placeholder="https://ci.example.com or an app deep link" maxlength="2048">
         </label>
 
-        {{if .Critical}}
+        {{if .Service.CriticalCapable}}
         <label class="check">
           <input type="checkbox" name="critical_enabled"{{if .Form.CriticalEnabled}} checked{{end}}>
           <span class="check__copy">
             <span class="check__name">Allow Critical delivery</span>
-            <span class="check__description">Only gates notifications sent with Critical priority. Normal and Time Sensitive notifications are unchanged.</span>
+            <span class="check__description">Gates only notifications sent with Critical priority. The account switch must be on as well.</span>
           </span>
         </label>
         {{end}}
@@ -103,7 +96,7 @@
 
   <section class="module span-7">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">03</span>Recent deliveries</h2>
+      <h2 class="module__label">Recent deliveries</h2>
     </div>
     {{if .Deliveries}}
     <div class="scroll">
@@ -112,7 +105,7 @@
         <tbody>
           {{range .Deliveries}}
           <tr data-delivery="{{.ID}}">
-            <td><span class="tag tag--state tag--{{.Status}}">{{title .Status}}</span></td>
+            <td><span class="tag tag--{{.Status}}">{{title .Status}}</span></td>
             <td class="cell--clamp"><span class="cell--strong block">{{.Title}}</span><span class="block muted" title="{{.Body}}">{{.Body}}</span>
               {{with text .Error}}<span class="feed__error" title="{{.}}">{{.}}</span>{{end}}</td>
             <td>{{if ne .Priority "normal"}}<span class="tag tag--warn">{{title .Priority}}</span>{{else}}<span class="muted">{{title .Priority}}</span>{{end}}</td>
@@ -128,14 +121,14 @@
     {{end}}
   </section>
 
-  <section class="module module--alarm span-12">
+  <section class="module span-12">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">04</span>Delete</h2>
+      <h2 class="module__label">Delete</h2>
       <span class="meta meta--alarm">Irreversible</span>
     </div>
     <div class="module__body alarm">
       <p class="module__note">Deleting this service also deletes its delivery history.</p>
-      <form method="post" action="{{.BasePath}}/{{.Service.ID}}/delete"
+      <form method="post" action="{{.Paths.Services}}/{{.Service.ID}}/delete"
             data-confirm="Delete {{.Service.Title}} and its delivery history?"
             hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">

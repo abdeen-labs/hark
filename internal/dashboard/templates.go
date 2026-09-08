@@ -17,19 +17,18 @@ var templateFS embed.FS
 // Each page has a separate template set containing the shared layout and its
 // "content" block.
 var (
-	tmplLogin            = mustParse("login.html")
-	tmplOverview         = mustParse("overview.html")
-	tmplHistory          = mustParse("history.html")
-	tmplServices         = mustParse("services.html")
-	tmplService          = mustParse("service.html")
-	tmplCriticalServices = mustParse("critical_services.html")
-	tmplDevices          = mustParse("devices.html")
-	tmplTokens           = mustParse("tokens.html")
-	tmplAccounts         = mustParse("accounts.html")
-	tmplTest             = mustParse("test.html")
-	tmplAuthorize        = mustParse("authorize.html")
-	tmplConsent          = mustParse("consent.html")
-	tmplError            = mustParse("error.html")
+	tmplLogin     = mustParse("login.html")
+	tmplOverview  = mustParse("overview.html")
+	tmplHistory   = mustParse("history.html")
+	tmplServices  = mustParse("services.html")
+	tmplService   = mustParse("service.html")
+	tmplDevices   = mustParse("devices.html")
+	tmplTokens    = mustParse("tokens.html")
+	tmplAccounts  = mustParse("accounts.html")
+	tmplTest      = mustParse("test.html")
+	tmplAuthorize = mustParse("authorize.html")
+	tmplConsent   = mustParse("consent.html")
+	tmplError     = mustParse("error.html")
 
 	// The public documentation page uses its own layout and table of contents.
 	tmplDocs = template.Must(template.New("docs.html").Funcs(funcs).

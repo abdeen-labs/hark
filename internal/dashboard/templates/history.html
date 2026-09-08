@@ -1,17 +1,16 @@
 {{define "content"}}
 <header class="page-head">
-  <p class="page-head__eyebrow meta">
-    <span><span class="idx">02</span> Archive</span>
-  </p>
-  <h1 class="page-head__title display">History</h1>
-  <span class="page-head__index" aria-hidden="true">02</span>
+  <div class="page-head__text">
+    <h1 class="page-head__title h-ui">History</h1>
+    <p class="page-head__lede lede">Every notification, response, and Live Activity this account has relayed.</p>
+  </div>
 </header>
 
 <nav class="tabs" aria-label="Filter by kind">
-  <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">00</span>All</a>
-  <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">01</span>Notifications</a>
-  <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">02</span>Responses</a>
-  <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}><span class="tabs__index" aria-hidden="true">03</span>Live Activities</a>
+  <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}>All</a>
+  <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}>Notifications</a>
+  <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}>Responses</a>
+  <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}>Live Activities</a>
 </nav>
 
 <div class="ledger">

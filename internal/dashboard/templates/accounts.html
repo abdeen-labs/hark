@@ -1,14 +1,15 @@
 {{define "content"}}
 <header class="page-head">
-  <p class="page-head__eyebrow meta"><span><span class="idx">08</span> Administration</span></p>
-  <h1 class="page-head__title display">Accounts</h1>
-  <p class="page-head__lede lede">Create accounts for the people who use this Hark deployment. Only the admin can provision accounts.</p>
+  <div class="page-head__text">
+    <h1 class="page-head__title h-ui">Accounts</h1>
+    <p class="page-head__lede lede">Create accounts for the people who use this Hark deployment. Only the admin can provision accounts.</p>
+  </div>
 </header>
 
 <div class="grid">
-  <section class="module module--marked span-4">
+  <section class="module span-4">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">01</span>Provision an account</h2>
+      <h2 class="module__label">Provision an account</h2>
     </div>
     <div class="module__body">
       <form method="post" action="{{.Paths.Accounts}}" class="stack" hx-disabled-elt="find button[type=submit]">
@@ -20,11 +21,11 @@
           <span class="field__hint" id="username-hint">3–30 letters, numbers, underscores, or dots.</span>
         </label>
         <label class="field">
-          <span class="field__label">Display name <span class="muted">(optional)</span></span>
+          <span class="field__label">Display name <span class="muted">optional</span></span>
           <input class="input" type="text" name="display_name" value="{{.Form.DisplayName}}" autocomplete="off">
         </label>
         <label class="field">
-          <span class="field__label">Email <span class="muted">(optional)</span></span>
+          <span class="field__label">Email <span class="muted">optional</span></span>
           <input class="input" type="email" name="email" value="{{.Form.Email}}" autocomplete="off" aria-describedby="email-hint">
           <span class="field__hint" id="email-hint">For display only. Hark does not send invitations or email.</span>
         </label>
@@ -34,14 +35,14 @@
           <span class="field__hint" id="password-hint">12–256 characters. Share it with the account owner so they can sign in.</span>
         </label>
         <p class="field__hint">New accounts are regular users, with their own devices, services, and tokens.</p>
-        <button class="btn btn--primary" type="submit">Create account <span class="arrow">→</span></button>
+        <button class="btn btn--primary" type="submit">Create account</button>
       </form>
     </div>
   </section>
 
   <section class="module span-8">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">02</span>Provisioned accounts</h2>
+      <h2 class="module__label">Provisioned accounts</h2>
       <span class="meta">{{len .Users}} total</span>
     </div>
     {{if .Users}}
@@ -53,7 +54,7 @@
           <tr>
             <td class="cell--strong">{{.DisplayName}}<span class="mono muted block">{{.Username}}</span></td>
             <td class="cell--wrap">{{.Email}}</td>
-            <td><span class="tag tag--kind">{{title .Role}}</span></td>
+            <td><span class="tag">{{title .Role}}</span></td>
             <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
           </tr>
           {{end}}

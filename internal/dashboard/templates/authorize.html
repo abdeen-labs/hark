@@ -1,10 +1,9 @@
 {{define "content"}}
 <header class="page-head">
-  <p class="page-head__eyebrow meta">
-    <span><span class="idx">CLI</span> Client authorization</span>
-  </p>
-  <h1 class="page-head__title display">Authorize a client</h1>
-  <p class="page-head__lede lede">Review the requested access before approving this client.</p>
+  <div class="page-head__text">
+    <h1 class="page-head__title h-ui">Authorize a client</h1>
+    <p class="page-head__lede lede">Review the requested access before approving this client.</p>
+  </div>
 </header>
 
 {{with .Request}}
@@ -17,7 +16,7 @@
 
   <div class="module span-5">
     <div class="module__head">
-      <h2 class="module__label"><span class="module__index">01</span>Request</h2>
+      <h2 class="module__label">Request</h2>
     </div>
     <div class="scroll">
       <table class="table">
@@ -25,11 +24,11 @@
           <tr>
             <th>State</th>
             <td>
-              {{if $.Pending}}<span class="tag tag--state tag--pending">Awaiting your decision</span>
-              {{else if eq .Status "approved"}}<span class="tag tag--state tag--approved">Approved</span>
-              {{else if eq .Status "consumed"}}<span class="tag tag--state tag--consumed">Approved · token collected</span>
-              {{else if eq .Status "denied"}}<span class="tag tag--state tag--denied">Denied</span>
-              {{else}}<span class="tag tag--state tag--expired">Expired</span>{{end}}
+              {{if $.Pending}}<span class="tag tag--pending">Awaiting your decision</span>
+              {{else if eq .Status "approved"}}<span class="tag tag--approved">Approved</span>
+              {{else if eq .Status "consumed"}}<span class="tag tag--consumed">Approved · token collected</span>
+              {{else if eq .Status "denied"}}<span class="tag tag--denied">Denied</span>
+              {{else}}<span class="tag tag--expired">Expired</span>{{end}}
             </td>
           </tr>
           <tr>
@@ -62,7 +61,7 @@
     <form method="post" action="{{$.Paths.Authorize}}" class="row row--actions" hx-disabled-elt="[name=decision]">
       <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
       <input type="hidden" name="code" value="{{.UserCode}}">
-      <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve <span class="arrow">→</span></button>
+      <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve</button>
       <button class="btn btn--danger" type="submit" name="decision" value="deny">Deny</button>
     </form>
     {{else}}
@@ -73,9 +72,9 @@
 {{end}}
 
 {{if not .Pending}}
-<section class="module module--marked grant__lookup">
+<section class="module grant__lookup">
   <div class="module__head">
-    <h2 class="module__label"><span class="module__index">{{if .Request}}02{{else}}01{{end}}</span>{{if .Request}}Another code{{else}}Enter the code{{end}}</h2>
+    <h2 class="module__label">{{if .Request}}Another code{{else}}Enter the code{{end}}</h2>
   </div>
   <div class="module__body">
     <form method="post" action="{{.Paths.Authorize}}" class="row row--controls" hx-disabled-elt="find button[type=submit]">
@@ -86,7 +85,7 @@
                placeholder="XXXX-XXXX" maxlength="32" autocomplete="off"
                autocapitalize="characters" spellcheck="false" required>
       </label>
-      <button class="btn btn--primary" type="submit">Look it up <span class="arrow">→</span></button>
+      <button class="btn btn--primary" type="submit">Look it up</button>
     </form>
   </div>
 </section>

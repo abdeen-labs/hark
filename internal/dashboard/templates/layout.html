@@ -37,29 +37,26 @@
 {{if .SignedIn}}
 <header class="mast{{if eq .Section "consent"}} mast--consent{{end}}">
   <div class="mast__inner">
-    <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark<span class="brand__sub meta">Push relay</span></a>
+    <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark</a>
     {{if ne .Section "consent"}}
     <nav class="nav" aria-label="Sections">
-      <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">01</span>Overview</a>
-      <a href="{{.Paths.History}}"{{if eq .Section "history"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">02</span>History</a>
-      <a href="{{.Paths.Services}}"{{if eq .Section "services"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">03</span>Services</a>
-      <a href="{{.Paths.CriticalServices}}"{{if eq .Section "critical-services"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">03·A</span>Critical Alerts</a>
-      <a href="{{.Paths.Devices}}"{{if eq .Section "devices"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">04</span>Devices</a>
-      <a href="{{.Paths.Tokens}}"{{if eq .Section "tokens"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">05</span>Tokens</a>
-      <a href="{{.Paths.Test}}"{{if eq .Section "test"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">06</span>Send a test</a>
-      <a href="{{.Paths.Docs}}" hx-boost="false"><span class="nav__index" aria-hidden="true">07</span>API</a>
+      <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
+      <a href="{{.Paths.History}}"{{if eq .Section "history"}} aria-current="page"{{end}}>History</a>
+      <a href="{{.Paths.Services}}"{{if eq .Section "services"}} aria-current="page"{{end}}>Services</a>
+      <a href="{{.Paths.Devices}}"{{if eq .Section "devices"}} aria-current="page"{{end}}>Devices</a>
+      <a href="{{.Paths.Tokens}}"{{if eq .Section "tokens"}} aria-current="page"{{end}}>Tokens</a>
+      <a href="{{.Paths.Docs}}" hx-boost="false">API</a>
     </nav>
     {{end}}
     <form class="mast__out" method="post" action="{{.Paths.Logout}}" hx-disabled-elt="find button[type=submit]">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       {{if and .IsAdmin (ne .Section "consent")}}<a class="btn btn--ghost btn--sm" href="{{.Paths.Accounts}}"{{if eq .Section "accounts"}} aria-current="page"{{end}}>Accounts</a>{{end}}
       <button class="btn btn--ghost btn--sm theme-toggle" type="button" data-theme-toggle aria-label="Change theme"></button>
-      <span class="mast__user meta">{{.Username}}</span>
+      <span class="mast__user">{{.Username}}</span>
       <button class="btn btn--ghost btn--sm" type="submit">Sign out</button>
     </form>
   </div>
 </header>
-{{if ne .Section "consent"}}<div class="ruler" aria-hidden="true"></div>{{end}}
 {{end}}
 
 <main class="shell{{if not .SignedIn}} shell--bare{{end}}{{if eq .Section "consent"}} shell--consent{{end}}">
@@ -67,7 +64,7 @@
   {{template "content" .}}
 </main>
 
-<footer class="foot meta{{if eq .Section "consent"}} foot--consent{{end}}">
+<footer class="foot{{if eq .Section "consent"}} foot--consent{{end}}">
   <span>Hark</span>
   {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
 </footer>
@@ -77,7 +74,7 @@
      reads which button did. */}}
 <dialog class="confirm" data-confirm-dialog>
   <form method="dialog">
-    <p class="confirm__label meta meta--signal">Confirm</p>
+    <p class="confirm__label">Confirm</p>
     <p class="confirm__message" data-confirm-message></p>
     <div class="confirm__actions">
       <button class="btn" value="cancel" autofocus>Cancel</button>

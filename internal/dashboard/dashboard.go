@@ -93,17 +93,16 @@ type Options struct {
 // hardcoded href in a template is the thing that silently breaks when the
 // prefix moves.
 const (
-	pathHome             = httpapi.DashboardPrefix
-	pathLogin            = httpapi.DashboardPrefix + "/login"
-	pathLogout           = httpapi.DashboardPrefix + "/logout"
-	pathHistory          = httpapi.DashboardPrefix + "/history"
-	pathServices         = httpapi.DashboardPrefix + "/services"
-	pathCriticalServices = httpapi.DashboardPrefix + "/critical-services"
-	pathDevices          = httpapi.DashboardPrefix + "/devices"
-	pathTokens           = httpapi.DashboardPrefix + "/tokens"
-	pathAccounts         = httpapi.DashboardPrefix + "/accounts"
-	pathTest             = httpapi.DashboardPrefix + "/test"
-	pathAssets           = httpapi.DashboardPrefix + "/assets"
+	pathHome     = httpapi.DashboardPrefix
+	pathLogin    = httpapi.DashboardPrefix + "/login"
+	pathLogout   = httpapi.DashboardPrefix + "/logout"
+	pathHistory  = httpapi.DashboardPrefix + "/history"
+	pathServices = httpapi.DashboardPrefix + "/services"
+	pathDevices  = httpapi.DashboardPrefix + "/devices"
+	pathTokens   = httpapi.DashboardPrefix + "/tokens"
+	pathAccounts = httpapi.DashboardPrefix + "/accounts"
+	pathTest     = httpapi.DashboardPrefix + "/test"
+	pathAssets   = httpapi.DashboardPrefix + "/assets"
 
 	// pathLiveOverview is the overview's polling target: the same page's
 	// dynamic half, rendered bare. It is a page like any other — session-gated,
@@ -139,10 +138,10 @@ type Dashboard struct {
 
 // paths is the link table handed to every template.
 type paths struct {
-	Home, Login, Logout, History, Services, CriticalServices, Devices, Tokens, Test string
-	Authorize, OAuthAuthorize, Docs, DocsMarkdown, OpenAPI, LLMs                    string
-	LiveOverview                                                                    string
-	Accounts                                                                        string
+	Home, Login, Logout, History, Services, Devices, Tokens, Test string
+	Authorize, OAuthAuthorize, Docs, DocsMarkdown, OpenAPI, LLMs  string
+	LiveOverview                                                  string
+	Accounts                                                      string
 }
 
 // New builds the dashboard handler.
@@ -173,8 +172,7 @@ func New(opts Options) *Dashboard {
 		logins:  newLimiter(loginWindow),
 		paths: paths{
 			Home: pathHome, Login: pathLogin, Logout: pathLogout, History: pathHistory,
-			Services: pathServices, CriticalServices: pathCriticalServices,
-			Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
+			Services: pathServices, Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
 			Authorize: pathAuthorize, OAuthAuthorize: pathOAuthAuthorize,
 			Docs: pathDocs, DocsMarkdown: pathDocsMD,
 			OpenAPI: pathOpenAPI, LLMs: pathLLMs,
@@ -211,14 +209,10 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("POST "+pathServices+"/{id}", d.form(d.updateService))
 	d.mux.HandleFunc("POST "+pathServices+"/{id}/rotate", d.form(d.rotateWebhookToken))
 	d.mux.HandleFunc("POST "+pathServices+"/{id}/delete", d.form(d.deleteService))
-
-	d.mux.HandleFunc("GET "+pathCriticalServices, d.page(d.showCriticalServices))
-	d.mux.HandleFunc("POST "+pathCriticalServices, d.form(d.createCriticalService))
-	d.mux.HandleFunc("POST "+pathCriticalServices+"/settings", d.form(d.saveCriticalAlertSetting))
-	d.mux.HandleFunc("GET "+pathCriticalServices+"/{id}", d.page(d.showCriticalService))
-	d.mux.HandleFunc("POST "+pathCriticalServices+"/{id}", d.form(d.updateCriticalService))
-	d.mux.HandleFunc("POST "+pathCriticalServices+"/{id}/rotate", d.form(d.rotateCriticalWebhookToken))
-	d.mux.HandleFunc("POST "+pathCriticalServices+"/{id}/delete", d.form(d.deleteCriticalService))
+	// The account-wide Critical switch lives with the services it gates. The
+	// literal segment outranks {id} in the mux, so no service can be addressed
+	// by this name.
+	d.mux.HandleFunc("POST "+pathServices+"/critical", d.form(d.saveCriticalAlertSetting))
 
 	d.mux.HandleFunc("GET "+pathDevices, d.page(d.showDevices))
 	d.mux.HandleFunc("POST "+pathDevices+"/{id}/delete", d.form(d.deleteDevice))
@@ -474,10 +468,7 @@ var notices = map[string]notice{
 	"service_deleted": {Kind: noticeOK, Message: "Service deleted."},
 	"webhook_rotated": {Kind: noticeOK, Message: "Webhook URL rotated."},
 
-	"critical_service_created": {Kind: noticeOK, Message: "Critical service created."},
-	"critical_service_updated": {Kind: noticeOK, Message: "Critical service updated."},
-	"critical_service_deleted": {Kind: noticeOK, Message: "Critical service deleted."},
-	"critical_setting_saved":   {Kind: noticeOK, Message: "Critical Alert setting saved."},
+	"critical_setting_saved": {Kind: noticeOK, Message: "Critical Alerts setting saved."},
 }
 
 // notice is the one banner a page can carry.

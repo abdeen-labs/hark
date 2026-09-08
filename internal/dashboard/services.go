@@ -13,12 +13,17 @@ import (
 	"github.com/abdeen-labs/hark/internal/secret"
 )
 
-// servicesPage lists webhook sources and creates new ones.
+// servicesPage lists every webhook source the account owns and creates new
+// ones. Critical-capable services share the page: the API keeps them on a
+// separate resource, but to the owner they are services with one more switch.
 type servicesPage struct {
 	view
-	Services   []serviceRow
-	Priorities []string
-	Form       serviceForm
+	// CriticalAlertsEnabled is the account half of the two-switch gate on
+	// Critical delivery; each critical-capable service carries the other.
+	CriticalAlertsEnabled bool
+	Services              []serviceRow
+	Priorities            []string
+	Form                  serviceForm
 }
 
 // serviceRow includes the decrypted webhook URL. A nil URL means decryption
@@ -37,9 +42,6 @@ type servicePage struct {
 	Priorities []string
 	Form       serviceForm
 	Deliveries []db.EventListItem
-	BasePath   string
-	BackLabel  string
-	Critical   bool
 }
 
 // serviceDeliveries is how much of the service's log its own page shows: proof
@@ -58,6 +60,9 @@ type serviceForm struct {
 	CriticalEnabled bool
 }
 
+// serviceFormFrom reads the submitted form. critical says whether the service
+// may use the Critical priority and its own delivery switch: a capability
+// fixed when the service is created.
 func serviceFormFrom(r *http.Request, critical bool) serviceForm {
 	form := serviceForm{
 		Title:           strings.TrimSpace(r.PostFormValue("title")),
@@ -125,6 +130,14 @@ func formFor(svc db.Service) serviceForm {
 	return form
 }
 
+// prioritiesFor lists the priorities a service's defaults may choose from.
+func prioritiesFor(svc db.Service) []string {
+	if svc.CriticalCapable {
+		return db.CriticalPriorities
+	}
+	return db.Priorities
+}
+
 // hookURL renders the public ingest URL for a plaintext webhook token — the
 // same spelling internal/httpapi hands to API callers.
 func (d *Dashboard) hookURL(token string) string {
@@ -158,7 +171,12 @@ func (d *Dashboard) renderServices(
 	w http.ResponseWriter, r *http.Request, p *auth.Principal,
 	status int, form serviceForm, n *notice,
 ) {
-	services, err := d.opts.Store.Services.ListForUser(r.Context(), p.UserID())
+	user, err := d.opts.Store.Users.ByID(r.Context(), p.UserID())
+	if err != nil {
+		d.fail(w, r, "loading the Critical Alerts setting failed", err)
+		return
+	}
+	services, err := d.opts.Store.Services.ListAllForUser(r.Context(), p.UserID())
 	if err != nil {
 		d.fail(w, r, "listing services failed", err)
 		return
@@ -170,10 +188,11 @@ func (d *Dashboard) renderServices(
 	}
 
 	page := servicesPage{
-		view:       d.newView(r, p, "Services", "services"),
-		Services:   rows,
-		Priorities: db.Priorities,
-		Form:       form,
+		view:                  d.newView(r, p, "Services", "services"),
+		CriticalAlertsEnabled: user.CriticalAlertsEnabled,
+		Services:              rows,
+		Priorities:            db.Priorities,
+		Form:                  form,
 	}
 	if n != nil {
 		page.Notice = n
@@ -183,8 +202,13 @@ func (d *Dashboard) renderServices(
 
 // createService mints a webhook source and its credential, then lands on the
 // service's own page, where the fresh URL is waiting to be copied.
+//
+// The Critical switch on the form decides the service's kind for good: a
+// service created with it is critical-capable and starts with its own delivery
+// switch on.
 func (d *Dashboard) createService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	form := serviceFormFrom(r, false)
+	critical := r.PostFormValue("critical_enabled") != ""
+	form := serviceFormFrom(r, critical)
 	if n := form.validate(); n != nil {
 		d.renderServices(w, r, p, http.StatusUnprocessableEntity, form, n)
 		return
@@ -204,6 +228,8 @@ func (d *Dashboard) createService(w http.ResponseWriter, r *http.Request, p *aut
 		ImageURL:        form.imageURL(),
 		URL:             form.linkURL(),
 		Priority:        form.Priority,
+		CriticalCapable: critical,
+		CriticalEnabled: form.CriticalEnabled,
 		TokenHash:       auth.WebhookTokenHash(token),
 		TokenCiphertext: ciphertext,
 		Now:             d.opts.Auth.Now(),
@@ -215,16 +241,27 @@ func (d *Dashboard) createService(w http.ResponseWriter, r *http.Request, p *aut
 	d.redirect(w, r, pathServices+"/"+svc.ID, "service_created")
 }
 
-func (d *Dashboard) showService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	svc, err := d.opts.Store.Services.ByID(r.Context(), r.PathValue("id"), p.UserID())
+// loadService resolves the service in the path, answering the request itself
+// when there is none to show.
+func (d *Dashboard) loadService(w http.ResponseWriter, r *http.Request, p *auth.Principal) (*db.Service, bool) {
+	svc, err := d.opts.Store.Services.AnyByID(r.Context(), r.PathValue("id"), p.UserID())
 	switch {
 	case errors.Is(err, db.ErrNotFound):
 		d.renderError(w, r, http.StatusNotFound, "No service matches that identifier.")
+		return nil, false
 	case err != nil:
 		d.fail(w, r, "loading a service failed", err)
-	default:
-		d.renderService(w, r, p, http.StatusOK, *svc, formFor(*svc), nil)
+		return nil, false
 	}
+	return svc, true
+}
+
+func (d *Dashboard) showService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	svc, ok := d.loadService(w, r, p)
+	if !ok {
+		return
+	}
+	d.renderService(w, r, p, http.StatusOK, *svc, formFor(*svc), nil)
 }
 
 func (d *Dashboard) renderService(
@@ -242,11 +279,9 @@ func (d *Dashboard) renderService(
 		view:       d.newView(r, p, svc.Title, "services"),
 		Service:    svc,
 		WebhookURL: d.webhookURL(r, svc),
-		Priorities: db.Priorities,
+		Priorities: prioritiesFor(svc),
 		Form:       form,
 		Deliveries: deliveries.Items,
-		BasePath:   pathServices,
-		BackLabel:  "All services",
 	}
 	if n != nil {
 		page.Notice = n
@@ -260,36 +295,37 @@ func (d *Dashboard) renderService(
 // what comes back is the whole truth as the owner last saw it, and an emptied
 // optional field means "clear it".
 func (d *Dashboard) updateService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	form := serviceFormFrom(r, false)
+	svc, ok := d.loadService(w, r, p)
+	if !ok {
+		return
+	}
+	form := serviceFormFrom(r, svc.CriticalCapable)
 	if n := form.validate(); n != nil {
-		svc, err := d.opts.Store.Services.ByID(r.Context(), r.PathValue("id"), p.UserID())
-		switch {
-		case errors.Is(err, db.ErrNotFound):
-			d.renderError(w, r, http.StatusNotFound, "No service matches that identifier.")
-		case err != nil:
-			d.fail(w, r, "loading a service failed", err)
-		default:
-			d.renderService(w, r, p, http.StatusUnprocessableEntity, *svc, form, n)
-		}
+		d.renderService(w, r, p, http.StatusUnprocessableEntity, *svc, form, n)
 		return
 	}
 
-	_, err := d.opts.Store.Services.Update(r.Context(), db.UpdateServiceParams{
-		ID:       r.PathValue("id"),
-		UserID:   p.UserID(),
-		Title:    db.Value(form.Title),
-		ImageURL: db.Value(form.imageURL()),
-		URL:      db.Value(form.linkURL()),
-		Priority: db.Value(form.Priority),
-		Now:      d.opts.Auth.Now(),
-	})
+	params := db.UpdateServiceParams{
+		ID:              svc.ID,
+		UserID:          p.UserID(),
+		CriticalCapable: svc.CriticalCapable,
+		Title:           db.Value(form.Title),
+		ImageURL:        db.Value(form.imageURL()),
+		URL:             db.Value(form.linkURL()),
+		Priority:        db.Value(form.Priority),
+		Now:             d.opts.Auth.Now(),
+	}
+	if svc.CriticalCapable {
+		params.CriticalEnabled = db.Value(form.CriticalEnabled)
+	}
+	_, err := d.opts.Store.Services.Update(r.Context(), params)
 	switch {
 	case errors.Is(err, db.ErrNotFound):
 		d.renderError(w, r, http.StatusNotFound, "No service matches that identifier.")
 	case err != nil:
 		d.fail(w, r, "updating a service failed", err)
 	default:
-		d.redirect(w, r, pathServices+"/"+r.PathValue("id"), "service_updated")
+		d.redirect(w, r, pathServices+"/"+svc.ID, "service_updated")
 	}
 }
 
@@ -305,7 +341,7 @@ func (d *Dashboard) rotateWebhookToken(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	_, err = d.opts.Store.Services.RotateToken(r.Context(),
+	_, err = d.opts.Store.Services.RotateAnyToken(r.Context(),
 		r.PathValue("id"), p.UserID(), auth.WebhookTokenHash(token), ciphertext, d.opts.Auth.Now())
 	switch {
 	case errors.Is(err, db.ErrNotFound):
@@ -318,7 +354,7 @@ func (d *Dashboard) rotateWebhookToken(w http.ResponseWriter, r *http.Request, p
 }
 
 func (d *Dashboard) deleteService(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	deleted, err := d.opts.Store.Services.Delete(r.Context(), r.PathValue("id"), p.UserID())
+	deleted, err := d.opts.Store.Services.DeleteAny(r.Context(), r.PathValue("id"), p.UserID())
 	switch {
 	case err != nil:
 		d.fail(w, r, "deleting a service failed", err)
@@ -327,4 +363,14 @@ func (d *Dashboard) deleteService(w http.ResponseWriter, r *http.Request, p *aut
 	default:
 		d.redirect(w, r, pathServices, "service_deleted")
 	}
+}
+
+// saveCriticalAlertSetting flips the account half of the Critical gate.
+func (d *Dashboard) saveCriticalAlertSetting(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	enabled := r.PostFormValue("critical_alerts_enabled") != ""
+	if err := d.opts.Store.Users.SetCriticalAlertsEnabled(r.Context(), p.UserID(), enabled, d.opts.Auth.Now()); err != nil {
+		d.fail(w, r, "saving the Critical Alerts setting failed", err)
+		return
+	}
+	d.redirect(w, r, pathServices, "critical_setting_saved")
 }

@@ -1,19 +1,16 @@
 {{define "content"}}
-<header class="page-head page-head--count">
-  <p class="page-head__eyebrow meta">
-    <span><span class="idx">04</span> Registry</span>
-  </p>
-  <h1 class="page-head__title display">Devices</h1>
-  <div class="page-head__count metric metric--lg">
-    <span class="metric__value num">{{len .Devices}}</span>
-    <span class="metric__label meta">Registered</span>
+<header class="page-head">
+  <div class="page-head__text">
+    <h1 class="page-head__title h-ui">Devices</h1>
+    <p class="page-head__lede lede">Phones and iPads signed in through the iOS app.</p>
   </div>
+  <a class="btn btn--sm" href="{{.Paths.Test}}">Send a test</a>
 </header>
 
 <section class="module">
-  <span class="module__edge meta" aria-hidden="true">Registry · 04</span>
   <div class="module__head">
-    <h2 class="module__label"><span class="module__index">01</span>Registered devices</h2>
+    <h2 class="module__label">Registered devices</h2>
+    <span class="meta">{{len .Devices}} registered</span>
   </div>
   {{if .Devices}}
   <div class="scroll">
@@ -34,13 +31,13 @@
             <span class="mono muted block">{{.ID}}</span>
           </td>
           <td>
-            {{if .Active}}<span class="tag tag--state tag--active">Active</span>
-            {{else}}<span class="tag tag--state tag--retired">Retired</span>{{end}}
+            {{if .Active}}<span class="tag tag--active">Active</span>
+            {{else}}<span class="tag tag--retired">Retired</span>{{end}}
           </td>
           <td>
             {{if .LiveActivityCapable}}
-              <span class="tag tag--state tag--ok">Ready</span>
-              {{if not .InteractiveLiveActivityCapable}}<span class="tag tag--kind">No buttons</span>{{end}}
+              <span class="tag tag--ok">Ready</span>
+              {{if not .InteractiveLiveActivityCapable}}<span class="tag">No buttons</span>{{end}}
             {{else}}<span class="muted">No push-to-start token</span>{{end}}
           </td>
           <td class="mono">{{with text .PushToStartEnvironment}}{{.}}{{else}}—{{end}}</td>

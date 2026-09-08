@@ -111,6 +111,14 @@ func (s *Services) CriticalByID(ctx context.Context, id, userID string) (*Servic
 	return queryOne[Service](ctx, s.q, "load critical service", q, id, userID)
 }
 
+// AnyByID loads a service the caller owns, critical-capable or not. The API
+// keeps the two kinds on separate resources; the owner's dashboard manages
+// both from one page.
+func (s *Services) AnyByID(ctx context.Context, id, userID string) (*Service, error) {
+	const q = `SELECT ` + serviceColumns + ` FROM services WHERE id = $1 AND user_id = $2`
+	return queryOne[Service](ctx, s.q, "load service", q, id, userID)
+}
+
 // ByTokenHash authenticates an inbound webhook. This is the hot path of the
 // whole ingest surface and is served entirely by the unique index.
 func (s *Services) ByTokenHash(ctx context.Context, tokenHash string) (*Service, error) {
@@ -130,6 +138,14 @@ func (s *Services) ListCriticalForUser(ctx context.Context, userID string) ([]Se
 	const q = `SELECT ` + serviceColumns + ` FROM services
 		WHERE user_id = $1 AND critical_capable ORDER BY created_at DESC, id DESC`
 	return queryAll[Service](ctx, s.q, "list critical services", q, userID)
+}
+
+// ListAllForUser returns every service the account owns, of either kind,
+// newest first.
+func (s *Services) ListAllForUser(ctx context.Context, userID string) ([]Service, error) {
+	const q = `SELECT ` + serviceColumns + ` FROM services
+		WHERE user_id = $1 ORDER BY created_at DESC, id DESC`
+	return queryAll[Service](ctx, s.q, "list services", q, userID)
 }
 
 // UpdateServiceParams is a partial update: an unset field is left alone, and a
@@ -198,6 +214,16 @@ func (s *Services) RotateCriticalToken(ctx context.Context, id, userID, tokenHas
 		id, userID, tokenHash, tokenCiphertext, Millis(now))
 }
 
+// RotateAnyToken replaces the webhook credential of a service of either kind.
+func (s *Services) RotateAnyToken(ctx context.Context, id, userID, tokenHash, tokenCiphertext string, now time.Time) (*Service, error) {
+	const q = `
+		UPDATE services SET token_hash = $3, token_ciphertext = $4, updated_at = $5
+		WHERE id = $1 AND user_id = $2
+		RETURNING ` + serviceColumns
+	return queryOne[Service](ctx, s.q, "rotate webhook token", q,
+		id, userID, tokenHash, tokenCiphertext, Millis(now))
+}
+
 // Delete removes a service.
 //
 // This is destructive to history: the cascade takes the service's events with
@@ -212,4 +238,10 @@ func (s *Services) Delete(ctx context.Context, id, userID string) (bool, error) 
 func (s *Services) DeleteCritical(ctx context.Context, id, userID string) (bool, error) {
 	const q = `DELETE FROM services WHERE id = $1 AND user_id = $2 AND critical_capable`
 	return execMatched(ctx, s.q, "delete critical service", q, id, userID)
+}
+
+// DeleteAny removes a service of either kind and everything it produced.
+func (s *Services) DeleteAny(ctx context.Context, id, userID string) (bool, error) {
+	const q = `DELETE FROM services WHERE id = $1 AND user_id = $2`
+	return execMatched(ctx, s.q, "delete service", q, id, userID)
 }

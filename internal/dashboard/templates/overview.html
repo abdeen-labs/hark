@@ -1,10 +1,10 @@
 {{define "content"}}
-<header class="page-head page-head--compact">
-  <p class="page-head__eyebrow meta">
-    <span><span class="idx">01</span> Live view</span>
-  </p>
-  <h1 class="page-head__title h-ui">Overview</h1>
-  <p class="page-head__lede lede">Active Live Activities and recent deliveries.</p>
+<header class="page-head">
+  <div class="page-head__text">
+    <h1 class="page-head__title h-ui">Overview</h1>
+    <p class="page-head__lede lede">Active Live Activities and recent deliveries.</p>
+  </div>
+  <a class="btn btn--sm" href="{{.Paths.Test}}">Send a test</a>
 </header>
 
 {{/* Everything inside this div is what the poll replaces: the same
@@ -13,71 +13,66 @@
 {{end}}
 
 {{define "overview-live"}}
-<div class="grid ov">
-  <section class="ov__stats span-4" aria-label="Account">
-    <div class="ov__stat">
-      <span class="ov__stat-index meta" aria-hidden="true">A-01</span>
-      <div class="metric metric--xl">
+<div class="column">
+  <section class="stats" aria-label="Account">
+    <div class="stat">
+      <div class="metric">
         <span class="metric__value"><span class="num">{{.Stats.ActiveDevices}}</span><span class="metric__of">/{{.Stats.Devices}}</span></span>
-        <span class="metric__label meta">Active devices</span>
+        <span class="metric__label">Active devices</span>
       </div>
     </div>
-    <div class="ov__stat">
-      <span class="ov__stat-index meta" aria-hidden="true">A-02</span>
-      <div class="metric metric--xl">
+    <div class="stat">
+      <div class="metric">
         <span class="metric__value"><span class="num">{{.Stats.ActiveTokens}}</span><span class="metric__of">/{{.Stats.Tokens}}</span></span>
-        <span class="metric__label meta">Active API tokens</span>
+        <span class="metric__label">Active API tokens</span>
       </div>
     </div>
-    <div class="ov__stat">
-      <span class="ov__stat-index meta" aria-hidden="true">A-03</span>
-      <div class="metric metric--xl">
+    <div class="stat">
+      <div class="metric">
         <span class="metric__value num">{{.Stats.LiveActivities}}</span>
-        <span class="metric__label meta">Live Activities</span>
+        <span class="metric__label">Live Activities</span>
       </div>
     </div>
   </section>
 
-  <div class="ov__main span-8">
-    <section class="module">
-      <div class="module__head">
-        <h2 class="module__label"><span class="module__index">02</span>On a Lock Screen now</h2>
-        <span class="meta">{{.Stats.LiveActivities}} running</span>
-      </div>
-      {{if .Activities}}
-      <div class="scroll">
-        <table class="table">
-          <thead><tr><th>Source</th><th>Status</th><th>Seq</th><th>Last operation</th><th>Updated</th><th>Expires</th></tr></thead>
-          <tbody>
-            {{range .Activities}}
-            <tr>
-              <td class="cell--strong">{{.SourceName}}{{with text .Key}} <span class="mono muted">{{.}}</span>{{end}}</td>
-              <td><span class="tag tag--state tag--{{.Status}}">{{title .Status}}</span></td>
-              <td class="num mono">{{.Sequence}}</td>
-              <td class="num mono">{{.AcceptedCount}} accepted<span class="muted"> · {{.FailedCount}} failed</span></td>
-              <td><time datetime="{{iso .UpdatedAt}}" title="{{when .UpdatedAt}}">{{ago .UpdatedAt}}</time></td>
-              <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
-            </tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-      {{else}}
-      <p class="empty">No active Live Activities.</p>
-      {{end}}
-    </section>
+  <section class="module">
+    <div class="module__head">
+      <h2 class="module__label">On a Lock Screen now</h2>
+      <span class="meta">{{.Stats.LiveActivities}} running</span>
+    </div>
+    {{if .Activities}}
+    <div class="scroll">
+      <table class="table">
+        <thead><tr><th>Source</th><th>Status</th><th>Seq</th><th>Last operation</th><th>Updated</th><th>Expires</th></tr></thead>
+        <tbody>
+          {{range .Activities}}
+          <tr>
+            <td class="cell--strong">{{.SourceName}}{{with text .Key}} <span class="mono muted">{{.}}</span>{{end}}</td>
+            <td><span class="tag tag--{{.Status}}">{{title .Status}}</span></td>
+            <td class="num mono">{{.Sequence}}</td>
+            <td class="num mono">{{.AcceptedCount}} accepted<span class="muted"> · {{.FailedCount}} failed</span></td>
+            <td><time datetime="{{iso .UpdatedAt}}" title="{{when .UpdatedAt}}">{{ago .UpdatedAt}}</time></td>
+            <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <p class="empty">No active Live Activities.</p>
+    {{end}}
+  </section>
 
-    <section class="module">
-      <div class="module__head">
-        <h2 class="module__label"><span class="module__index">03</span>Recent deliveries</h2>
-        <a class="module__more meta" href="{{.Paths.History}}">View history <span class="arrow">→</span></a>
-      </div>
-      {{if .History}}
-      {{template "feed-list" .History}}
-      {{else}}
-      <p class="empty">No recent deliveries. <a href="{{.Paths.Test}}">Send a test notification</a>.</p>
-      {{end}}
-    </section>
-  </div>
+  <section class="module">
+    <div class="module__head">
+      <h2 class="module__label">Recent deliveries</h2>
+      <a class="module__more meta" href="{{.Paths.History}}">View history <span class="arrow">→</span></a>
+    </div>
+    {{if .History}}
+    {{template "feed-list" .History}}
+    {{else}}
+    <p class="empty">No recent deliveries. <a href="{{.Paths.Test}}">Send a test notification</a>.</p>
+    {{end}}
+  </section>
 </div>
 {{end}}
