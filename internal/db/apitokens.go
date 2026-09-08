@@ -92,8 +92,8 @@ type APIToken struct {
 	TokenHash string   `db:"token_hash"`
 	Prefix    string   `db:"prefix"`
 	Scopes    []string `db:"scopes"`
-	// ImageURL is the logo of the OAuth client the token was issued to, a
-	// public HTTPS URL. Nil for tokens minted by hand or by the device grant.
+	// ImageURL is a public HTTPS picture: one the owner set, or the logo an
+	// OAuth client published. Nil when there is neither.
 	ImageURL *string `db:"image_url"`
 	// ExpiresAt nil means the token never expires.
 	ExpiresAt *time.Time `db:"expires_at"`
@@ -154,6 +154,12 @@ func (s *APITokens) Create(ctx context.Context, p CreateAPITokenParams) (*APITok
 		RETURNING ` + apiTokenColumns
 	return queryOne[APIToken](ctx, s.q, "create API token", q,
 		p.ID, p.UserID, p.Name, p.TokenHash, p.Prefix, p.Scopes, p.ImageURL, millisPtr(p.ExpiresAt), Millis(p.Now))
+}
+
+// SetImage replaces the picture a token the caller owns shows; nil clears it.
+func (s *APITokens) SetImage(ctx context.Context, id, userID string, image *string) (*APIToken, error) {
+	const q = `UPDATE api_tokens SET image_url = $3 WHERE id = $1 AND user_id = $2 RETURNING ` + apiTokenColumns
+	return queryOne[APIToken](ctx, s.q, "set API token image", q, id, userID, image)
 }
 
 // ByTokenHash resolves a bearer credential.

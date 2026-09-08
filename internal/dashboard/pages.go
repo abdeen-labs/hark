@@ -366,6 +366,28 @@ func (d *Dashboard) revokeToken(w http.ResponseWriter, r *http.Request, p *auth.
 	}
 }
 
+// setTokenPicture saves the picture a token row shows; an empty field removes it.
+func (d *Dashboard) setTokenPicture(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	var image *string
+	if raw := strings.TrimSpace(r.PostFormValue("image_url")); raw != "" {
+		image = &raw
+	}
+	_, err := d.opts.Auth.SetAPITokenImage(r.Context(), r.PathValue("id"), p.UserID(), image)
+	var bad *auth.InvalidInputError
+	switch {
+	case err == nil:
+		d.redirect(w, r, pathTokens, "token_picture")
+	case errors.As(err, &bad):
+		d.renderTokens(w, r, p, http.StatusUnprocessableEntity, tokenForm{ExpiresIn: "90d"}, "", &notice{
+			Kind: noticeError, Message: "The picture must be a public HTTPS URL.",
+		})
+	case errors.Is(err, auth.ErrNotFound):
+		d.renderError(w, r, http.StatusNotFound, "No API token matches that identifier.")
+	default:
+		d.fail(w, r, "saving an API token picture failed", err)
+	}
+}
+
 // testPage sends one notification to prove the round trip works.
 type testPage struct {
 	view

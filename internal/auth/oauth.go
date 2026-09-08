@@ -359,12 +359,6 @@ func validOAuthLink(raw string) bool {
 	return err == nil && u.Scheme == "https" && u.Hostname() != ""
 }
 
-// validOAuthLogo reports whether raw is fit to be loaded as an image by the
-// owner's browser: the public https rule every avatar URL is held to.
-func validOAuthLogo(raw string) bool {
-	return len(raw) <= MaxOAuthRedirectURILength && netpolicy.PublicHTTPSURL(raw)
-}
-
 func oauthClientName(raw string, redirectURIs []string) (string, bool) {
 	name := strings.TrimSpace(raw)
 	if name == "" {
@@ -403,7 +397,7 @@ func (s *Service) RegisterOAuthClient(ctx context.Context, p RegisterOAuthClient
 		clientURI = &p.ClientURI
 	}
 	if p.LogoURI != "" {
-		if !validOAuthLogo(p.LogoURI) {
+		if !ValidAPITokenImageURL(p.LogoURI) {
 			return nil, invalid("logo_uri", "must be a public https URL")
 		}
 		logoURI = &p.LogoURI
@@ -630,7 +624,7 @@ func (s *Service) oauthClientFromDocument(ctx context.Context, clientID string, 
 	if validOAuthLink(doc.ClientURI) {
 		client.ClientURI = &doc.ClientURI
 	}
-	if validOAuthLogo(doc.LogoURI) {
+	if ValidAPITokenImageURL(doc.LogoURI) {
 		client.LogoURI = &doc.LogoURI
 	}
 	s.metadata.remember(clientID, client, now)

@@ -9,11 +9,15 @@ import (
 
 	"github.com/abdeen-labs/hark/internal/db"
 	"github.com/abdeen-labs/hark/internal/id"
+	"github.com/abdeen-labs/hark/internal/netpolicy"
 )
 
 // API token bounds.
 const (
 	MaxAPITokenNameLength = 80
+
+	// MaxAPITokenImageURLLength bounds the picture URL a token may carry.
+	MaxAPITokenImageURLLength = 2048
 
 	// MinAPITokenLifetime and MaxAPITokenLifetime bound a requested expiry. The
 	// floor keeps a token from being born useless; the ceiling keeps "expires"
@@ -104,6 +108,32 @@ func (s *Service) ListAPITokens(ctx context.Context, userID string) ([]db.APITok
 		return nil, fmt.Errorf("auth: list API tokens: %w", err)
 	}
 	return tokens, nil
+}
+
+// ValidAPITokenImageURL reports whether raw may be shown as a token's picture:
+// a public https URL within length, the rule every avatar is held to.
+func ValidAPITokenImageURL(raw string) bool {
+	return raw != "" && len(raw) <= MaxAPITokenImageURLLength && netpolicy.PublicHTTPSURL(raw)
+}
+
+// SetAPITokenImage replaces the picture a token shows, or clears it with nil,
+// and returns the token. Unknown and foreign ids are [ErrNotFound].
+func (s *Service) SetAPITokenImage(ctx context.Context, tokenID, userID string, imageURL *string) (*db.APIToken, error) {
+	if imageURL != nil {
+		trimmed := strings.TrimSpace(*imageURL)
+		if !ValidAPITokenImageURL(trimmed) {
+			return nil, invalid("image_url", "must be a public https URL")
+		}
+		imageURL = &trimmed
+	}
+	token, err := s.store.APITokens.SetImage(ctx, tokenID, userID, imageURL)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("auth: set API token image: %w", err)
+	}
+	return token, nil
 }
 
 // RevokeAPIToken disables a token the account owns, immediately: the next

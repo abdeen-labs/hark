@@ -884,6 +884,21 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 }
 .identity { display: flex; align-items: flex-start; }
 .identity > .avatar { flex: 0 0 20px; margin-top: 1px; }
+.picture { margin-top: 8px; }
+.picture__toggle {
+  width: max-content;
+  list-style: none;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.picture__toggle::-webkit-details-marker { display: none; }
+.picture__toggle:hover, .picture[open] > .picture__toggle { color: var(--ink); }
+.picture__form { display: flex; gap: 8px; margin-top: 8px; min-width: 20rem; font-weight: 400; }
+.picture__form .input { min-height: 30px; padding: 4px 10px; font-size: 12px; }
 
 /* Tags ----------------------------------------------------------------------
  *

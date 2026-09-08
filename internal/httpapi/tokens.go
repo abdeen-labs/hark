@@ -103,6 +103,37 @@ func (s *server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type updateTokenRequest struct {
+	ImageURL optional[*string] `json:"image_url"`
+}
+
+type tokenResponse struct {
+	Token tokenDTO `json:"token"`
+}
+
+// handleUpdateToken sets or clears the picture a token shows. The field has
+// to be present: null removes the picture, absence is a mistake.
+func (s *server) handleUpdateToken(w http.ResponseWriter, r *http.Request) {
+	var body updateTokenRequest
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	image, present := body.ImageURL.Get()
+	if !present {
+		WriteFieldErrors(w, r, "The request body is invalid.",
+			[]FieldError{{Field: "image_url", Message: "is required; null removes the picture"}})
+		return
+	}
+
+	principal := auth.PrincipalFrom(r.Context())
+	token, err := s.opts.Auth.SetAPITokenImage(r.Context(), r.PathValue("id"), principal.UserID(), image)
+	if err != nil {
+		s.writeAuthError(w, r, "updating an API token failed", err)
+		return
+	}
+	WriteJSON(w, r, http.StatusOK, tokenResponse{Token: newTokenDTO(*token)})
+}
+
 // handleRevokeToken retires one of the account's tokens. Revocation takes
 // effect on the next request carrying it.
 func (s *server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {

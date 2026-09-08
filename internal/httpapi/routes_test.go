@@ -32,6 +32,7 @@ func TestCredentialRoutesAreClosedByDefault(t *testing.T) {
 		{http.MethodPost, "/auth/device/requests/K7QM-3XPD/deny"},
 		{http.MethodGet, "/tokens"},
 		{http.MethodPost, "/tokens"},
+		{http.MethodPatch, "/tokens/0198f3a1-2b4c-7d8e-9f01-23456789abcd"},
 		{http.MethodDelete, "/tokens/0198f3a1-2b4c-7d8e-9f01-23456789abcd"},
 		{http.MethodPost, mcp.Path},
 	}

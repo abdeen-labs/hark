@@ -24,6 +24,11 @@ type fakeAuth struct {
 	loggedOut []string
 	tokens    []db.APIToken
 
+	// Token pictures the dashboard asked to save, by token id, and the error
+	// to answer with instead.
+	pictures   map[string]*string
+	pictureErr error
+
 	// Device authorization request, configured result, and recorded decision.
 	grant     *db.DeviceAuthorization
 	grantErr  error
@@ -61,6 +66,17 @@ func (f *fakeAuth) Logout(_ context.Context, sessionID string) error {
 
 func (f *fakeAuth) ListAPITokens(context.Context, string) ([]db.APIToken, error) {
 	return f.tokens, nil
+}
+
+func (f *fakeAuth) SetAPITokenImage(_ context.Context, tokenID, _ string, imageURL *string) (*db.APIToken, error) {
+	if f.pictureErr != nil {
+		return nil, f.pictureErr
+	}
+	if f.pictures == nil {
+		f.pictures = map[string]*string{}
+	}
+	f.pictures[tokenID] = imageURL
+	return &db.APIToken{ID: tokenID, ImageURL: imageURL}, nil
 }
 
 func (f *fakeAuth) CreateAPIToken(context.Context, string, auth.CreateAPITokenParams) (*db.APIToken, string, error) {
@@ -311,6 +327,59 @@ func TestTokenPageShowsTheLogoOfAConnectedClient(t *testing.T) {
 	}
 }
 
+func TestTokenPictureIsSavedThroughTheService(t *testing.T) {
+	d, service := newTestDashboard(t)
+	const tokenID = "0198f3a1-2b4c-7d8e-9f01-23456789abcd"
+	path := pathTokens + "/" + tokenID + "/picture"
+
+	rec := send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), "image_url=https%3A%2F%2Fexample.com%2Fbot.png"))
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "done=token_picture") {
+		t.Fatalf("status = %d, Location = %q: %s", rec.Code, rec.Header().Get("Location"), rec.Body)
+	}
+	if got := service.pictures[tokenID]; got == nil || *got != "https://example.com/bot.png" {
+		t.Errorf("the service saw %v, want the submitted URL", got)
+	}
+
+	rec = send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), "image_url="))
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("clearing: status = %d: %s", rec.Code, rec.Body)
+	}
+	if got, ok := service.pictures[tokenID]; !ok || got != nil {
+		t.Errorf("an empty field did not clear the picture: %v", got)
+	}
+
+	service.pictureErr = &auth.InvalidInputError{Field: "image_url", Message: "must be a public https URL"}
+	rec = send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), "image_url=http%3A%2F%2Fexample.com%2Fbot.png"))
+	if rec.Code != http.StatusUnprocessableEntity || !strings.Contains(rec.Body.String(), `data-notice="error"`) {
+		t.Errorf("a refused picture: status = %d, want 422 with an error notice: %s", rec.Code, rec.Body)
+	}
+
+	service.pictureErr = auth.ErrNotFound
+	rec = send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), "image_url="))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown token: status = %d, want 404", rec.Code)
+	}
+}
+
+func TestTokenPageOffersThePictureForm(t *testing.T) {
+	d, service := newTestDashboard(t)
+	service.tokens = []db.APIToken{
+		{ID: "token-1", Name: "ChatGPT", Prefix: "hark_c2xLm9J", Scopes: []string{db.ScopeDevicesRead},
+			ImageURL: ptr("https://chatgpt.example/logo.png"), CreatedAt: service.now},
+	}
+	rec := send(d, signedIn(http.MethodGet, pathTokens, ""))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `action="`+pathTokens+`/token-1/picture"`) {
+		t.Errorf("the row has no picture form:\n%s", body)
+	}
+	if !strings.Contains(body, `name="image_url" value="https://chatgpt.example/logo.png"`) {
+		t.Errorf("the picture form is not filled with the current picture:\n%s", body)
+	}
+}
+
 // TestFormsRequireACSRFToken walks every mutating route without a token. The
 // handlers behind them are never reached, which is also why none of them needs
 // a database.
@@ -331,6 +400,7 @@ func TestFormsRequireACSRFToken(t *testing.T) {
 		pathDevices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathTokens,
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/revoke",
+		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/picture",
 		pathTest,
 		pathAuthorize,
 		pathOAuthAuthorize,

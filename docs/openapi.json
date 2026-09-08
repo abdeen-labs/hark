@@ -214,6 +214,12 @@
     },
     "/tokens/{id}": {
       "parameters": [{ "$ref": "#/components/parameters/ID" }],
+      "patch": {
+        "tags": ["Tokens"], "summary": "Set or remove an API token's picture", "operationId": "updateToken",
+        "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
+        "requestBody": { "$ref": "#/components/requestBodies/UpdateToken" },
+        "responses": { "200": { "$ref": "#/components/responses/JSONDocument" }, "default": { "$ref": "#/components/responses/Error" } }
+      },
       "delete": {
         "tags": ["Tokens"], "summary": "Revoke an API token", "operationId": "revokeToken",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
@@ -595,6 +601,7 @@
       "DeviceCode": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceCodeRequest" } } } },
       "DeviceToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeviceTokenRequest" } } } },
       "CreateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTokenRequest" } } } },
+      "UpdateToken": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateTokenRequest" } } } },
       "CreateService": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateServiceRequest" } } } },
       "UpdateService": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateServiceRequest" } } } },
       "RegisterDevice": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterDeviceRequest" } } } },
@@ -708,6 +715,12 @@
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "scopes": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/components/schemas/Scope" } },
           "expires_in_seconds": { "type": ["integer", "null"], "minimum": 3600, "maximum": 31536000 }
+        }
+      },
+      "UpdateTokenRequest": {
+        "type": "object", "additionalProperties": false, "required": ["image_url"],
+        "properties": {
+          "image_url": { "type": ["string", "null"], "format": "uri", "maxLength": 2048, "description": "A public https URL. null removes the picture, including one an OAuth client published." }
         }
       },
       "CreateServiceRequest": {

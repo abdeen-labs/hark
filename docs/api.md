@@ -498,6 +498,7 @@ with `Retry-After`.
 | `POST` | [`/oauth/token`](#post-oauthtoken) | authorization code in body |
 | `GET` | [`/tokens`](#get-tokens) | session |
 | `POST` | [`/tokens`](#post-tokens) | session |
+| `PATCH` | [`/tokens/{id}`](#patch-tokensid) | session |
 | `DELETE` | [`/tokens/{id}`](#delete-tokensid) | session |
 | `GET` | [`/services`](#get-services) | session · token `services:read` |
 | `POST` | [`/services`](#post-services) | session |
@@ -1028,7 +1029,7 @@ Revoked and expired tokens remain in the list for auditing.
 | Field | Type | Notes |
 | --- | --- | --- |
 | `prefix` | string | First 13 characters of the secret, used to identify the token in logs. It is not a usable credential. |
-| `image_url` | string \| null | The logo of the client a token was issued to through [OAuth](#oauth), a public HTTPS URL taken from its `logo_uri`. `null` for tokens created here or by the device grant. |
+| `image_url` | string \| null | The picture shown for the token: one the owner set with [`PATCH /tokens/{id}`](#patch-tokensid), else the `logo_uri` the client published when the token was issued through [OAuth](#oauth). A public HTTPS URL. `null` when there is neither. |
 | `expires_at` | string \| null | `null` means the token never expires. |
 | `last_used_at` | string \| null | Stamped at most once a minute per token, so it is accurate to within a minute and no more. |
 | `revoked_at` | string \| null | Non-null means the token has been revoked. |
@@ -1091,6 +1092,32 @@ Content-Type: application/json
 
 "Active" means not revoked and not expired, so revoking or letting a token
 lapse frees a slot.
+
+---
+
+### `PATCH /tokens/{id}`
+
+Sets or removes the picture a token shows. **Session only.**
+
+```http
+PATCH /tokens/0198f3c2-1a5d-7b90-8c34-6e7f8a9b0c1d
+Content-Type: application/json
+
+{ "image_url": "https://example.com/bot.png" }
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `image_url` | string \| null | yes | A public HTTPS URL of up to 2048 characters, trimmed. `null` removes the picture, including one an OAuth client published. |
+
+**200 OK** — `{ "token": { … } }`, the token as [`GET /tokens`](#get-tokens)
+lists it.
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 403 | `session_required` | Called with an API token. |
+| 404 | `not_found` | No token with that id on the account. |
+| 422 | `validation_failed` | `image_url` is absent or is not a public HTTPS URL. |
 
 ---
 
@@ -2668,8 +2695,9 @@ endpoints described by the
 [MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
 
 OAuth tokens appear on the Tokens page under the client's name and, when the
-client published one, its logo. They do not expire; revoke them there
-or with [`DELETE /tokens/{id}`](#delete-tokensid). Hark supports public clients
+client published one, its logo, which the owner can replace or remove there or
+with [`PATCH /tokens/{id}`](#patch-tokensid). They do not expire; revoke them
+there or with [`DELETE /tokens/{id}`](#delete-tokensid). Hark supports public clients
 without client secrets or refresh tokens.
 
 1. The client reads the
@@ -2911,6 +2939,7 @@ separate from the JSON API:
 | `GET` | `/dashboard/tokens` | API tokens, each OAuth-issued one with its client's logo, and the token creation form. |
 | `POST` | `/dashboard/tokens` | Creates a token and shows its secret once. |
 | `POST` | `/dashboard/tokens/{id}/revoke` | Revokes one. |
+| `POST` | `/dashboard/tokens/{id}/picture` | Sets or removes the picture one shows. |
 | `GET` | `/dashboard/accounts` | Account directory and provisioning form. Admin session only. |
 | `POST` | `/dashboard/accounts` | Creates a regular user. Admin session and CSRF token required. |
 | `GET` | `/dashboard/test` | The test-notification form. |

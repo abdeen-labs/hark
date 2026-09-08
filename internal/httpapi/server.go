@@ -258,6 +258,8 @@ func (s *server) routes(rt *router) {
 		RequireSession(http.HandlerFunc(s.handleListTokens)))
 	rt.handle(http.MethodPost, "/tokens",
 		RequireSession(http.HandlerFunc(s.handleCreateToken)))
+	rt.handle(http.MethodPatch, "/tokens/{id}",
+		RequireSession(http.HandlerFunc(s.handleUpdateToken)))
 	rt.handle(http.MethodDelete, "/tokens/{id}",
 		RequireSession(http.HandlerFunc(s.handleRevokeToken)))
 

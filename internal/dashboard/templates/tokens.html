@@ -96,6 +96,16 @@
                 {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}
                 <span>{{.Name}}<span class="mono muted block">{{.Prefix}}…</span></span>
               </span>
+              <details class="picture">
+                <summary class="picture__toggle">Picture</summary>
+                <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture__form"
+                      hx-disabled-elt="find button[type=submit]">
+                  <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                  <input class="input" type="url" name="image_url" value="{{text .ImageURL}}"
+                         placeholder="https://example.com/logo.png" maxlength="2048" aria-label="Picture URL">
+                  <button class="btn btn--sm" type="submit">Save</button>
+                </form>
+              </details>
             </td>
             <td>
               {{if .Active $now}}<span class="tag tag--state tag--active">Active</span>
