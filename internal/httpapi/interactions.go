@@ -341,6 +341,10 @@ func (s *server) handleCreateInteraction(w http.ResponseWriter, r *http.Request)
 		ExpiresInSeconds: v.intRange("expires_in_seconds", body.ExpiresInSeconds, minInteractionTTL, maxInteractionTTL, defaultInteractionTTL),
 	}
 	s.validatePresentation(&v, &payload, body)
+	principal := auth.PrincipalFrom(r.Context())
+	if payload.ImageURL == nil && payload.Presentation == db.PresentationNotification && principal.APIToken != nil {
+		payload.ImageURL = principal.APIToken.ImageURL
+	}
 	if !v.done(w, r) {
 		return
 	}
@@ -355,7 +359,7 @@ func (s *server) handleCreateInteraction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	req := tokenRequester(auth.PrincipalFrom(r.Context()))
+	req := tokenRequester(principal)
 	if key != nil && s.replayInteraction(w, r, *req.TokenID, *key, hash) {
 		return
 	}

@@ -106,6 +106,10 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 	if body.Title != nil {
 		payload.Title = v.text("title", *body.Title, 1, maxTitleLen)
 	}
+	principal := auth.PrincipalFrom(r.Context())
+	if payload.ImageURL == nil && principal.APIToken != nil {
+		payload.ImageURL = principal.APIToken.ImageURL
+	}
 	if !v.done(w, r) {
 		return
 	}
@@ -120,7 +124,6 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	principal := auth.PrincipalFrom(r.Context())
 	req := tokenRequester(principal)
 
 	if key != nil && s.replayNotification(w, r, *req.TokenID, *key, hash) {

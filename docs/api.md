@@ -1185,7 +1185,7 @@ create webhook credentials.
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `title` | string | yes | 1–80 characters. The default sender name. |
-| `image_url` | string \| null | no | Public HTTPS URL, ≤2048 characters. |
+| `image_url` | string \| null | no | Public HTTPS URL, ≤2048 characters. Defaults to the sending token's picture, when it has one. |
 | `url` | string \| null | no | Tap destination: any scheme except `about:`, `blob:`, `data:`, `file:` and `javascript:`. |
 | `priority` | enum | no | `normal` (default) or `time_sensitive`. Critical is available only through a [critical service](#critical-services) webhook. |
 
@@ -1596,7 +1596,7 @@ the sender can read. Supports [`Idempotency-Key`](#idempotency).
 | `style` | enum | no | Lock Screen layout: `approval` (default), `shell`, `verdict`, `signal`. Requires `presentation: live_activity`. |
 | `primary_label` | string | no | 1–24 characters, single line. Requires `presentation: live_activity`. |
 | `secondary_label` | string | no | Same. |
-| `image_url` | string | no | Public HTTPS URL. Not available on a Lock Screen card. |
+| `image_url` | string | no | Public HTTPS URL. Defaults to the sending token's picture, when it has one. Not available on a Lock Screen card. |
 | `url` | string | no | Tap destination. Not available on a Lock Screen card. |
 | `priority` | enum | no | `normal` (default) or `time_sensitive`. Critical is available only through a [critical service](#critical-services) webhook. |
 | `device_ids` | array of id | no | 1–50 entries. |

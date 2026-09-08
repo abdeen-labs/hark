@@ -34,7 +34,7 @@ const maxWaitSeconds = 25
 type sendNotificationArgs struct {
 	Body           string   `json:"body" jsonschema:"The notification text, 1-2000 characters."`
 	Title          string   `json:"title,omitempty" jsonschema:"Shown as the sender, 1-80 characters. Defaults to Hark."`
-	ImageURL       string   `json:"image_url,omitempty" jsonschema:"Public HTTPS URL of an image to show."`
+	ImageURL       string   `json:"image_url,omitempty" jsonschema:"Public HTTPS URL of an image to show. Defaults to the picture set for this connection."`
 	URL            string   `json:"url,omitempty" jsonschema:"Where a tap on the notification goes."`
 	Priority       string   `json:"priority,omitempty" jsonschema:"normal (default) or time_sensitive."`
 	DeviceIDs      []string `json:"device_ids,omitempty" jsonschema:"Device ids to send to, 1-50. Absent means every reachable device."`
@@ -49,7 +49,7 @@ type askQuestionArgs struct {
 	Style            string   `json:"style,omitempty" jsonschema:"Lock Screen layout: approval (default), shell, verdict or signal. Requires presentation live_activity."`
 	PrimaryLabel     string   `json:"primary_label,omitempty" jsonschema:"Label of the first button, 1-24 characters. Requires presentation live_activity."`
 	SecondaryLabel   string   `json:"secondary_label,omitempty" jsonschema:"Label of the second button, 1-24 characters. Requires presentation live_activity."`
-	ImageURL         string   `json:"image_url,omitempty" jsonschema:"Public HTTPS URL of an image to show. Not available on a Lock Screen card."`
+	ImageURL         string   `json:"image_url,omitempty" jsonschema:"Public HTTPS URL of an image to show. Defaults to the picture set for this connection. Not available on a Lock Screen card."`
 	URL              string   `json:"url,omitempty" jsonschema:"Where a tap on the notification goes. Not available on a Lock Screen card."`
 	Priority         string   `json:"priority,omitempty" jsonschema:"normal (default) or time_sensitive."`
 	DeviceIDs        []string `json:"device_ids,omitempty" jsonschema:"Device ids to ask, 1-50. Absent means every reachable device."`
