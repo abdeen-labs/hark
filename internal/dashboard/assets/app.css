@@ -888,6 +888,8 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .identity > .avatar { flex: 0 0 20px; margin-top: 1px; }
 .picture {
   width: min(30rem, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   margin: auto;
   padding: 22px 24px;
   border: 1px solid var(--line);
@@ -899,7 +901,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   font-weight: 400;
 }
 .picture::backdrop { background: rgb(0 0 0 / 0.45); }
-.picture__title { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
+.picture__title { margin: 0 0 16px; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .picture__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 /* Tags ----------------------------------------------------------------------

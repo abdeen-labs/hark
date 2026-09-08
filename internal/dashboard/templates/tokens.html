@@ -109,20 +109,6 @@
             <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
             <td class="cell--right cell--actions">
               <button class="btn btn--sm" type="button" popovertarget="picture-{{.ID}}">Picture</button>
-              <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture" id="picture-{{.ID}}" popover
-                    hx-disabled-elt="find button[type=submit]">
-                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-                <p class="picture__title">{{.Name}}</p>
-                <label class="field">
-                  <span class="field__label">Picture URL <span class="muted">empty removes it</span></span>
-                  <input class="input" type="url" name="image_url" value="{{text .ImageURL}}"
-                         placeholder="https://example.com/logo.png" maxlength="2048">
-                </label>
-                <div class="picture__actions">
-                  <button class="btn btn--sm" type="button" popovertarget="picture-{{.ID}}" popovertargetaction="hide">Cancel</button>
-                  <button class="btn btn--primary btn--sm" type="submit">Save</button>
-                </div>
-              </form>
               {{if .Active $now}}
               <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/revoke"
                     data-confirm="Revoke this token? Anything using it stops working immediately."
@@ -137,6 +123,25 @@
         </tbody>
       </table>
     </div>
+    {{/* Keep popovers outside the table so action-cell display and spacing
+         rules cannot override their hidden state or centered position. */}}
+    {{range .Tokens}}
+      <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture" id="picture-{{.ID}}" popover
+            role="dialog" aria-labelledby="picture-title-{{.ID}}"
+            hx-disabled-elt="find button[type=submit]">
+        <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+        <h2 class="picture__title" id="picture-title-{{.ID}}">{{.Name}}</h2>
+        <label class="field">
+          <span class="field__label">Picture URL <span class="muted">empty removes it</span></span>
+          <input class="input" type="url" name="image_url" value="{{text .ImageURL}}"
+                 placeholder="https://example.com/logo.png" maxlength="2048" autofocus>
+        </label>
+        <div class="picture__actions">
+          <button class="btn btn--sm" type="button" popovertarget="picture-{{.ID}}" popovertargetaction="hide">Cancel</button>
+          <button class="btn btn--primary btn--sm" type="submit">Save</button>
+        </div>
+      </form>
+    {{end}}
     {{else}}
     <p class="empty">No tokens yet.</p>
     {{end}}
