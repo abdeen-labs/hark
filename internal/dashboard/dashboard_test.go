@@ -665,7 +665,7 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 				Scopes: []string{db.ScopeNotificationsNew}, State: "<script>alert(1)</script>",
 				CodeChallenge: strings.Repeat("a", 43),
 			},
-			ClientHost: "client.example", RedirectHost: "127.0.0.1:43123",
+			RedirectHost: "127.0.0.1:43123",
 		}},
 		"consent/registered": {tmplConsent, consentPage{
 			view:    frame,

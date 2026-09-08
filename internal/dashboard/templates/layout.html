@@ -35,9 +35,10 @@
 <body hx-boost="true" hx-indicator="body">
 
 {{if .SignedIn}}
-<header class="mast">
+<header class="mast{{if eq .Section "consent"}} mast--consent{{end}}">
   <div class="mast__inner">
     <a class="brand" href="{{.Paths.Home}}"><span class="brand__mark" aria-hidden="true"></span>Hark<span class="brand__sub meta">Push relay</span></a>
+    {{if ne .Section "consent"}}
     <nav class="nav" aria-label="Sections">
       <a href="{{.Paths.Home}}"{{if eq .Section "overview"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">01</span>Overview</a>
       <a href="{{.Paths.History}}"{{if eq .Section "history"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">02</span>History</a>
@@ -48,24 +49,25 @@
       <a href="{{.Paths.Test}}"{{if eq .Section "test"}} aria-current="page"{{end}}><span class="nav__index" aria-hidden="true">06</span>Send a test</a>
       <a href="{{.Paths.Docs}}" hx-boost="false"><span class="nav__index" aria-hidden="true">07</span>API</a>
     </nav>
+    {{end}}
     <form class="mast__out" method="post" action="{{.Paths.Logout}}" hx-disabled-elt="find button[type=submit]">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-      {{if .IsAdmin}}<a class="btn btn--ghost btn--sm" href="{{.Paths.Accounts}}"{{if eq .Section "accounts"}} aria-current="page"{{end}}>Accounts</a>{{end}}
+      {{if and .IsAdmin (ne .Section "consent")}}<a class="btn btn--ghost btn--sm" href="{{.Paths.Accounts}}"{{if eq .Section "accounts"}} aria-current="page"{{end}}>Accounts</a>{{end}}
       <button class="btn btn--ghost btn--sm theme-toggle" type="button" data-theme-toggle aria-label="Change theme"></button>
       <span class="mast__user meta">{{.Username}}</span>
       <button class="btn btn--ghost btn--sm" type="submit">Sign out</button>
     </form>
   </div>
 </header>
-<div class="ruler" aria-hidden="true"></div>
+{{if ne .Section "consent"}}<div class="ruler" aria-hidden="true"></div>{{end}}
 {{end}}
 
-<main class="shell{{if not .SignedIn}} shell--bare{{end}}">
+<main class="shell{{if not .SignedIn}} shell--bare{{end}}{{if eq .Section "consent"}} shell--consent{{end}}">
   {{with .Notice}}<p class="notice notice--{{.Kind}}" data-notice="{{.Kind}}" role="status">{{.Message}}</p>{{end}}
   {{template "content" .}}
 </main>
 
-<footer class="foot meta">
+<footer class="foot meta{{if eq .Section "consent"}} foot--consent{{end}}">
   <span>Hark</span>
   {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
 </footer>

@@ -1,77 +1,58 @@
 {{define "content"}}
-<header class="page-head">
-  <p class="page-head__eyebrow meta">
-    <span><span class="idx">MCP</span> Client authorization</span>
-  </p>
-  <h1 class="page-head__title display">Authorize a client</h1>
-  <p class="page-head__lede lede">Review the requested access before this client is issued a token.</p>
-</header>
+<section class="consent" aria-labelledby="consent-title">
+  <header class="consent__heading">
+    <p class="consent__eyebrow meta"><span class="brand__mark" aria-hidden="true"></span>App connection</p>
+    <h1 id="consent-title">{{with .Consent}}Connect {{.Client.Name}}{{else}}Unable to connect{{end}}</h1>
+    <p class="consent__intro">{{if .Consent}}Review the access this app is requesting to your Hark account.{{else}}Return to the app and start a new connection request.{{end}}</p>
+  </header>
 
-{{with .Consent}}
-<section class="grant grid" aria-label="Request" data-consent>
-  <div class="span-7">
-    <p class="meta">Client</p>
-    <p class="grant__client">
-      <span class="h-ui">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}</a>{{else}}{{.Client.Name}}{{end}}</span>
-    </p>
-    {{if .Client.MetadataDocument}}
-    <p class="grant__warning">Identified by a client metadata document published at <code>{{$.ClientHost}}</code>.</p>
-    {{end}}
-    {{if .Loopback}}
-    <p class="grant__warning">After your decision the browser returns to <code>{{$.RedirectHost}}</code>, a client running on this computer.</p>
-    {{else}}
-    <p class="grant__warning">After your decision the browser returns to <code>{{$.RedirectHost}}</code>.</p>
-    {{end}}
-  </div>
-
-  <div class="module span-5">
-    <div class="module__head">
-      <h2 class="module__label"><span class="module__index">01</span>Request</h2>
+  {{with .Consent}}
+  <div class="consent__panel" data-consent>
+    <div class="consent__client">
+      <div>
+        <p class="meta">Application</p>
+        <p class="consent__client-name">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>{{else}}{{.Client.Name}}{{end}}</p>
+      </div>
+      <div class="consent__destination">
+        <p class="meta">{{if .Loopback}}Returns to this computer{{else}}Returns to{{end}}</p>
+        <p>{{$.RedirectHost}}</p>
+      </div>
     </div>
-    <div class="scroll">
-      <table class="table">
-        <tbody>
-          <tr>
-            <th>Scopes</th>
-            <td class="cell--wrap">
-              {{range .Scopes}}
-              <div class="scope-definition">
-                <code>{{.}}</code>
-                <span>{{scopeDescription .}}</span>
-              </div>
-              {{else}}<span class="muted">No access requested.</span>{{end}}
-            </td>
-          </tr>
-          <tr>
-            <th>Token lifetime</th>
-            <td>Until you revoke it on the <a href="{{$.Paths.Tokens}}">Tokens</a> page.</td>
-          </tr>
-        </tbody>
-      </table>
+
+    <div class="consent__access">
+      <div class="consent__section-head">
+        <h2>Requested permissions</h2>
+        <span class="consent__count mono" aria-label="{{len .Scopes}} permissions">{{len .Scopes}}</span>
+      </div>
+      <ul class="consent__permissions">
+        {{range .Scopes}}
+        <li data-scope="{{.}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg><span>{{scopeDescription .}}</span></li>
+        {{else}}<li>No access requested.</li>{{end}}
+      </ul>
+    </div>
+
+    <div class="consent__decision">
+      <div class="consent__revoke">
+        <p class="consent__lifetime">You can revoke access anytime from <a href="{{$.Paths.Tokens}}">Tokens</a>.</p>
+        <p class="consent__note">Access stays active until revoked. Only approve requests you started.</p>
+      </div>
+      <form method="post" action="{{$.Paths.OAuthAuthorize}}" class="consent__actions" data-consent-decision hx-boost="false">
+        <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+        <input type="hidden" name="response_type" value="{{$.Request.ResponseType}}">
+        <input type="hidden" name="client_id" value="{{$.Request.ClientID}}">
+        <input type="hidden" name="redirect_uri" value="{{$.Request.RedirectURI}}">
+        <input type="hidden" name="scope" value="{{$.Request.Scope}}">
+        <input type="hidden" name="state" value="{{$.Request.State}}">
+        <input type="hidden" name="code_challenge" value="{{$.Request.CodeChallenge}}">
+        <input type="hidden" name="code_challenge_method" value="{{$.Request.CodeChallengeMethod}}">
+        <input type="hidden" name="resource" value="{{$.Request.Resource}}">
+        <button class="btn" type="submit" name="decision" value="deny">Deny</button>
+        <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve access <span class="arrow" aria-hidden="true">→</span></button>
+      </form>
     </div>
   </div>
-
-  <div class="span-12">
-    <p class="grant__warning">Only approve requests you started. Approving issues an API token this client holds until you revoke it on the Tokens page.</p>
-    {{/* OAuth redirects require browser navigation. */}}
-    <form method="post" action="{{$.Paths.OAuthAuthorize}}" class="row row--actions" data-consent-decision hx-boost="false">
-      <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-      <input type="hidden" name="response_type" value="{{$.Request.ResponseType}}">
-      <input type="hidden" name="client_id" value="{{$.Request.ClientID}}">
-      <input type="hidden" name="redirect_uri" value="{{$.Request.RedirectURI}}">
-      <input type="hidden" name="scope" value="{{$.Request.Scope}}">
-      <input type="hidden" name="state" value="{{$.Request.State}}">
-      <input type="hidden" name="code_challenge" value="{{$.Request.CodeChallenge}}">
-      <input type="hidden" name="code_challenge_method" value="{{$.Request.CodeChallengeMethod}}">
-      <input type="hidden" name="resource" value="{{$.Request.Resource}}">
-      <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve <span class="arrow">→</span></button>
-      <button class="btn btn--danger" type="submit" name="decision" value="deny">Deny</button>
-    </form>
-  </div>
+  {{else}}
+  <a class="btn" href="{{.Paths.Home}}">Back to Hark <span class="arrow" aria-hidden="true">→</span></a>
+  {{end}}
 </section>
-{{else}}
-<section class="grant" aria-label="Request">
-  <p class="empty empty--bare">This request cannot be answered. Return to the client and start again.</p>
-</section>
-{{end}}
 {{end}}

@@ -1392,6 +1392,62 @@ select.input {
 .grant__client .h-ui { display: block; margin-top: 8px; overflow-wrap: anywhere; }
 .grant__warning { margin: 0 0 16px; color: var(--ink-subtle); font-size: 13px; text-wrap: pretty; max-width: 60ch; }
 
+/* OAuth consent */
+
+.mast--consent .mast__inner {
+  max-width: 896px;
+  grid-template-columns: 1fr auto;
+}
+.mast--consent .brand { border-right: 0; }
+.mast--consent .mast__out { border-left: 0; }
+.shell.shell--consent { max-width: 896px; padding-top: 36px; padding-bottom: 36px; }
+.foot.foot--consent { max-width: 896px; border-top: 0; }
+.consent__heading { margin-bottom: 24px; }
+.consent__eyebrow { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.consent__eyebrow .brand__mark { width: 6px; height: 6px; }
+.consent h1 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; letter-spacing: -0.04em; text-wrap: balance; overflow-wrap: anywhere; }
+.consent__intro { margin: 10px 0 0; color: var(--ink-subtle); text-wrap: pretty; }
+.consent__panel { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.consent__client { display: flex; justify-content: space-between; gap: 24px; padding: 22px 28px; border-bottom: 1px solid var(--line); background: var(--field); }
+.consent__client > div { min-width: 0; }
+.consent__client .meta { margin: 0 0 8px; }
+.consent__client-name { margin: 0; color: var(--ink); font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.consent__client-name a { display: inline-flex; align-items: center; gap: 6px; color: inherit; text-decoration-color: var(--line-control); }
+.consent__client-name svg { flex: 0 0 16px; width: 16px; height: 16px; color: var(--ink-faint); }
+.consent__destination { text-align: right; }
+.consent__destination > p:last-child { margin: 0; color: var(--ink-subtle); font-size: 13px; overflow-wrap: anywhere; }
+.consent__access { padding: 22px 28px 10px; }
+.consent__section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.consent__section-head h2 { font-size: 14px; letter-spacing: 0; }
+.consent__count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--ink-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.consent__permissions { list-style: none; padding: 0; margin: 0; }
+.consent__permissions li { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-faint); font-size: 13px; line-height: 1.5; }
+.consent__permissions li:first-child { border-top: 0; }
+.consent__permissions svg { flex: 0 0 16px; width: 16px; height: 16px; margin-top: 2px; color: var(--ink-faint); }
+.consent__permissions span { min-width: 0; text-wrap: pretty; }
+.consent__decision { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 28px; border-top: 1px solid var(--line); }
+.consent__lifetime { margin: 0; font-size: 13px; }
+.consent__revoke { max-width: 40ch; }
+.consent__note { margin: 4px 0 0; color: var(--ink-faint); font-size: 12px; text-wrap: pretty; }
+.consent__actions { display: flex; flex-shrink: 0; justify-content: flex-end; gap: 10px; margin: 0; }
+.consent__actions .btn { min-height: 44px; padding: 0 20px; }
+.consent__actions .btn:not(.btn--primary) { border-color: var(--line-control); }
+
+@media (max-width: 640px) {
+  .mast--consent .mast__inner { display: flex; justify-content: space-between; }
+  .mast--consent .brand__sub, .mast--consent .mast__user { display: none; }
+  .mast--consent .mast__out { padding-left: 0; gap: 4px; }
+  .mast--consent .mast__out .btn { min-height: 44px; }
+  .shell.shell--consent { padding-top: 28px; padding-bottom: 24px; }
+  .consent__heading { margin-bottom: 20px; }
+  .consent__client { padding: 18px 20px; gap: 16px; flex-wrap: wrap; }
+  .consent__destination { text-align: left; }
+  .consent__access { padding: 20px 20px 8px; }
+  .consent__decision { display: block; padding: 18px 20px 20px; }
+  .consent__actions { margin-top: 20px; }
+  .consent__actions .btn { flex: 1; padding: 0 12px; }
+}
+
 /* Page: gate (sign-in, errors) ------------------------------------------------------ */
 
 .gate {

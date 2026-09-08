@@ -15,10 +15,8 @@ const maxOAuthNextLength = 32 << 10
 
 type consentPage struct {
 	view
-	Request auth.OAuthAuthorizationRequest
-	Consent *auth.OAuthConsent
-	// ClientHost identifies the metadata document publisher.
-	ClientHost   string
+	Request      auth.OAuthAuthorizationRequest
+	Consent      *auth.OAuthConsent
 	RedirectHost string
 }
 
@@ -97,7 +95,7 @@ func (d *Dashboard) renderConsent(
 	req auth.OAuthAuthorizationRequest, consent *auth.OAuthConsent, n *notice,
 ) {
 	page := consentPage{
-		view:    d.newView(r, p, "Authorize a client", ""),
+		view:    d.newView(r, p, "Connect an app", "consent"),
 		Request: req,
 		Consent: consent,
 	}
@@ -105,9 +103,6 @@ func (d *Dashboard) renderConsent(
 		page.Notice = n
 	}
 	if consent != nil {
-		if consent.Client.MetadataDocument {
-			page.ClientHost = hostOf(consent.Client.ID)
-		}
 		page.RedirectHost = hostOf(consent.RedirectURI)
 		if source, ok := formActionSource(consent.RedirectURI); ok {
 			w.Header().Set("Content-Security-Policy", policyAllowingFormTo(source))
