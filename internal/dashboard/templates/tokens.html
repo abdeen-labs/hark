@@ -96,16 +96,6 @@
                 {{with text .ImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}
                 <span>{{.Name}}<span class="mono muted block">{{.Prefix}}…</span></span>
               </span>
-              <details class="picture">
-                <summary class="picture__toggle">Picture</summary>
-                <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture__form"
-                      hx-disabled-elt="find button[type=submit]">
-                  <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-                  <input class="input" type="url" name="image_url" value="{{text .ImageURL}}"
-                         placeholder="https://example.com/logo.png" maxlength="2048" aria-label="Picture URL">
-                  <button class="btn btn--sm" type="submit">Save</button>
-                </form>
-              </details>
             </td>
             <td>
               {{if .Active $now}}<span class="tag tag--state tag--active">Active</span>
@@ -118,6 +108,21 @@
             <td><time datetime="{{iso .LastUsedAt}}" title="{{when .LastUsedAt}}">{{ago .LastUsedAt}}</time></td>
             <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
             <td class="cell--right cell--actions">
+              <button class="btn btn--sm" type="button" popovertarget="picture-{{.ID}}">Picture</button>
+              <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture" id="picture-{{.ID}}" popover
+                    hx-disabled-elt="find button[type=submit]">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <p class="picture__title">{{.Name}}</p>
+                <label class="field">
+                  <span class="field__label">Picture URL <span class="muted">empty removes it</span></span>
+                  <input class="input" type="url" name="image_url" value="{{text .ImageURL}}"
+                         placeholder="https://example.com/logo.png" maxlength="2048">
+                </label>
+                <div class="picture__actions">
+                  <button class="btn btn--sm" type="button" popovertarget="picture-{{.ID}}" popovertargetaction="hide">Cancel</button>
+                  <button class="btn btn--primary btn--sm" type="submit">Save</button>
+                </div>
+              </form>
               {{if .Active $now}}
               <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/revoke"
                     data-confirm="Revoke this token? Anything using it stops working immediately."
