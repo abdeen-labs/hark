@@ -554,12 +554,13 @@ func (m *oauthMetadata) remember(clientID string, client OAuthClient, now time.T
 // oauthMetadataDocument is the subset of a client metadata document Hark
 // reads. Everything else in the document is ignored.
 type oauthMetadataDocument struct {
-	ClientID                string   `json:"client_id"`
-	ClientName              string   `json:"client_name"`
-	RedirectURIs            []string `json:"redirect_uris"`
-	ClientURI               string   `json:"client_uri"`
-	LogoURI                 string   `json:"logo_uri"`
-	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
+	ClientID                          string   `json:"client_id"`
+	ClientName                        string   `json:"client_name"`
+	RedirectURIs                      []string `json:"redirect_uris"`
+	ClientURI                         string   `json:"client_uri"`
+	LogoURI                           string   `json:"logo_uri"`
+	TokenEndpointAuthMethod           string   `json:"token_endpoint_auth_method"`
+	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported"`
 }
 
 // oauthClientFromDocument fetches bounded metadata from public addresses without redirects.
@@ -599,7 +600,15 @@ func (s *Service) oauthClientFromDocument(ctx context.Context, clientID string, 
 	if err := json.Unmarshal(body, &doc); err != nil || doc.ClientID != clientID {
 		return nil, ErrNotFound
 	}
-	if doc.TokenEndpointAuthMethod != "" && doc.TokenEndpointAuthMethod != "none" {
+	if doc.TokenEndpointAuthMethodsSupported != nil {
+		// The supported-methods list takes precedence over the legacy
+		// preference. Hark's token endpoint supports only public PKCE clients,
+		// so "none" must be in the intersection (including for ChatGPT, whose
+		// legacy preference is private_key_jwt).
+		if !slices.Contains(doc.TokenEndpointAuthMethodsSupported, "none") {
+			return nil, ErrNotFound
+		}
+	} else if doc.TokenEndpointAuthMethod != "" && doc.TokenEndpointAuthMethod != "none" {
 		return nil, ErrNotFound
 	}
 	var uris []string

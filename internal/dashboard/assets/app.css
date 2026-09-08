@@ -1422,6 +1422,7 @@ select.input {
 .mast--consent .brand { border-right: 0; }
 .mast--consent .mast__out { border-left: 0; }
 .shell.shell--consent { max-width: 896px; padding-top: 36px; padding-bottom: 36px; }
+.shell--consent > .notice { margin: 0 0 24px; overflow-wrap: anywhere; }
 .foot.foot--consent { max-width: 896px; border-top: 0; }
 .consent__heading { margin-bottom: 24px; }
 .consent__eyebrow { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }

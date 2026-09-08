@@ -358,6 +358,80 @@ func TestClientMetadataDocumentIsValidated(t *testing.T) {
 	}
 }
 
+// ChatGPT publishes both the supported methods and a legacy JWT preference.
+// Hark advertises only "none", so the intersection is the public PKCE flow.
+const chatGPTClientID = "https://chatgpt.com/oauth/client.json"
+const chatGPTRedirectURI = "https://chatgpt.com/connector_platform_oauth_redirect"
+const chatGPTDocument = `{
+	"client_id": "` + chatGPTClientID + `",
+	"client_name": "ChatGPT",
+	"redirect_uris": ["` + chatGPTRedirectURI + `"],
+	"token_endpoint_auth_method": "private_key_jwt",
+	"token_endpoint_auth_methods_supported": ["none", "private_key_jwt"],
+	"grant_types": ["authorization_code", "refresh_token"],
+	"response_types": ["code"],
+	"jwks_uri": "https://chatgpt.com/oauth/jwks.json"
+}`
+
+func TestChatGPTMetadataAllowsPublicPKCEConsent(t *testing.T) {
+	s, _, _ := newDocumentService(t, map[string]*http.Response{
+		chatGPTClientID: document(http.StatusOK, chatGPTDocument, nil),
+	})
+	req := validRequest()
+	req.ClientID = chatGPTClientID
+	req.RedirectURI = chatGPTRedirectURI
+	consent, err := s.OAuthConsent(context.Background(), req, testResource)
+	if err != nil {
+		t.Fatalf("ChatGPT consent: %v", err)
+	}
+	if consent.Client.Name != "ChatGPT" || !consent.Client.MetadataDocument {
+		t.Fatalf("client = %+v, want ChatGPT metadata client", consent.Client)
+	}
+
+	req.RedirectURI = "https://attacker.example/callback"
+	var clientErr *OAuthClientError
+	if _, err := s.OAuthConsent(context.Background(), req, testResource); !errors.As(err, &clientErr) {
+		t.Fatalf("unpublished redirect: %v, want client error", err)
+	}
+	req.RedirectURI = chatGPTRedirectURI
+	req.CodeChallenge = ""
+	var redirectErr *OAuthRedirectError
+	if _, err := s.OAuthConsent(context.Background(), req, testResource); !errors.As(err, &redirectErr) || redirectErr.Code != OAuthErrInvalidRequest {
+		t.Fatalf("missing PKCE: %v, want invalid_request", err)
+	}
+}
+
+func TestClientMetadataAuthenticationMethods(t *testing.T) {
+	for name, tc := range map[string]struct {
+		fields string
+		accept bool
+	}{
+		"legacy default":                           {``, true},
+		"legacy public":                            {`,"token_endpoint_auth_method":"none"`, true},
+		"legacy confidential":                      {`,"token_endpoint_auth_method":"private_key_jwt"`, false},
+		"public supported":                         {`,"token_endpoint_auth_methods_supported":["none"]`, true},
+		"JWT preference with public support":       {`,"token_endpoint_auth_method":"private_key_jwt","token_endpoint_auth_methods_supported":["none","private_key_jwt"]`, true},
+		"public preference without public support": {`,"token_endpoint_auth_method":"none","token_endpoint_auth_methods_supported":["private_key_jwt"]`, false},
+		"no supported methods":                     {`,"token_endpoint_auth_methods_supported":[]`, false},
+		"no common method":                         {`,"token_endpoint_auth_methods_supported":["private_key_jwt"]`, false},
+		"wrong field type":                         {`,"token_endpoint_auth_methods_supported":"none"`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := `{"client_id":"` + testClientID + `","redirect_uris":["` + testRedirectURI + `"]` + tc.fields + `}`
+			s, _, _ := newDocumentService(t, map[string]*http.Response{
+				testClientID: document(http.StatusOK, body, nil),
+			})
+			_, err := s.OAuthClientByID(context.Background(), testClientID)
+			if tc.accept && err != nil {
+				t.Fatalf("client rejected: %v", err)
+			}
+			if !tc.accept && !errors.Is(err, ErrNotFound) {
+				t.Fatalf("client lookup = %v, want ErrNotFound", err)
+			}
+		})
+	}
+}
+
 func TestClientMetadataDocumentHostMustBePublic(t *testing.T) {
 	for _, clientID := range []string{
 		"https://127.0.0.1/oauth/client.json",

@@ -2731,8 +2731,12 @@ public address only, over TLS, following no redirects, at most 64 KiB, within
 five seconds — and requires a JSON document whose `client_id` is exactly that
 URL and which lists `redirect_uris`. `client_name`, `client_uri` and `logo_uri`
 are used as a registration's would be, except that a `logo_uri` a registration
-would be refused for is ignored; `token_endpoint_auth_method`, if present,
-must be `none`. Documents are cached for ten minutes. The authorization server
+would be refused for is ignored. When `token_endpoint_auth_methods_supported`
+is provided, it must include `none`, the method Hark supports. This list takes
+precedence over the legacy `token_endpoint_auth_method` preference, allowing
+clients such as ChatGPT to prefer `private_key_jwt` while also supporting
+public PKCE. Without the list, `token_endpoint_auth_method`, if present, must
+be `none`. Documents are cached for ten minutes. The authorization server
 advertises this support as `client_id_metadata_document_supported`.
 
 Either way, a client is a **public client**: it authenticates with nothing but
