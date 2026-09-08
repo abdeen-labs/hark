@@ -457,3 +457,62 @@ func TestTheCorrelationIdReachesTheAPI(t *testing.T) {
 		t.Errorf("%s = %q, want the id the middleware assigned", requestIDHeader, got)
 	}
 }
+
+func TestMCPRejectsInvalidOriginsBeforeAuthentication(t *testing.T) {
+	for _, origin := range []string{
+		"https://attacker.example", "http://hark.example.com", "null", "",
+		"https://hark.example.com/", "https://hark.example.com.attacker.example",
+		"https://hark.example.com https://attacker.example",
+	} {
+		t.Run(origin, func(t *testing.T) {
+			resolver := &fakeResolver{secret: testToken}
+			s := New(Options{API: newFakeAPI(), Resolver: resolver, PublicURL: testPublicURL()})
+			for _, method := range []string{http.MethodPost, http.MethodGet} {
+				req := httptest.NewRequest(method, "http://127.0.0.1/mcp", strings.NewReader(pingMessage))
+				req.Header.Set("Origin", origin)
+				req.Header.Set("Authorization", "Bearer "+testToken)
+				rec := httptest.NewRecorder()
+				s.Handler().ServeHTTP(rec, req)
+				if rec.Code != http.StatusForbidden || errorCode(t, rec.Body.String()) != codeOriginNotAllowed {
+					t.Errorf("%s: status = %d, body = %s", method, rec.Code, rec.Body)
+				}
+			}
+			if len(resolver.seen) != 0 {
+				t.Error("invalid origin reached the token resolver")
+			}
+		})
+	}
+}
+
+func TestMCPAcceptsPublicOriginBehindAReverseProxy(t *testing.T) {
+	resolver := &fakeResolver{secret: testToken}
+	s := New(Options{API: newFakeAPI(), Resolver: resolver, PublicURL: testPublicURL()})
+	for _, origin := range []string{"", "https://hark.example.com"} {
+		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8080/mcp", strings.NewReader(pingMessage))
+		req.Host = "hark.example.com"
+		req.Header.Set("Authorization", "Bearer "+testToken)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("Origin %q: status = %d, body = %s", origin, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestMCPRejectsMultipleOrigins(t *testing.T) {
+	resolver := &fakeResolver{secret: testToken}
+	s := New(Options{API: newFakeAPI(), Resolver: resolver, PublicURL: testPublicURL()})
+	req := httptest.NewRequest(http.MethodPost, Path, nil)
+	req.Header.Add("Origin", "https://hark.example.com")
+	req.Header.Add("Origin", "https://attacker.example")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", rec.Code)
+	}
+}

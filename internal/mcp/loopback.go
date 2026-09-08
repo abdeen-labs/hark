@@ -54,11 +54,7 @@ func (r *recorder) Write(b []byte) (int, error) {
 	return r.body.Write(b)
 }
 
-// call serves one request against the API with the caller's own credential.
-//
-// The Authorization header is copied from the MCP request rather than
-// re-derived, so the API's middleware judges the token exactly as it would
-// over HTTP: scopes, revocation and attribution are all its call.
+// call forwards a request through the API with the incoming bearer token.
 func (s *Server) call(ctx context.Context, incoming http.Header, c apiCall) (*apiResponse, error) {
 	target := s.origin + c.path
 	if len(c.query) > 0 {
@@ -72,8 +68,7 @@ func (s *Server) call(ctx context.Context, incoming http.Header, c apiCall) (*ap
 	if err != nil {
 		return nil, err
 	}
-	// A handler is served a request the way net/http would deliver it, and
-	// that includes a Body that is never nil.
+	// Incoming net/http requests always have a non-nil Body.
 	if c.body == nil {
 		req.Body = http.NoBody
 	}
@@ -95,10 +90,8 @@ func (s *Server) call(ctx context.Context, incoming http.Header, c apiCall) (*ap
 	return &apiResponse{status: rec.status, body: rec.body.Bytes()}, nil
 }
 
-// result renders an API response as the tool's result: the body as one text
-// block and, when the call succeeded, as structured content too. A refusal is
-// a tool error carrying the envelope, so the model reads what went wrong and
-// can correct itself; it is never a protocol error.
+// result returns the API response as text and successful JSON as structured
+// content. HTTP failures become tool errors.
 func result(resp *apiResponse) *sdk.CallToolResult {
 	res := &sdk.CallToolResult{
 		Content: []sdk.Content{&sdk.TextContent{Text: string(resp.body)}},
@@ -113,8 +106,7 @@ func result(resp *apiResponse) *sdk.CallToolResult {
 	return res
 }
 
-// document renders a value the adapter built itself, the way [result] renders
-// an endpoint's response.
+// document returns a JSON value as text and structured content.
 func document(v any) (*sdk.CallToolResult, any, error) {
 	body, err := json.Marshal(v)
 	if err != nil {
@@ -126,8 +118,7 @@ func document(v any) (*sdk.CallToolResult, any, error) {
 	}, nil, nil
 }
 
-// toolError is a refusal the adapter makes before reaching the API, in the
-// API's own envelope so the model sees one shape of error.
+// toolError returns a tool failure using the API error envelope.
 func toolError(code, message string) *sdk.CallToolResult {
 	return &sdk.CallToolResult{
 		IsError: true,
@@ -143,9 +134,7 @@ func headerOf(req *sdk.CallToolRequest) http.Header {
 	return req.Extra.Header
 }
 
-// bodyWithout returns the raw arguments as a JSON object with the adapter's
-// own keys removed. Working on the raw message keeps an explicit null — which
-// a PATCH distinguishes from an absent field — intact.
+// bodyWithout removes adapter arguments and preserves explicit null values.
 func bodyWithout(raw json.RawMessage, keys ...string) ([]byte, error) {
 	fields := map[string]json.RawMessage{}
 	if len(raw) > 0 {

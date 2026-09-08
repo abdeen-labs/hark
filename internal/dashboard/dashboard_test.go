@@ -30,8 +30,6 @@ type fakeAuth struct {
 	approved  []string
 	denied    []string
 
-	// OAuth consent: the configured answer, what the page asked about, and the
-	// approvals it recorded. A nil consent with no error is an unknown client.
 	consent         *auth.OAuthConsent
 	consentErr      error
 	consentRequests []auth.OAuthAuthorizationRequest

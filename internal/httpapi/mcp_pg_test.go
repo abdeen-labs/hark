@@ -65,9 +65,7 @@ func (f *fixture) toolCall(credential, tool string, args map[string]any) rpcResu
 	return out
 }
 
-// TestMCPToolCallsRunThroughTheAPI proves a tool is the endpoint it wraps: the
-// push goes out, the record is written, an idempotency key replays, and a
-// token without the scope is refused by the endpoint's own middleware.
+// TestMCPToolCallsRunThroughTheAPI covers delivery, idempotency, and scopes.
 func TestMCPToolCallsRunThroughTheAPI(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	device := f.registerDevice(strings.Repeat("c3", 32))
@@ -129,8 +127,7 @@ func TestMCPToolCallsRunThroughTheAPI(t *testing.T) {
 	}
 }
 
-// TestMCPAdmitsOnlyAPITokens pins the gate: no credential, a session, a junk
-// token and a revoked token are all 401 with the challenge that starts OAuth.
+// TestMCPAdmitsOnlyAPITokens checks rejected credentials and OAuth challenges.
 func TestMCPAdmitsOnlyAPITokens(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 

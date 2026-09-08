@@ -68,7 +68,7 @@ func (s *Service) CreateAPIToken(ctx context.Context, userID string, p CreateAPI
 	secret := NewAPIToken()
 	var token *db.APIToken
 	err = s.store.Tx(ctx, func(ctx context.Context, tx *db.Store) error {
-		active, err := tx.APITokens.CountActive(ctx, userID, now)
+		active, err := tx.APITokens.CountActiveForUpdate(ctx, userID, now)
 		if err != nil {
 			return fmt.Errorf("auth: count active API tokens: %w", err)
 		}

@@ -64,6 +64,13 @@ func TestToolsListPublishesTheFifteenTools(t *testing.T) {
 		if want := slices.Contains(readOnlyTools, tool.Name); tool.Annotations.ReadOnlyHint != want {
 			t.Errorf("%s: readOnlyHint = %v, want %v", tool.Name, tool.Annotations.ReadOnlyHint, want)
 		}
+		mutatesExisting := slices.Contains([]string{"start_live_activity", "update_live_activity", "end_live_activity", "cancel_question"}, tool.Name)
+		if !tool.Annotations.ReadOnlyHint && (tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint != mutatesExisting) {
+			t.Errorf("%s: destructiveHint must reflect changes to existing state", tool.Name)
+		}
+		if tool.Name == "end_live_activity" && tool.Annotations.IdempotentHint {
+			t.Error("end_live_activity can resolve a reused key to a new activity and is not unconditionally idempotent")
+		}
 		if tool.Annotations.OpenWorldHint == nil || *tool.Annotations.OpenWorldHint {
 			t.Errorf("%s: openWorldHint is not false", tool.Name)
 		}
@@ -263,10 +270,10 @@ func TestAskQuestionWaitsForTheAnswer(t *testing.T) {
 	const answered = `{"interaction":{"id":"q1","status":"approved","response":"approve"}}`
 	ask := map[string]any{
 		"title":           "Claude Code",
-		"prompt":          "Run the migration?",
+		"prompt":          "Deploy the release?",
 		"kind":            "approval",
 		"wait_seconds":    5,
-		"idempotency_key": "migrate-1",
+		"idempotency_key": "deploy-1",
 	}
 
 	t.Run("answered in time", func(t *testing.T) {
@@ -292,7 +299,7 @@ func TestAskQuestionWaitsForTheAnswer(t *testing.T) {
 				t.Errorf("%s reached the endpoint's body", key)
 			}
 		}
-		if calls[0].Header.Get("Idempotency-Key") != "migrate-1" {
+		if calls[0].Header.Get("Idempotency-Key") != "deploy-1" {
 			t.Errorf("Idempotency-Key = %q", calls[0].Header.Get("Idempotency-Key"))
 		}
 		read := calls[1]
@@ -344,11 +351,16 @@ func TestAskQuestionWaitsForTheAnswer(t *testing.T) {
 	t.Run("replayed", func(t *testing.T) {
 		h := newHarness(t)
 		h.api.answer(http.MethodPost, "/interactions", http.StatusOK, created)
+		h.api.answer(http.MethodGet, "/interactions/q1", http.StatusOK, answered)
 		session := h.connect(t, nil)
 
-		callTool(t, session, "ask_question", ask)
-		if calls := h.api.recorded(); len(calls) != 1 {
-			t.Errorf("API calls = %d, want no wait after a replay", len(calls))
+		res := callTool(t, session, "ask_question", ask)
+		if calls := h.api.recorded(); len(calls) != 2 {
+			t.Errorf("API calls = %d, want the replay and requested read", len(calls))
+		}
+		interaction, _ := asJSON(t, res.StructuredContent)["interaction"].(map[string]any)
+		if res.IsError || interaction["status"] != "approved" {
+			t.Errorf("replayed question = %s, want the current answer", textOf(t, res))
 		}
 	})
 

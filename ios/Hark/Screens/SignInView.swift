@@ -1,12 +1,3 @@
-//
-//  SignInView.swift
-//  Hark
-//
-//  The gate. Server, username, password — Hark serves exactly one account,
-//  and this screen is the whole front door. The name at display scale is the
-//  composition; the access panel sits under it.
-//
-
 import SwiftUI
 
 struct SignInView: View {

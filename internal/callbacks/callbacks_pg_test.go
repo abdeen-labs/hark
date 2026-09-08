@@ -48,9 +48,6 @@ func requireStore(t *testing.T) (context.Context, *db.Store) {
 
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
-		dsn = os.Getenv("HARK_TEST_DATABASE_URL")
-	}
-	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 
@@ -65,13 +62,13 @@ func requireStore(t *testing.T) (context.Context, *db.Store) {
 			schemaErr = err
 			return
 		}
-		// Recreate the schema so it matches the migration ledger.
+		// Initialize an empty test schema.
 		if _, err := pool.Exec(ctx,
 			"DROP SCHEMA IF EXISTS "+testSchema+" CASCADE; CREATE SCHEMA "+testSchema); err != nil {
 			schemaErr = err
 			return
 		}
-		if err := db.Migrate(ctx, pool, db.Migrations(), slog.New(slog.DiscardHandler)); err != nil {
+		if err := db.InitializeSchema(ctx, pool, slog.New(slog.DiscardHandler)); err != nil {
 			schemaErr = err
 			return
 		}
@@ -102,10 +99,7 @@ func withSearchPath(raw, schema string) string {
 
 var testKeeper = secret.NewKeeper([]byte("callback-test-root-key-long-enough"))
 
-// fixture is the single account and service the worker tests share. It is
-// split from the questions themselves because Hark is single-user — CreateFirst
-// refuses a second account — while the concurrency tests need several answered
-// questions under the one that exists.
+// fixture provides a shared account and service for callback tests.
 type fixture struct {
 	user    db.User
 	service db.Service

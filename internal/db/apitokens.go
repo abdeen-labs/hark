@@ -142,7 +142,7 @@ type CreateAPITokenParams struct {
 }
 
 // Create inserts a token. Callers must run it inside the same transaction as
-// [APITokens.CountActive] so the active-token cap cannot be raced.
+// [APITokens.CountActiveForUpdate] so the active-token cap cannot be raced.
 func (s *APITokens) Create(ctx context.Context, p CreateAPITokenParams) (*APIToken, error) {
 	const q = `
 		INSERT INTO api_tokens (id, user_id, name, token_hash, prefix, scopes, expires_at, created_at)
@@ -183,6 +183,17 @@ func (s *APITokens) CountActive(ctx context.Context, userID string, now time.Tim
 		SELECT count(*) FROM api_tokens
 		WHERE user_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > $2)`
 	return queryValue[int](ctx, s.q, "count active API tokens", q, userID, Millis(now))
+}
+
+// CountActiveForUpdate locks the account before counting its usable tokens.
+// Call inside a transaction and hold the lock through the token insert.
+func (s *APITokens) CountActiveForUpdate(ctx context.Context, userID string, now time.Time) (int, error) {
+	if _, err := queryValue[string](ctx, s.q, "lock API token account",
+		`SELECT id FROM users WHERE id = $1 FOR UPDATE`, userID); err != nil {
+		return 0, err
+	}
+	// A separate statement sees inserts committed while the lock was awaited.
+	return s.CountActive(ctx, userID, now)
 }
 
 // Revoke disables a token the caller owns, reporting whether it was active

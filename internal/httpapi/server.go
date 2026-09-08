@@ -97,7 +97,7 @@ type Options struct {
 	// callback and nothing worse.
 	Callbacks Nudger
 	// Dashboard is the embedded admin UI. It is mounted on the site root, on
-	// [DashboardPrefix] and on [DeviceVerificationPath], inside the same
+	// [DashboardPrefix], [DeviceVerificationPath], and [OAuthAuthorizePath], inside the same
 	// middleware chain as the API — so it authenticates through the same
 	// session cookie and is covered by the same origin gate.
 	//
@@ -164,21 +164,13 @@ func New(opts Options) http.Handler {
 
 	handler := Chain(rt.handler(), api...)
 
-	// The published contract and the authorization server metadata are served
-	// outside the credential chain rather than merely left unguarded inside
-	// it. Nothing about a public document should rest on a middleware
-	// continuing to ignore it: no cookie is read, no Authorization header is
-	// honoured, no session is slid forward, and there is no principal for
-	// anything downstream to find.
+	// Public documents bypass credential processing and session refresh.
 	root := http.NewServeMux()
 	root.Handle("/", handler)
 	root.Handle(AuthorizationServerMetadataPath, Chain(s.authorizationServerMetadata(), base...))
 
-	// The MCP endpoint admits an API token and nothing else, and answers a
-	// request without one with the challenge that starts OAuth. That gate is
-	// its own, outside the chain, whose 401 would name neither the resource
-	// metadata nor the scopes. Every tool call it serves is a request against
-	// the assembled API, credential and all.
+	// MCP has a bearer-only gate with OAuth discovery challenges. Tool calls
+	// use the authenticated API handler.
 	agent := mcp.New(mcp.Options{
 		API:       handler,
 		Resolver:  opts.Auth,
@@ -217,10 +209,7 @@ func (s *server) routes(rt *router) {
 	// methods itself: it answers in HTML, so the router's JSON 404 and 405 are
 	// the wrong replies for anything inside it.
 	//
-	// The device-grant approval screen and the OAuth consent screen are
-	// dashboard pages too. They sit outside the prefix only because their URLs
-	// are ones a client hands out — printed into a terminal, or published as
-	// the authorization endpoint — for a human to open.
+	// Device approval and OAuth consent use the dashboard session middleware.
 	if s.opts.Dashboard != nil {
 		rt.mount("/{$}", s.opts.Dashboard)
 		rt.mount(DashboardPrefix, s.opts.Dashboard)

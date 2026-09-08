@@ -224,7 +224,7 @@ func (s *Service) PollDeviceGrant(ctx context.Context, deviceCode string) (*Devi
 		}
 		userID := *request.ApprovedUserID
 
-		active, err := tx.APITokens.CountActive(ctx, userID, now)
+		active, err := tx.APITokens.CountActiveForUpdate(ctx, userID, now)
 		if err != nil {
 			return fmt.Errorf("auth: count active API tokens: %w", err)
 		}

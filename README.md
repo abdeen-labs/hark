@@ -52,8 +52,7 @@ curl -s localhost:8080/healthz
 
 Open <http://localhost:8080/> to use the admin dashboard. It includes the current
 delivery status, history, webhook services, registered devices, API tokens, test
-notifications, command-line client authorization, and the consent page an MCP
-client signs the owner in through. See the
+notifications, command-line client authorization, and OAuth consent. See the
 [dashboard reference](docs/api.md#dashboard) for its routes and behavior.
 
 ### Send a notification with a webhook
@@ -75,88 +74,29 @@ APNs credentials and a registered device. See the
 or the [API quickstart](docs/api.md#send-your-first-notification) to send with
 an API token.
 
-### Use Hark from Claude, ChatGPT and other agents
+### Connect an MCP client
 
-Hark is also a [Model Context Protocol](https://modelcontextprotocol.io) server
-at `/mcp`. An assistant or agent connected to it gets what an API token can do
-as tools — send a notification, ask a question and wait for the answer, drive a
-Live Activity, read state — and nothing that the same token could not do
-through the API. Create a token under **Tokens** with the scopes the tools
-need, then connect, with your deployment's origin in place of
-`hark.example.com`:
+Hark exposes notifications, questions, Live Activities, and account records
+through the [Model Context Protocol](https://modelcontextprotocol.io) at `/mcp`.
+Connect with a scoped API token from **Tokens**, or sign in through OAuth.
 
-**Claude Code**
+For Claude Code:
 
 ```sh
-claude mcp add --transport http hark https://hark.example.com/mcp \
-  --header "Authorization: Bearer hark_…"
+claude mcp add --transport http hark https://hark.example.com/mcp
 ```
 
-Without `--header`, run `/mcp` inside Claude Code to sign in through the browser.
-
-**Claude** (claude.ai, Claude Desktop, mobile) — *Customize › Connectors › Add
-custom connector*, with `https://hark.example.com/mcp` as the URL. Leave the
-OAuth client settings alone: Claude identifies itself with its own client
-metadata document or registers dynamically, sends the owner to the consent
-page, and holds the token it is issued. Organization owners add it under
-*Organization settings › Connectors* instead.
-
-**ChatGPT** — *Settings › Connectors › Create* (developer mode) with the same
-URL. ChatGPT detects OAuth, identifies itself with its client metadata document
-or registers dynamically, and sends the owner to the consent page. `search` and
-`fetch` are what its connectors require.
-
-**Codex CLI**
+Run `/mcp` in Claude Code to sign in. For Codex:
 
 ```sh
-codex mcp add hark --url https://hark.example.com/mcp --bearer-token-env-var HARK_TOKEN
+codex mcp add hark --url https://hark.example.com/mcp
+codex mcp login hark
 ```
 
-or in `config.toml`:
-
-```toml
-[mcp_servers.hark]
-url = "https://hark.example.com/mcp"
-bearer_token_env_var = "HARK_TOKEN"
-```
-
-Without a token, `codex mcp add hark --url https://hark.example.com/mcp` then
-`codex mcp login hark` signs in through the browser.
-
-**Claude Messages API**
-
-```json
-{
-  "model": "claude-opus-5",
-  "max_tokens": 1024,
-  "messages": [{ "role": "user", "content": "Tell my phone the deploy finished." }],
-  "mcp_servers": [
-    { "type": "url", "url": "https://hark.example.com/mcp", "name": "hark", "authorization_token": "hark_…" }
-  ],
-  "tools": [{ "type": "mcp_toolset", "mcp_server_name": "hark" }]
-}
-```
-
-with the `anthropic-beta: mcp-client-2025-11-20` header.
-
-**OpenAI Responses API**
-
-```json
-{
-  "model": "gpt-6-astra",
-  "input": "Tell my phone the deploy finished.",
-  "tools": [
-    { "type": "mcp", "server_label": "hark", "server_url": "https://hark.example.com/mcp", "authorization": "hark_…", "require_approval": "never" }
-  ]
-}
-```
-
-A connector that is given no token — Claude, ChatGPT, or Claude Code and Codex
-with nothing configured — signs the owner in through OAuth: the browser lands
-on the dashboard's consent page, the owner approves the requested scopes, and
-the token the client is issued is an ordinary API token, listed under
-**Tokens** and revocable there. See [MCP](docs/api.md#mcp) for the tools and
-their arguments, and [OAuth](docs/api.md#oauth) for the flow.
+Use your deployment's public HTTPS origin in place of `hark.example.com`.
+See [client setup](docs/api.md#connecting-a-client) for Claude, ChatGPT, API
+clients, and bearer-token configuration, [MCP](docs/api.md#mcp) for the tool
+reference, and [OAuth](docs/api.md#oauth) for authorization.
 
 ### The published contract
 
@@ -188,7 +128,7 @@ PostgreSQL container on port 54318, seeds sample data with
 [`scripts/demo-seed.py`](scripts/demo-seed.py), and creates the development
 account `admin` / `hark-dev-password`.
 
-Migrations run automatically at startup. Hark exits immediately if the database
+The database schema is initialized automatically at startup. Hark exits immediately if the database
 is unreachable or the configuration is invalid.
 
 On `SIGINT` or `SIGTERM`, Hark stops accepting connections, waits up to
@@ -205,9 +145,8 @@ accounts. Regular users have their own devices, services, tokens, and history;
 they cannot view the account directory or create accounts. API tokens cannot
 provision accounts, including tokens belonging to the admin.
 
-Bootstrap the admin account in one of two ways. Existing deployments keep their
-original account as the admin when migration `0002_account_roles` runs. The
-database enforces one admin, including during concurrent startup.
+Bootstrap the admin account in one of two ways. The database enforces one
+admin, including during concurrent startup.
 
 ### Seeded at boot
 
@@ -276,9 +215,9 @@ internal/auth/        Credentials: password hashing, sessions, API tokens, the
                       device authorization flow. Contains no HTTP handlers.
 internal/callbacks/   Delivers interaction answers to webhook callback URLs.
 internal/config/      Environment parsing and validation. No global state.
-internal/db/          pgx pool, migration runner, and the typed store: one file
+internal/db/          pgx pool, schema initialization, and the typed store: one file
                       per domain, plus keyset pagination and error helpers.
-internal/db/migrations/   Ordered .sql files, compiled into the binary.
+internal/db/schema/   Ordered create-only SQL files, compiled into the binary.
 internal/dashboard/   The embedded admin UI and the /docs page: html/template,
                       two stylesheets, no build step.
 internal/httpapi/     Route table, middleware chain, JSON and error responses.
@@ -378,7 +317,6 @@ are provisioned by the signed-in admin; there is no public sign-up endpoint.
 | `HARK_DB_CONNECT_TIMEOUT` | `10s` | Also bounds the boot-time reachability check. |
 | `HARK_DB_MAX_CONN_LIFETIME` | `1h` | |
 | `HARK_DB_MAX_CONN_IDLE_TIME` | `30m` | |
-| `HARK_DB_AUTO_MIGRATE` | `true` | Set `false` to start without applying pending migrations. |
 
 ### Apple Push Notification service
 
@@ -421,24 +359,18 @@ entirely.
 
 ---
 
-## Database migrations
+## Database schema
 
-Migrations are plain SQL files in `internal/db/migrations`, named
-`<version>_<snake_case_name>.sql` — for example `0001_initial_schema.sql`. They
-are embedded into the binary with `embed.FS` and applied in ascending version
-order at startup, each inside its own transaction together with its ledger row.
+Hark creates its schema on first startup from the ordered SQL files in
+`internal/db/schema`. The core file defines accounts, credentials, and delivery
+records; the OAuth file adds clients and authorization codes. All tables and
+indexes are created in their final form.
 
-There is no third-party migration framework and no `down` migrations: rolling
-back means writing a new forward migration.
-
-* The `schema_migrations` ledger is created by the runner, so no migration has
-  to define it.
-* A PostgreSQL advisory lock is held for the run, so concurrently starting
-  replicas do not race.
-* Every applied file's SHA-256 is recorded. **Editing a migration that has
-  already been applied is fatal at startup** — write a new one instead.
-
-To add one, drop a new numbered file into `internal/db/migrations` and restart.
+Initialization runs in one transaction under a PostgreSQL advisory lock.
+Concurrent replicas wait for initialization to finish, and a failure rolls
+back the entire schema. A single SHA-256 fingerprint in `hark_schema` verifies
+that later startups use the same definition. A different definition fails
+startup and requires a fresh database; Hark has no schema upgrade path.
 
 ---
 
@@ -459,8 +391,7 @@ contains data you need.**
 TEST_DATABASE_URL='postgres://hark:hark@localhost:5432/hark_test' go test ./...
 ```
 
-`HARK_TEST_DATABASE_URL` is accepted as an alias. If neither variable is set,
-database-backed tests are skipped and the rest of the suite still runs.
+If `TEST_DATABASE_URL` is unset, database tests are skipped.
 
 Each package that needs PostgreSQL uses its own schema:
 `internal/db` in `public`, `internal/auth` in `hark_auth_test`, `internal/httpapi`

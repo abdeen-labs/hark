@@ -28,10 +28,8 @@ const testSchema = "hark_auth_test"
 
 func testDatabaseURL(t *testing.T) string {
 	t.Helper()
-	for _, key := range []string{"TEST_DATABASE_URL", "HARK_TEST_DATABASE_URL"} {
-		if v := os.Getenv(key); v != "" {
-			return v
-		}
+	if value := os.Getenv("TEST_DATABASE_URL"); value != "" {
+		return value
 	}
 	t.Skip("TEST_DATABASE_URL is not set")
 	return ""
@@ -67,13 +65,13 @@ func requireService(t *testing.T) (context.Context, *Service, *testClock) {
 			schemaErr = err
 			return
 		}
-		// Recreate the schema so it matches the migration ledger.
+		// Initialize an empty test schema.
 		if _, err := pool.Exec(ctx,
 			"DROP SCHEMA IF EXISTS "+testSchema+" CASCADE; CREATE SCHEMA "+testSchema); err != nil {
 			schemaErr = err
 			return
 		}
-		if err := db.Migrate(ctx, pool, db.Migrations(), slog.New(slog.DiscardHandler)); err != nil {
+		if err := db.InitializeSchema(ctx, pool, slog.New(slog.DiscardHandler)); err != nil {
 			schemaErr = err
 			return
 		}

@@ -10,41 +10,25 @@ import (
 	"github.com/abdeen-labs/hark/internal/mcp"
 )
 
-// The OAuth consent screen.
-//
-// An MCP client that holds no token of its own opens this page in the owner's
-// browser with an authorization request in the query. The owner reviews who is
-// asking, where the browser goes afterwards and for what access, then approves
-// or denies; either answer is delivered to the client's redirect URI, with a
-// code or with an error. See docs/api.md § GET /oauth/authorize.
+// maxOAuthNextLength accommodates URL encoding of the maximum client ID, redirect URI and state.
+const maxOAuthNextLength = 32 << 10
 
-// maxOAuthNextLength bounds a consent-screen target carried through sign-in.
-// An authorization request is a few hundred bytes; this leaves room for a long
-// state and a metadata-document client id without accepting a query of any
-// size at all.
-const maxOAuthNextLength = 4096
-
-// consentPage is the consent screen.
 type consentPage struct {
 	view
-	// Request is the authorization request as the client sent it, echoed into
-	// the form's hidden fields so the decision is validated against the same
-	// parameters the page was drawn from.
 	Request auth.OAuthAuthorizationRequest
-	// Consent is the validated request, or nil when there is nothing to
-	// decide: the page then carries the refusal and no form.
 	Consent *auth.OAuthConsent
-	// ClientHost is where a metadata-document client published its document,
-	// shown so the owner can weigh the name against the origin vouching for
-	// it. Empty for a registered client.
-	ClientHost string
-	// RedirectHost is where the browser goes after the decision.
+	// ClientHost identifies the metadata document publisher.
+	ClientHost   string
 	RedirectHost string
 }
 
-// showOAuthConsent draws the screen for the request in the query.
 func (d *Dashboard) showOAuthConsent(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
-	req := oauthRequestFrom(r.URL.Query())
+	values, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil || repeatedOAuthParameters(values) {
+		d.renderError(w, r, http.StatusBadRequest, "The authorization request contains invalid or repeated parameters.")
+		return
+	}
+	req := oauthRequestFrom(values)
 	consent, ok := d.oauthConsent(w, r, p, req)
 	if !ok {
 		return
@@ -52,14 +36,12 @@ func (d *Dashboard) showOAuthConsent(w http.ResponseWriter, r *http.Request, p *
 	d.renderConsent(w, r, p, http.StatusOK, req, consent, nil)
 }
 
-// submitOAuthConsent records the owner's decision and returns the browser to
-// the client.
-//
-// The request is validated again from the hidden fields rather than trusted: a
-// registration can change and a metadata document be republished between the
-// page being drawn and the button being pressed, and a code must be issued
-// against what is true now.
+// submitOAuthConsent revalidates the submitted request before issuing a code.
 func (d *Dashboard) submitOAuthConsent(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	if repeatedOAuthParameters(r.PostForm) {
+		d.renderError(w, r, http.StatusBadRequest, "The authorization request contains repeated parameters.")
+		return
+	}
 	req := oauthRequestFrom(r.PostForm)
 	consent, ok := d.oauthConsent(w, r, p, req)
 	if !ok {
@@ -81,8 +63,7 @@ func (d *Dashboard) submitOAuthConsent(w http.ResponseWriter, r *http.Request, p
 	}
 }
 
-// oauthConsent validates the request, answering both failure classes itself.
-// It reports whether the handler should continue.
+// oauthConsent redirects errors only after the client and redirect URI are verified.
 func (d *Dashboard) oauthConsent(
 	w http.ResponseWriter, r *http.Request, p *auth.Principal,
 	req auth.OAuthAuthorizationRequest,
@@ -97,14 +78,10 @@ func (d *Dashboard) oauthConsent(
 	case err == nil:
 		return consent, true
 	case errors.As(err, &clientErr):
-		// The client or its redirect URI could not be verified, so there is
-		// nowhere the browser can safely be sent: the refusal stays here.
 		d.renderConsent(w, r, p, http.StatusBadRequest, req, nil, &notice{
 			Kind: noticeError, Message: clientErr.Message,
 		})
 	case errors.As(err, &redirectErr):
-		// This class is only produced once the client and its redirect URI have
-		// been verified, which is what makes following the URI safe.
 		d.redirectToClient(w, r, req.RedirectURI, req.State, url.Values{
 			"error":             {redirectErr.Code},
 			"error_description": {redirectErr.Description},
@@ -115,8 +92,6 @@ func (d *Dashboard) oauthConsent(
 	return nil, false
 }
 
-// renderConsent draws the page around a request, with the form when there is a
-// consent to give and without one otherwise.
 func (d *Dashboard) renderConsent(
 	w http.ResponseWriter, r *http.Request, p *auth.Principal, status int,
 	req auth.OAuthAuthorizationRequest, consent *auth.OAuthConsent, n *notice,
@@ -134,8 +109,6 @@ func (d *Dashboard) renderConsent(
 			page.ClientHost = hostOf(consent.Client.ID)
 		}
 		page.RedirectHost = hostOf(consent.RedirectURI)
-		// The decision form's answer is a redirect to the client, which the
-		// browser holds to this page's form-action.
 		if source, ok := formActionSource(consent.RedirectURI); ok {
 			w.Header().Set("Content-Security-Policy", policyAllowingFormTo(source))
 		}
@@ -143,11 +116,8 @@ func (d *Dashboard) renderConsent(
 	d.render(w, r, status, tmplConsent, page)
 }
 
-// formActionSource is the CSP source expression that admits a redirect URI's
-// origin: its scheme, host and port. CSP has no host-source form for an IPv6
-// literal, so a loopback client on [::1] is admitted by scheme instead. A host
-// outside the grammar's own alphabet is refused rather than written into a
-// header, which leaves the page on the strict policy.
+// formActionSource returns a CSP source for the redirect origin. IPv6 literals
+// require a scheme source because CSP host sources do not support them.
 func formActionSource(redirectURI string) (string, bool) {
 	u, err := url.Parse(redirectURI)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
@@ -167,8 +137,7 @@ func formActionSource(redirectURI string) (string, bool) {
 	return source, true
 }
 
-// cspHost reports whether host is made of the characters a CSP host-source
-// allows: letters, digits, hyphens and dots.
+// cspHost accepts only characters allowed in CSP host sources.
 func cspHost(host string) bool {
 	if host == "" {
 		return false
@@ -182,16 +151,11 @@ func cspHost(host string) bool {
 	return true
 }
 
-// redirectToClient delivers an authorization response: the browser is sent to
-// the client's redirect URI with values, the request's state and this
-// deployment's issuer in the query.
+// redirectToClient includes state and the issuer (RFC 9207) in the authorization response.
 func (d *Dashboard) redirectToClient(w http.ResponseWriter, r *http.Request, redirectURI, state string, values url.Values) {
 	http.Redirect(w, r, auth.OAuthRedirectURL(redirectURI, d.issuer(), state, values), http.StatusSeeOther)
 }
 
-// issuer is the deployment's public origin — scheme and host, no path — which
-// is what the authorization server metadata publishes and what every redirect
-// back to a client carries as iss (RFC 9207).
 func (d *Dashboard) issuer() string {
 	if d.opts.PublicURL == nil {
 		return ""
@@ -199,7 +163,6 @@ func (d *Dashboard) issuer() string {
 	return d.opts.PublicURL.Scheme + "://" + d.opts.PublicURL.Host
 }
 
-// hostOf is the host of a URL, or "" when it has none.
 func hostOf(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -208,11 +171,7 @@ func hostOf(raw string) string {
 	return u.Host
 }
 
-// oauthRequestFrom reads an authorization request out of a query or a form.
-//
-// These eight names are the page's whole vocabulary: what it reads on GET, what
-// its hidden fields carry on POST, and the only parameters a sign-in detour
-// preserves. [oauthRequestValues] is the inverse.
+// oauthRequestFrom reads the supported authorization parameters.
 func oauthRequestFrom(values url.Values) auth.OAuthAuthorizationRequest {
 	return auth.OAuthAuthorizationRequest{
 		ResponseType:        values.Get("response_type"),
@@ -226,8 +185,6 @@ func oauthRequestFrom(values url.Values) auth.OAuthAuthorizationRequest {
 	}
 }
 
-// oauthRequestValues writes a request back out as a query, absent parameters
-// omitted.
 func oauthRequestValues(req auth.OAuthAuthorizationRequest) url.Values {
 	values := url.Values{}
 	for name, value := range map[string]string{
@@ -247,8 +204,6 @@ func oauthRequestValues(req auth.OAuthAuthorizationRequest) url.Values {
 	return values
 }
 
-// oauthReturnTarget is the consent screen's own URL for a request: the page
-// with the request re-encoded, and nothing that was not part of it.
 func oauthReturnTarget(req auth.OAuthAuthorizationRequest) string {
 	values := oauthRequestValues(req)
 	if len(values) == 0 {
@@ -257,19 +212,13 @@ func oauthReturnTarget(req auth.OAuthAuthorizationRequest) string {
 	return pathOAuthAuthorize + "?" + values.Encode()
 }
 
-// safeOAuthNext bounds a consent-screen target carried through sign-in.
-//
-// The query is rebuilt from the request it names rather than passed through,
-// so what ends up in the redirect is at most eight known parameters, none
-// carrying a control character, in a URL no longer than maxOAuthNextLength. A
-// target naming no parameter at all is not a request, and goes home like any
-// other unusable destination.
+// safeOAuthNext keeps supported parameters and re-encodes their values before redirecting.
 func safeOAuthNext(raw, query string) string {
 	if len(raw) > maxOAuthNextLength || hasUnsafeChars(raw) {
 		return pathHome
 	}
 	values, err := url.ParseQuery(query)
-	if err != nil {
+	if err != nil || repeatedOAuthParameters(values) {
 		return pathHome
 	}
 
@@ -278,15 +227,18 @@ func safeOAuthNext(raw, query string) string {
 	if len(kept) == 0 {
 		return pathHome
 	}
-	for _, vs := range kept {
-		if hasUnsafeChars(vs[0]) {
-			return pathHome
-		}
-	}
-
 	target := oauthReturnTarget(req)
 	if len(target) > maxOAuthNextLength {
 		return pathHome
 	}
 	return target
+}
+
+func repeatedOAuthParameters(values url.Values) bool {
+	for _, entries := range values {
+		if len(entries) > 1 {
+			return true
+		}
+	}
+	return false
 }

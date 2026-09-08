@@ -541,6 +541,7 @@ type updateActivityRequest struct {
 // covers. The identifier participates, so the same body against two activities
 // hashes differently.
 type activityUpdatePayload struct {
+	IfSequence        *int     `json:"if_sequence"`
 	Identifier        string   `json:"identifier"`
 	Title             *string  `json:"title"`
 	Status            *string  `json:"status"`
@@ -564,6 +565,7 @@ func (s *server) updateActivity(w http.ResponseWriter, r *http.Request, req requ
 
 	var v validator
 	payload := activityUpdatePayload{
+		IfSequence:        body.IfSequence,
 		Identifier:        r.PathValue("identifier"),
 		StaleAfterSeconds: body.StaleAfterSeconds,
 	}
@@ -603,11 +605,6 @@ func (s *server) updateActivity(w http.ResponseWriter, r *http.Request, req requ
 		return
 	}
 
-	act, ok := s.prepareMutation(w, r, req, body.IfSequence)
-	if !ok {
-		return
-	}
-
 	key, ok := idempotencyKey(w, r)
 	if !ok {
 		return
@@ -617,7 +614,11 @@ func (s *server) updateActivity(w http.ResponseWriter, r *http.Request, req requ
 		s.writeInternal(w, r, "hashing a Live Activity update failed", err)
 		return
 	}
-	if key != nil && s.replayActivityOperation(w, r, req, *key, hash, *act) {
+	if key != nil && s.replayActivityOperation(w, r, req, *key, hash) {
+		return
+	}
+	act, ok := s.prepareMutation(w, r, req, body.IfSequence)
+	if !ok {
 		return
 	}
 	if !s.checkQuota(w, r, req) {
@@ -711,6 +712,7 @@ type endActivityRequest struct {
 }
 
 type activityEndPayload struct {
+	IfSequence          *int     `json:"if_sequence"`
 	Identifier          string   `json:"identifier"`
 	Status              string   `json:"status"`
 	Detail              *string  `json:"detail"`
@@ -733,6 +735,7 @@ func (s *server) endActivity(w http.ResponseWriter, r *http.Request, req request
 
 	var v validator
 	payload := activityEndPayload{
+		IfSequence:          body.IfSequence,
 		Identifier:          r.PathValue("identifier"),
 		Status:              defaultEndStatus,
 		Symbol:              v.enum("symbol", body.Symbol, activitySymbols, symbolSuccess),
@@ -754,11 +757,6 @@ func (s *server) endActivity(w http.ResponseWriter, r *http.Request, req request
 		return
 	}
 
-	act, ok := s.prepareMutation(w, r, req, body.IfSequence)
-	if !ok {
-		return
-	}
-
 	key, ok := idempotencyKey(w, r)
 	if !ok {
 		return
@@ -768,7 +766,11 @@ func (s *server) endActivity(w http.ResponseWriter, r *http.Request, req request
 		s.writeInternal(w, r, "hashing a Live Activity end failed", err)
 		return
 	}
-	if key != nil && s.replayActivityOperation(w, r, req, *key, hash, *act) {
+	if key != nil && s.replayActivityOperation(w, r, req, *key, hash) {
+		return
+	}
+	act, ok := s.prepareMutation(w, r, req, body.IfSequence)
+	if !ok {
 		return
 	}
 	if !s.checkQuota(w, r, req) {
@@ -846,7 +848,7 @@ func (s *server) applyMutation(w http.ResponseWriter, r *http.Request, req reque
 		s.writeSequenceConflict(w, r, act.Sequence)
 		return
 	case err != nil:
-		if key != nil && db.IsUniqueViolation(err) && s.replayActivityOperation(w, r, req, *key, hash, act) {
+		if key != nil && db.IsUniqueViolation(err) && s.replayActivityOperation(w, r, req, *key, hash) {
 			return
 		}
 		s.writeInternal(w, r, "changing a Live Activity failed", err)
@@ -880,7 +882,7 @@ func (s *server) applyMutation(w http.ResponseWriter, r *http.Request, req reque
 // Updates and ends key off the operation rather than the activity, because one
 // activity legitimately sees many keyed changes over its life; only the start is
 // identified by the activity's own key.
-func (s *server) replayActivityOperation(w http.ResponseWriter, r *http.Request, req requester, key, hash string, act db.LiveActivity) bool {
+func (s *server) replayActivityOperation(w http.ResponseWriter, r *http.Request, req requester, key, hash string) bool {
 	stored, err := s.store().Operations.ByIdempotencyKey(r.Context(), req.TokenID, req.ServiceID, key)
 	switch {
 	case errors.Is(err, db.ErrNotFound):
@@ -896,7 +898,8 @@ func (s *server) replayActivityOperation(w http.ResponseWriter, r *http.Request,
 	}
 	current, err := s.store().Activities.ByID(r.Context(), stored.ActivityID)
 	if err != nil {
-		current = &act
+		s.writeInternal(w, r, "reading an idempotent Live Activity operation failed", err)
+		return true
 	}
 	WriteJSON(w, r, http.StatusOK, activityResponse{
 		Activity: newActivityDTO(*current),

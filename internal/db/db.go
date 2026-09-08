@@ -1,5 +1,4 @@
-// Package db owns the PostgreSQL connection pool and the embedded schema
-// migrations.
+// Package db owns the PostgreSQL connection pool and embedded schema.
 //
 // Callers provide a [Config] and receive a *pgxpool.Pool; this package has no
 // dependency on higher server layers.

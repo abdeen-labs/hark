@@ -47,11 +47,7 @@ type Authenticator interface {
 	ApproveDeviceGrant(ctx context.Context, userCode, userID string) (*db.DeviceAuthorization, error)
 	DenyDeviceGrant(ctx context.Context, userCode string) (*db.DeviceAuthorization, error)
 
-	// The consent half of the OAuth flow, on this surface for the same reason
-	// the device grant is. OAuthConsent validates an authorization request
-	// against the client it names; resource is this deployment's MCP resource
-	// identifier. ApproveOAuth records the owner's approval and returns the
-	// code the client exchanges.
+	// OAuthConsent validates requests; ApproveOAuth issues codes after owner approval.
 	OAuthConsent(ctx context.Context, req auth.OAuthAuthorizationRequest, resource string) (*auth.OAuthConsent, error)
 	ApproveOAuth(ctx context.Context, consent *auth.OAuthConsent, userID string) (string, error)
 
@@ -114,12 +110,7 @@ const (
 	// navigated to.
 	pathLiveOverview = httpapi.DashboardPrefix + "/live/overview"
 
-	// pathAuthorize is the device-grant approval screen, pathOAuthAuthorize
-	// the OAuth consent screen, and pathDocs the published API contract. All
-	// sit outside the dashboard's prefix because they are addresses other
-	// things hand out: a CLI prints the first into a terminal, the
-	// authorization server metadata publishes the second, and the third is a
-	// link people paste. internal/httpapi owns the path constants.
+	// Approval and documentation paths are shared with the API router.
 	pathAuthorize      = httpapi.DeviceVerificationPath
 	pathOAuthAuthorize = httpapi.OAuthAuthorizePath
 	pathDocs           = httpapi.DocsPath
@@ -247,8 +238,7 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathAuthorize, d.page(d.showAuthorize))
 	d.mux.HandleFunc("POST "+pathAuthorize, d.form(d.submitAuthorize))
 
-	// The OAuth consent screen, outside the prefix for the same reason: an MCP
-	// client opens its URL in the owner's browser.
+	// OAuth clients open the consent page in the owner's browser.
 	d.mux.HandleFunc("GET "+pathOAuthAuthorize, d.page(d.showOAuthConsent))
 	d.mux.HandleFunc("POST "+pathOAuthAuthorize, d.form(d.submitOAuthConsent))
 
@@ -302,11 +292,8 @@ const (
 	policyAfterFormAction = "base-uri 'none'; frame-ancestors 'none'"
 )
 
-// policyAllowingFormTo is the policy with origin added to form-action. Every
-// form on these pages posts to this origin, but Chromium also holds the
-// redirect that answers a submission to form-action, so a page whose form is
-// answered by a redirect elsewhere — the OAuth consent screen, which returns
-// the browser to the client — has to name that destination.
+// policyAllowingFormTo permits the client redirect after consent. Chromium applies
+// form-action to redirects following form submissions.
 func policyAllowingFormTo(origin string) string {
 	return policyBeforeFormAction + "form-action 'self' " + origin + "; " + policyAfterFormAction
 }
@@ -404,14 +391,7 @@ func (d *Dashboard) redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
-// returnTo is where the browser was heading before it was sent to sign in.
-//
-// The path alone is enough everywhere but the two approval screens, which
-// carry a query worth keeping. For the device grant it is the user code the
-// client put in the link; losing it would land the owner on an empty form
-// holding a code they would have to go and find again. For the OAuth consent
-// screen it is the whole authorization request, which exists nowhere but in
-// that query.
+// returnTo preserves approval parameters through sign-in.
 func returnTo(r *http.Request) string {
 	switch r.URL.Path {
 	case pathAuthorize:
@@ -420,7 +400,7 @@ func returnTo(r *http.Request) string {
 		}
 		return pathAuthorize
 	case pathOAuthAuthorize:
-		return oauthReturnTarget(oauthRequestFrom(r.URL.Query()))
+		return r.URL.RequestURI()
 	}
 	return r.URL.Path
 }
@@ -431,8 +411,7 @@ func returnTo(r *http.Request) string {
 // prefix — collapses to the home page rather than being followed, so the
 // sign-in form cannot be turned into an open redirect.
 func safeNext(raw string) string {
-	// The consent screen carries a whole authorization request in its query,
-	// longer than any other target and bounded on its own terms.
+	// OAuth authorization requests need a larger redirect limit.
 	if target, query, _ := strings.Cut(raw, "?"); target == pathOAuthAuthorize {
 		return safeOAuthNext(raw, query)
 	}
@@ -441,10 +420,7 @@ func safeNext(raw string) string {
 		return pathHome
 	}
 
-	// The approval screen is the one destination outside the dashboard's
-	// prefix, and the one allowed a query. Its code is re-normalised here
-	// rather than passed through, so what ends up in the redirect is eight
-	// characters of Crockford base32 and a hyphen — nothing a caller chose.
+	// Device approval preserves only the normalized user code.
 	if target, query, hasQuery := strings.Cut(raw, "?"); target == pathAuthorize {
 		if raw, ok := strings.CutPrefix(query, "code="); hasQuery && ok {
 			code, err := url.QueryUnescape(raw)

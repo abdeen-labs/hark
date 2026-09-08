@@ -20,7 +20,6 @@ const (
 	consentIssuer      = "https://hark.example.com"
 )
 
-// consentRequest is an authorization request as an MCP client sends it.
 func consentRequest() url.Values {
 	return url.Values{
 		"response_type":         {"code"},
@@ -34,8 +33,6 @@ func consentRequest() url.Values {
 	}
 }
 
-// grantedConsent is what the service hands back for [consentRequest] once the
-// client and everything it asked for check out.
 func grantedConsent() *auth.OAuthConsent {
 	return &auth.OAuthConsent{
 		Client: auth.OAuthClient{
@@ -53,13 +50,10 @@ func grantedConsent() *auth.OAuthConsent {
 	}
 }
 
-// consentTarget is the consent screen's URL for [consentRequest].
 func consentTarget() string {
 	return pathOAuthAuthorize + "?" + consentRequest().Encode()
 }
 
-// clientRedirect checks that a response sends the browser to the client's
-// redirect URI and returns what it carries there.
 func clientRedirect(t *testing.T, rec *httptest.ResponseRecorder) url.Values {
 	t.Helper()
 	if rec.Code != http.StatusSeeOther {
@@ -77,9 +71,6 @@ func clientRedirect(t *testing.T, rec *httptest.ResponseRecorder) url.Values {
 	return location.Query()
 }
 
-// TestConsentSendsASignedOutBrowserToSignInKeepingTheRequest follows the whole
-// detour: the request has to survive the redirect to sign-in and the sign-in
-// itself, because it exists nowhere but in that query.
 func TestConsentSendsASignedOutBrowserToSignInKeepingTheRequest(t *testing.T) {
 	d, _ := newTestDashboard(t)
 
@@ -106,7 +97,6 @@ func TestConsentSendsASignedOutBrowserToSignInKeepingTheRequest(t *testing.T) {
 		t.Errorf("next carries %v, want the request %v", got, want)
 	}
 
-	// Signing in lands on that very request.
 	form := "username=admin&password=hunter2&next=" + url.QueryEscape(next.String())
 	rec = send(d, withCSRF(t, d, request(http.MethodPost, pathLogin, ""), form))
 	if rec.Code != http.StatusSeeOther {
@@ -126,7 +116,6 @@ func TestConsentShowsTheRequestAndCarriesItInTheForm(t *testing.T) {
 		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
 	}
 
-	// The service saw the request as sent, and this deployment's resource.
 	if want := []auth.OAuthAuthorizationRequest{oauthRequestFrom(consentRequest())}; !reflect.DeepEqual(service.consentRequests, want) {
 		t.Errorf("OAuthConsent saw %+v, want %+v", service.consentRequests, want)
 	}
@@ -156,16 +145,12 @@ func TestConsentShowsTheRequestAndCarriesItInTheForm(t *testing.T) {
 	}
 }
 
-// attr escapes a value the way html/template writes it into an attribute.
 func attr(s string) string {
 	return strings.NewReplacer(
 		"&", "&amp;", `"`, "&#34;", "'", "&#39;", "+", "&#43;", "<", "&lt;", ">", "&gt;",
 	).Replace(s)
 }
 
-// TestConsentRefusesAnUnverifiedClientWithoutRedirecting pins the one rule
-// that matters most on this page: a redirect URI that could not be checked is
-// never followed.
 func TestConsentRefusesAnUnverifiedClientWithoutRedirecting(t *testing.T) {
 	d, service := newTestDashboard(t)
 	service.consentErr = &auth.OAuthClientError{Message: "redirect_uri is not one the client registered"}
@@ -247,8 +232,6 @@ func TestApprovingReturnsACodeToTheClient(t *testing.T) {
 		t.Errorf("an approval carries an error: %v", query)
 	}
 
-	// The decision was validated from the hidden fields, then attributed to
-	// the signed-in owner.
 	if want := []auth.OAuthAuthorizationRequest{oauthRequestFrom(consentRequest())}; !reflect.DeepEqual(service.consentRequests, want) {
 		t.Errorf("OAuthConsent saw %+v, want %+v", service.consentRequests, want)
 	}
@@ -299,8 +282,6 @@ func TestADecisionThatIsNeitherIsABadRequest(t *testing.T) {
 	}
 }
 
-// TestAnAPITokenCannotReachTheConsentScreen is the boundary the device grant
-// draws too: a credential minted for an agent cannot consent to its successor.
 func TestAnAPITokenCannotReachTheConsentScreen(t *testing.T) {
 	d, service := newTestDashboard(t)
 	service.consent = grantedConsent()
@@ -331,12 +312,6 @@ func TestAnAPITokenCannotReachTheConsentScreen(t *testing.T) {
 	}
 }
 
-// TestSafeNextCarriesAnOAuthRequest covers the consent screen as a post-sign-in
-// destination: a request round-trips, and everything that is not one of its
-// parameters is dropped or, where it could not be safe, sent home.
-// TestConsentPageLetsTheFormReachTheClient pins the one header the browser
-// consults when the decision form's answer is a redirect off this origin: the
-// page names the client's origin in form-action, and nothing else changes.
 func TestConsentPageLetsTheFormReachTheClient(t *testing.T) {
 	d, service := newTestDashboard(t)
 
@@ -365,7 +340,6 @@ func TestConsentPageLetsTheFormReachTheClient(t *testing.T) {
 		}
 	}
 
-	// A request with nothing to decide has no form, and keeps the strict policy.
 	service.consent = nil
 	service.consentErr = &auth.OAuthClientError{Message: "unknown client"}
 	rec := send(d, signedIn(http.MethodGet, consentTarget(), ""))
@@ -402,8 +376,6 @@ func TestSafeNextCarriesAnOAuthRequest(t *testing.T) {
 		valid + "&evil=1":              valid,
 		valid + "&next=//evil.example": valid,
 
-		// Only the eight parameters count; a target naming none of them is not
-		// a request.
 		pathOAuthAuthorize:                     pathHome,
 		pathOAuthAuthorize + "?evil=1":         pathHome,
 		pathOAuthAuthorize + "?client_id=x":    pathOAuthAuthorize + "?client_id=x",
@@ -415,14 +387,68 @@ func TestSafeNextCarriesAnOAuthRequest(t *testing.T) {
 		"//evil.example" + pathOAuthAuthorize + "?client_id=x":       pathHome,
 
 		pathOAuthAuthorize + "?state=" + strings.Repeat("a", maxOAuthNextLength): pathHome,
-		pathOAuthAuthorize + "?state=a%0Ab":                                      pathHome,
+		pathOAuthAuthorize + "?state=a%0Ab":                                      pathOAuthAuthorize + "?state=a%0Ab",
 		pathOAuthAuthorize + "?state=a\nb":                                       pathHome,
-		pathOAuthAuthorize + "?state=a%5Cb":                                      pathHome,
+		pathOAuthAuthorize + "?state=a%5Cb":                                      pathOAuthAuthorize + "?state=a%5Cb",
 		pathOAuthAuthorize + "?state=a%zzb":                                      pathHome,
+		pathOAuthAuthorize + "?client_id=x&client_id=y":                          pathHome,
 	}
 	for in, want := range tests {
 		if got := safeNext(in); got != want {
 			t.Errorf("safeNext(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestConsentSignInPreservesMaximumLengthParameters(t *testing.T) {
+	d, _ := newTestDashboard(t)
+	values := consentRequest()
+	values.Set("client_id", "https://client.example/"+strings.Repeat("a", auth.MaxOAuthRedirectURILength-len("https://client.example/")))
+	values.Set("redirect_uri", "https://client.example/"+strings.Repeat("b", auth.MaxOAuthRedirectURILength-len("https://client.example/")))
+	values.Set("state", strings.Repeat("+", auth.MaxOAuthStateLength-1)+`\`)
+	target := pathOAuthAuthorize + "?" + values.Encode()
+	rec := send(d, request(http.MethodGet, target, ""))
+	location, err := url.Parse(rec.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := location.Query().Get("next"); got != target {
+		t.Fatalf("sign-in next = %q, want the complete authorization request", got)
+	}
+	form := "username=admin&password=hunter2&next=" + url.QueryEscape(target)
+	rec = send(d, withCSRF(t, d, request(http.MethodPost, pathLogin, ""), form))
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != target {
+		t.Fatalf("sign-in response = %d, Location %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+func TestConsentRejectsRepeatedOrMalformedParameters(t *testing.T) {
+	for _, duplicate := range []string{"client_id", "redirect_uri", "scope", "state", "code_challenge", "resource"} {
+		t.Run(duplicate, func(t *testing.T) {
+			d, service := newTestDashboard(t)
+			values := consentRequest()
+			values.Add(duplicate, "other")
+			for _, req := range []*http.Request{
+				signedIn(http.MethodGet, pathOAuthAuthorize+"?"+values.Encode(), ""),
+				withCSRF(t, d, signedIn(http.MethodPost, pathOAuthAuthorize, ""), values.Encode()+"&decision=approve"),
+			} {
+				rec := send(d, req)
+				if rec.Code != http.StatusBadRequest || rec.Header().Get("Location") != "" {
+					t.Errorf("%s: status = %d, Location = %q", req.Method, rec.Code, rec.Header().Get("Location"))
+				}
+			}
+			if len(service.consentRequests) != 0 || len(service.oauthApproved) != 0 {
+				t.Fatal("ambiguous request reached authorization")
+			}
+			rec := send(d, request(http.MethodGet, pathOAuthAuthorize+"?"+values.Encode(), ""))
+			if rec.Header().Get("Location") != pathLogin {
+				t.Fatal("sign-in preserved an ambiguous authorization request")
+			}
+		})
+	}
+	d, _ := newTestDashboard(t)
+	rec := send(d, signedIn(http.MethodGet, consentTarget()+"&state=%zz", ""))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed query status = %d, want 400", rec.Code)
 	}
 }

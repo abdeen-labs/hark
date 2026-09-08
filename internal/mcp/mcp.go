@@ -1,11 +1,5 @@
 // Package mcp exposes the HTTP API as a Model Context Protocol server.
-//
-// Every tool is an adapter over one documented endpoint: its arguments are
-// that endpoint's request fields, its result is that endpoint's response, and
-// the call is made against the assembled API handler with the caller's own
-// bearer token — so scopes, rate limits, idempotency and attribution are the
-// endpoint's, and nothing is reachable here that the same token could not
-// reach over HTTP. See docs/api.md § MCP.
+// Tool calls use the caller's bearer token and the API's middleware.
 package mcp
 
 import (
@@ -42,13 +36,10 @@ func ResourceMetadataURL(publicURL *url.URL) string {
 }
 
 func origin(u *url.URL) string {
-	if u == nil {
+	if u == nil || u.Host == "" {
 		return ""
 	}
-	o := *u
-	o.Path = strings.TrimRight(o.Path, "/")
-	o.RawQuery, o.Fragment = "", ""
-	return o.String()
+	return u.Scheme + "://" + u.Host
 }
 
 // TokenResolver resolves a bearer API token. *auth.Service satisfies it.
@@ -63,12 +54,11 @@ type Options struct {
 	API http.Handler
 	// Resolver checks the bearer token on every request. Required.
 	Resolver TokenResolver
-	// PublicURL is the origin clients reach the deployment on. It names the
-	// resource a token is issued for and roots every URL a tool hands back.
+	// PublicURL is the public origin for OAuth metadata and result URLs.
 	PublicURL *url.URL
 	// Version identifies the running build to clients.
 	Version string
-	// Logger receives handler errors and the transport's own log. Nil discards.
+	// Logger receives handler and transport errors. Nil discards logs.
 	Logger *slog.Logger
 }
 
@@ -83,14 +73,11 @@ type Server struct {
 	transport http.Handler
 }
 
-// maxRequestBodyBytes caps one JSON-RPC message. The API applies its own cap
-// to the loopback request a tool makes, so this one only has to leave room
-// for the envelope around a body that size.
+// maxRequestBodyBytes caps the JSON-RPC envelope. The API separately caps
+// each forwarded request body.
 const maxRequestBodyBytes = 128 << 10
 
-// New builds the server. It panics when a required dependency is missing: that
-// is a wiring mistake, and failing at construction is clearer than failing per
-// request.
+// New builds the server and panics if a required dependency is missing.
 func New(opts Options) *Server {
 	if opts.API == nil {
 		panic("mcp: Options.API is required")
@@ -110,9 +97,7 @@ func New(opts Options) *Server {
 		metadata: resourceMetadataDocument(opts.PublicURL),
 	}
 
-	// The transport logs a session opening and closing on every stateless
-	// request, which the access log already records once; only its warnings
-	// and errors are worth a line of their own.
+	// The HTTP access log already records stateless requests.
 	quiet := slog.New(leveled{Handler: opts.Logger.Handler(), min: slog.LevelWarn})
 
 	server := sdk.NewServer(
@@ -128,13 +113,8 @@ func New(opts Options) *Server {
 			JSONResponse:        true,
 			Logger:              quiet,
 			MaxRequestBodyBytes: maxRequestBodyBytes,
-			// The SDK's rebinding guard refuses a request that arrived on a
-			// loopback address with a Host that is not loopback — which is
-			// every request a reverse proxy on the same machine forwards.
-			// The guard exists for servers a browser could reach with no
-			// credential. This endpoint admits nothing without a bearer
-			// token (gate.go), which a page on another origin cannot attach,
-			// so the guard would only ever refuse legitimate deployments.
+			// Local reverse proxies may forward a public Host. serve checks
+			// Origin against PublicURL before authenticating the request.
 			DisableLocalhostProtection: true,
 		},
 	)

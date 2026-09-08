@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"mime"
 	"net/http"
 	"strings"
@@ -12,13 +13,8 @@ import (
 	"github.com/abdeen-labs/hark/internal/mcp"
 )
 
-// The OAuth surface. Hark is the authorization server for its own MCP
-// endpoint, and these are the paths the authorization server metadata
-// publishes. See docs/api.md § OAuth.
 const (
-	// OAuthAuthorizePath is the consent screen, a dashboard page a client sends
-	// the owner's browser to. It sits outside the dashboard prefix because it
-	// is an address published to clients, like [DeviceVerificationPath].
+	// OAuthAuthorizePath is the dashboard consent endpoint.
 	OAuthAuthorizePath = "/oauth/authorize"
 	// OAuthTokenPath exchanges an authorization code for an API token.
 	OAuthTokenPath = "/oauth/token"
@@ -28,10 +24,6 @@ const (
 	AuthorizationServerMetadataPath = "/.well-known/oauth-authorization-server"
 )
 
-// Rate-limit ceilings for the two OAuth endpoints an anonymous caller can
-// reach: registration because it writes a row for a caller who has proved
-// nothing, and the token endpoint because the code in the body is guessable
-// in principle.
 const (
 	limitOAuthRegister = 20
 	limitOAuthToken    = 120
@@ -43,9 +35,6 @@ const (
 	oauthErrInvalidClientMetadata = "invalid_client_metadata"
 )
 
-// oauthErrorResponse is the error form of RFC 6749 §5.2 and RFC 7591 §3.2.2,
-// which these two endpoints use instead of the API's envelope: a client
-// written against the RFCs reads `error` at the top level.
 type oauthErrorResponse struct {
 	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description"`
@@ -55,13 +44,27 @@ type oauthErrorResponse struct {
 // is the dashboard's, mounted in server.go.
 func (s *server) oauthRoutes(rt *router) {
 	rt.handle(http.MethodPost, OAuthRegisterPath,
-		s.rateLimit("oauth_register", limitOAuthRegister, http.HandlerFunc(s.handleOAuthRegister)))
+		oauthResponseHeaders(s.rateLimit("oauth_register", limitOAuthRegister, http.HandlerFunc(s.handleOAuthRegister))))
 	rt.handle(http.MethodPost, OAuthTokenPath,
-		s.rateLimit("oauth_token", limitOAuthToken, http.HandlerFunc(s.handleOAuthToken)))
+		oauthResponseHeaders(s.rateLimit("oauth_token", limitOAuthToken, http.HandlerFunc(s.handleOAuthToken))))
+	for _, path := range []string{OAuthRegisterPath, OAuthTokenPath} {
+		rt.handleFunc(http.MethodOptions, path, func(w http.ResponseWriter, r *http.Request) {
+			setOAuthHeaders(w)
+			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
 }
 
-// setOAuthHeaders marks a response that carries a credential or a verdict
-// about one: never cached, and readable by a client that runs in a browser.
+// oauthResponseHeaders also applies CORS and cache headers to rate-limit errors.
+func oauthResponseHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setOAuthHeaders(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func setOAuthHeaders(w http.ResponseWriter) {
 	h := w.Header()
 	h.Set("Cache-Control", "no-store")
@@ -73,10 +76,6 @@ func writeOAuthError(w http.ResponseWriter, r *http.Request, status int, code, d
 	WriteJSON(w, r, status, oauthErrorResponse{Error: code, ErrorDescription: description})
 }
 
-// oauthRegisterRequest is the RFC 7591 metadata Hark reads. Fields the RFC
-// defines beyond these are ignored rather than refused, unlike the rest of
-// the API: the registering client is somebody else's software, written to the
-// RFC and not to this contract.
 type oauthRegisterRequest struct {
 	ClientName              string   `json:"client_name"`
 	RedirectURIs            []string `json:"redirect_uris"`
@@ -105,7 +104,8 @@ type oauthRegisterResponse struct {
 // client secret to hand back and no way to read a registration again.
 func (s *server) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 	var body oauthRegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&body); err != nil {
 		var maxBytes *http.MaxBytesError
 		var typeErr *json.UnmarshalTypeError
 		switch {
@@ -119,6 +119,12 @@ func (s *server) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 			writeOAuthError(w, r, http.StatusBadRequest, oauthErrInvalidClientMetadata,
 				"the request body must be a JSON object")
 		}
+		return
+	}
+
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		writeOAuthError(w, r, http.StatusBadRequest, oauthErrInvalidClientMetadata,
+			"the request body must contain one JSON object")
 		return
 	}
 
@@ -169,9 +175,6 @@ type oauthTokenResponse struct {
 	Scope string `json:"scope"`
 }
 
-// handleOAuthToken exchanges an authorization code for an API token (RFC 6749
-// §4.1.3, with PKCE). The body is form-encoded because that is what the RFC
-// says and what every client sends.
 func (s *server) handleOAuthToken(w http.ResponseWriter, r *http.Request) {
 	if !hasFormContentType(r) {
 		writeOAuthError(w, r, http.StatusBadRequest, auth.OAuthErrInvalidRequest,
@@ -184,6 +187,12 @@ func (s *server) handleOAuthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	form := r.PostForm
+	for _, field := range []string{"grant_type", "code", "client_id", "redirect_uri", "code_verifier", "resource"} {
+		if len(form[field]) > 1 {
+			writeOAuthError(w, r, http.StatusBadRequest, auth.OAuthErrInvalidRequest, field+" must occur only once")
+			return
+		}
+	}
 
 	switch form.Get("grant_type") {
 	case "authorization_code":

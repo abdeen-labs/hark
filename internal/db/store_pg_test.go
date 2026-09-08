@@ -24,10 +24,8 @@ import (
 // this at something disposable.
 func testDatabaseURL(t *testing.T) string {
 	t.Helper()
-	for _, key := range []string{"TEST_DATABASE_URL", "HARK_TEST_DATABASE_URL"} {
-		if v := os.Getenv(key); v != "" {
-			return v
-		}
+	if value := os.Getenv("TEST_DATABASE_URL"); value != "" {
+		return value
 	}
 	t.Skip("TEST_DATABASE_URL is not set")
 	return ""
@@ -60,12 +58,12 @@ func requireStore(t *testing.T) (context.Context, *Store) {
 			schemaErr = err
 			return
 		}
-		// Recreate the schema so it matches the migration ledger.
+		// Initialize an empty test schema.
 		if _, err := pool.Exec(ctx, "DROP SCHEMA public CASCADE; CREATE SCHEMA public"); err != nil {
 			schemaErr = err
 			return
 		}
-		if err := Migrate(ctx, pool, Migrations(), testLogger()); err != nil {
+		if err := InitializeSchema(ctx, pool, testLogger()); err != nil {
 			schemaErr = err
 			return
 		}

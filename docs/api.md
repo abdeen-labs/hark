@@ -270,7 +270,6 @@ The device grant adds five more codes — `authorization_pending`, `slow_down`,
 Hark has one **admin account**, bootstrapped with `harkd create-user` or startup
 environment variables. The admin can provision regular users through the
 dashboard's Accounts page or `POST /accounts`. There is no public sign-up.
-Existing deployments retain their original account as the admin after migration.
 Each account's devices, services, tokens, and history remain scoped to that account.
 
 ### Session
@@ -2477,17 +2476,9 @@ Supports `Idempotency-Key`.
 
 ## MCP
 
-Hark is a [Model Context Protocol](https://modelcontextprotocol.io) server. An
-AI assistant or agent connects to `POST /mcp` and gets what an API token can do —
-send a notification, ask a question and wait for the answer, drive a Live
-Activity, read state — as MCP tools. Claude, ChatGPT, Codex, the Claude and
-OpenAI APIs, and any other client of the Streamable HTTP transport can use it.
-
-Every tool is a thin adapter over an endpoint in this document. Its arguments
-are that endpoint's request fields, its result is that endpoint's response, and
-the scopes, rate limits, idempotency and delivery rules that apply are the
-endpoint's. Nothing is reachable through MCP that the same token could not
-reach through the API.
+Hark exposes the API through [Model Context Protocol](https://modelcontextprotocol.io)
+tools at `POST /mcp`. Tools use the caller's API token and enforce the same
+scopes, rate limits, idempotency, and delivery rules as the HTTP endpoints.
 
 ### `POST /mcp`
 
@@ -2508,8 +2499,9 @@ OAuth from and the scopes the tools use:
 WWW-Authenticate: Bearer resource_metadata="https://hark.example.com/.well-known/oauth-protected-resource", scope="activities:read activities:write devices:read events:read interactions:create interactions:read notifications:send services:read services:write"
 ```
 
-The token is checked on every request. One that has been revoked or has expired
-is a `401` from then on, whatever the client thinks its session is.
+Tokens are checked on every request. Revoked or expired tokens receive `401`.
+Requests with an `Origin` header must match the deployment's public origin;
+other origins receive `403 origin_not_allowed`.
 
 **Sessions.** The server is stateless. It issues no `Mcp-Session-Id`, every
 `POST` carries a complete JSON-RPC message, and `GET /mcp` and `DELETE /mcp`
@@ -2517,8 +2509,7 @@ answer `405`. Responses are `application/json`; a client must still send
 `Accept: application/json, text/event-stream`, as the transport requires.
 
 **Server description.** `initialize` reports `serverInfo.name` `hark`, the
-build's version, and `instructions` that tell the model when to reach for each
-tool.
+build's version, and tool usage instructions.
 
 **Trying it by hand:**
 
@@ -2565,14 +2556,11 @@ is the freshest state — answered, if the answer arrived in time. An agent that
 needs a decision before it continues can therefore ask and block in one call,
 or ask with no wait and poll with `get_question`.
 
-**Results** carry the endpoint's JSON response twice, as the transport asks
-for: as one `text` content block, and as `structuredContent`. A `4xx` or `5xx`
-from the endpoint becomes a tool error — `isError: true` with the
-[error envelope](#errors) as its text — so the model sees what went wrong and
-can correct it; it is never a JSON-RPC error.
+**Results** contain the endpoint's JSON response as a `text` content block
+and `structuredContent`. An endpoint's `4xx` or `5xx` becomes a tool error
+with `isError: true` and the [error envelope](#errors) as its text.
 
-**`search` and `fetch`** exist so that clients which expect a searchable
-connector — ChatGPT's connectors are one — can use Hark. `search` takes
+**`search` and `fetch`** provide record retrieval. `search` takes
 `{ "query": "…" }` and returns
 
 ```json
@@ -2607,12 +2595,10 @@ claude mcp add --transport http hark https://hark.example.com/mcp \
 
 Without `--header`, run `/mcp` inside Claude Code to sign in through the browser.
 
-**Claude** (claude.ai, Claude Desktop, mobile) — *Customize › Connectors › Add
-custom connector*, with `https://hark.example.com/mcp` as the URL. Leave the
-OAuth client settings alone: Claude identifies itself with its own client
-metadata document or registers dynamically, sends the owner to the consent
-page, and holds the token it is issued. Organization owners add it under
-*Organization settings › Connectors* instead.
+**Claude** — In *Customize › Connectors*, select *Add custom connector* and
+enter `https://hark.example.com/mcp`. Organization owners add it under
+*Organization settings › Connectors*. Connect and approve access in Hark.
+See [Claude's connector setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
 **Claude Messages API**
 
@@ -2628,14 +2614,15 @@ page, and holds the token it is issued. Organization owners add it under
 }
 ```
 
-with the `anthropic-beta: mcp-client-2025-11-20` header.
+Send the `anthropic-beta: mcp-client-2025-11-20` header. See the
+[Claude MCP connector reference](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector).
 
-**ChatGPT** — *Settings › Connectors › Create* (developer mode) with the same
-URL. ChatGPT detects OAuth, identifies itself with its client metadata document
-or registers dynamically, and sends the owner to the consent page. `search` and
-`fetch` are what its connectors require.
+**ChatGPT** — Enable developer mode under *Settings › Security and login*,
+then create a developer-mode app from the Plugins page. Use
+`https://hark.example.com/mcp`, select OAuth, and configure public-client CIMD
+or dynamic registration. See [ChatGPT developer mode](https://developers.openai.com/api/docs/guides/developer-mode).
 
-**OpenAI Responses API**
+**OpenAI Responses API** — See the [MCP tool reference](https://developers.openai.com/api/docs/guides/tools-connectors-mcp).
 
 ```json
 {
@@ -2664,28 +2651,20 @@ bearer_token_env_var = "HARK_TOKEN"
 Without a token, `codex mcp add hark --url https://hark.example.com/mcp` then
 `codex mcp login hark` signs in through the browser.
 
-**Anything else** that speaks Streamable HTTP connects the same way: the URL,
-and either an `Authorization` header or the OAuth flow. A client that only
-speaks stdio can reach a remote server through a bridge such as `mcp-remote`.
+Other Streamable HTTP clients use the same URL with an API token or OAuth.
 
 ---
 
 ## OAuth
 
-An MCP client that cannot hold a Hark token of its own — the Claude and ChatGPT
-connector settings, Claude Code and Codex when no header is configured — obtains
-one through OAuth 2.1. Hark is both the resource server, at `/mcp`, and the
-authorization server: there is no third party, and the access token it issues
-is an ordinary [API token](#api-token), listed on the Tokens page and revocable
-there like any other.
+MCP clients obtain scoped Hark API tokens through the authorization code
+grant with PKCE. Hark serves both the protected resource and authorization
+endpoints described by the
+[MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization).
 
-The flow is the authorization code grant with PKCE, as the
-[MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
-requires, and nothing else: no refresh tokens, no client secrets, no other
-grant. The access token does not expire. When a client should lose access, the
-owner revokes the token on the Tokens page or with
-[`DELETE /tokens/{id}`](#delete-tokensid); from then on `/mcp` answers `401`
-and the client has to run the flow again.
+OAuth tokens appear on the Tokens page. They do not expire; revoke them there
+or with [`DELETE /tokens/{id}`](#delete-tokensid). Hark supports public clients
+without client secrets or refresh tokens.
 
 1. The client reads the
    [protected resource metadata](#get-well-knownoauth-protected-resource) the
@@ -2698,10 +2677,10 @@ and the client has to run the flow again.
 4. It exchanges the code at [`POST /oauth/token`](#post-oauthtoken), and calls
    `/mcp` with the token.
 
-Every OAuth endpoint sends `Access-Control-Allow-Origin: *`, because a client
-that runs in a browser — the MCP Inspector, for one — calls them directly, and
-the metadata is public and the other two are protected by PKCE rather than by
-an origin.
+OAuth metadata, registration, and token endpoints send
+`Access-Control-Allow-Origin: *`. Registration and token endpoints also answer
+`OPTIONS` preflight requests. The consent page uses dashboard session and
+CSRF protection.
 
 ### Client identity
 
@@ -2718,18 +2697,18 @@ public address only, over TLS, following no redirects, at most 64 KiB, within
 five seconds — and requires a JSON document whose `client_id` is exactly that
 URL and which lists `redirect_uris`. `client_name`, `client_uri` and `logo_uri`
 are used as a registration's would be; `token_endpoint_auth_method`, if present,
-must be `none`. A document is cached for ten minutes. This is the mechanism the
-authorization server metadata advertises as
-`client_id_metadata_document_supported`, and the one Claude and ChatGPT prefer.
+must be `none`. Documents are cached for ten minutes. The authorization server
+advertises this support as `client_id_metadata_document_supported`.
 
 Either way, a client is a **public client**: it authenticates with nothing but
 PKCE, and Hark never issues a client secret.
 
 **Redirect URIs** are matched exactly against the ones the client registered or
-published. Each must be an absolute `https` URL with no fragment, or an `http`
+published. Each must be an absolute `https` URL without userinfo or a fragment, or an `http`
 URL whose host is `localhost`, `127.0.0.1` or `[::1]` — a loopback address, for
 a client running on the owner's own machine. For a loopback URI the port may
-differ from the registered one, as RFC 8252 allows; nothing else may.
+differ from the registered one, as RFC 8252 allows. The escaped path and query
+must match exactly; userinfo and fragments are rejected.
 
 ### `GET /.well-known/oauth-protected-resource`
 
@@ -2849,7 +2828,8 @@ Exchanges an authorization code for an API token (RFC 6749 §4.1.3, with PKCE).
 **The code in the body is the credential.** Rate limited to 120 requests per
 minute per client.
 
-**Request** — `application/x-www-form-urlencoded`:
+**Request** — `application/x-www-form-urlencoded`. Repeated parameters and
+malformed form encoding return `invalid_request`.
 
 | Field | Required | Notes |
 | --- | --- | --- |
@@ -2858,7 +2838,7 @@ minute per client.
 | `redirect_uri` | yes | The same value the authorization request carried. |
 | `client_id` | yes | The same `client_id` the authorization request carried. |
 | `code_verifier` | yes | 43–128 characters; its SHA-256, base64url-encoded, must equal the `code_challenge` of the request. |
-| `resource` | no | If present, must equal the `resource` of the authorization request. |
+| `resource` | no | Must match the authorization request's resource, or the deployment's MCP resource if authorization omitted it. |
 
 **200 OK** — `Cache-Control: no-store`:
 
@@ -3021,10 +3001,9 @@ field submits. It answers `303` back to this page.
 
 ### `GET /oauth/authorize`
 
-The consent screen of the [OAuth](#oauth) flow. An MCP client opens it in the
-owner's browser with the authorization request in the query string; the owner
-signs in if they are not already, reviews the request, and approves or denies
-it. It uses the dashboard session and CSRF protection.
+The [OAuth](#oauth) consent screen. The client supplies authorization parameters
+in the query string. The account owner signs in, reviews the scopes, and approves
+or denies access. Repeated parameters and malformed query encoding are rejected.
 
 | Parameter | Required | Notes |
 | --- | --- | --- |
@@ -3033,7 +3012,7 @@ it. It uses the dashboard session and CSRF protection.
 | `redirect_uri` | yes | Must exactly match one the client registered or published. |
 | `scope` | no | Space-separated [scopes](#scopes). Omitted means every scope in `scopes_supported`. |
 | `state` | no | Returned to the client unchanged. Up to 1024 characters. |
-| `code_challenge` | yes | The PKCE challenge, 43–128 characters. |
+| `code_challenge` | yes | Exactly 43 base64url characters encoding the SHA-256 digest of `code_verifier`, without padding. |
 | `code_challenge_method` | yes | Must be `S256`. |
 | `resource` | no | If present, must be the deployment's MCP resource identifier, `https://hark.example.com/mcp`. |
 
@@ -3047,8 +3026,7 @@ address is labelled as running on the owner's own computer.
 
 **A request Hark cannot answer to the client stays on this page.** An unknown or
 unfetchable `client_id`, or a `redirect_uri` the client did not register, is an
-HTML `400` that names the problem and offers no redirect: sending a browser to
-an unverified address is exactly what that check exists to prevent. Every other
+HTML `400` without a redirect. Every other
 problem is reported to the client by redirecting to `redirect_uri` with
 `error`, `error_description`, `state` and `iss` in the query:
 

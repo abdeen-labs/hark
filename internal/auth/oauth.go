@@ -23,10 +23,7 @@ import (
 	"github.com/abdeen-labs/hark/internal/netpolicy"
 )
 
-// OAuth constants. The flow is OAuth 2.1's authorization code grant with PKCE,
-// shaped for one account: Hark is both the resource server and the
-// authorization server, and the access token it issues is an ordinary API
-// token. See docs/api.md § OAuth.
+// OAuth limits and protocol identifiers.
 const (
 	// OAuthCodeTTL is how long an authorization code may be exchanged. The
 	// token it issues has no expiry of its own: the owner revokes it.
@@ -44,13 +41,9 @@ const (
 	// OAuthCodeChallengeMethod is the only PKCE method accepted.
 	OAuthCodeChallengeMethod = "S256"
 
-	// OAuthCodePrefix marks an authorization code. Like the other secret
-	// prefixes it is not a prefix of any other, so a bearer parser can route
-	// on it.
 	OAuthCodePrefix = "harkcode_"
 
-	// MinOAuthCodeVerifierLength and MaxOAuthCodeVerifierLength bound the PKCE
-	// verifier and challenge (RFC 7636 §4.1, §4.2).
+	// PKCE verifier length bounds (RFC 7636 §4.1).
 	MinOAuthCodeVerifierLength = 43
 	MaxOAuthCodeVerifierLength = 128
 
@@ -58,9 +51,6 @@ const (
 	// render as 43 base64url characters.
 	oauthCodeBytes = 32
 
-	// oauthClientUnusedRetention is how long a registration that never
-	// completed an authorization is kept; oauthClientIdleRetention is how long
-	// one is kept after its last exchange.
 	oauthClientUnusedRetention = 24 * time.Hour
 	oauthClientIdleRetention   = 365 * 24 * time.Hour
 
@@ -74,9 +64,6 @@ const (
 	// oauthMetadataTimeout bounds one fetch of a client metadata document.
 	oauthMetadataTimeout = 5 * time.Second
 
-	// oauthMetadataCacheSize bounds the metadata cache. A full cache stops
-	// remembering rather than growing: the documents it holds are still valid
-	// and a flood of distinct client ids is not worth remembering.
 	oauthMetadataCacheSize = 256
 
 	// oauthMetadataUserAgent identifies metadata fetches in a client's log.
@@ -86,8 +73,7 @@ const (
 	domainOAuthCode = "hark.oauth-code.v1"
 )
 
-// OAuthClient is a client as the consent screen and the token endpoint see it,
-// whether it registered or published a metadata document.
+// OAuthClient is a registered client or a client metadata document.
 type OAuthClient struct {
 	// ID is what the client sends as client_id: a registration's id, or the
 	// URL of its metadata document.
@@ -116,8 +102,7 @@ type RegisterOAuthClientParams struct {
 	Scope string
 }
 
-// OAuthAuthorizationRequest is the query of an authorization request, as the
-// client sent it and before anything about it has been checked.
+// OAuthAuthorizationRequest contains the unvalidated authorization parameters.
 type OAuthAuthorizationRequest struct {
 	ResponseType        string
 	ClientID            string
@@ -129,8 +114,7 @@ type OAuthAuthorizationRequest struct {
 	Resource            string
 }
 
-// OAuthConsent is a validated authorization request: what the consent screen
-// shows, and what an approval turns into a code.
+// OAuthConsent contains a validated authorization request.
 type OAuthConsent struct {
 	Client      OAuthClient
 	RedirectURI string
@@ -144,16 +128,12 @@ type OAuthConsent struct {
 	Resource *string
 }
 
-// OAuthClientError reports an authorization request the browser must not be
-// redirected away from: the client is unknown, or the redirect URI is not one
-// it registered. The consent screen shows Message with a 400.
+// OAuthClientError rejects an unknown client or unregistered redirect URI without redirecting.
 type OAuthClientError struct{ Message string }
 
 func (e *OAuthClientError) Error() string { return "auth: " + e.Message }
 
-// OAuthRedirectError reports an authorization request whose failure is the
-// client's to hear about: the consent screen redirects to the registered URI
-// with Code and Description in the query.
+// OAuthRedirectError is returned to the client at its validated redirect URI.
 type OAuthRedirectError struct {
 	// Code is an RFC 6749 §4.1.2.1 error: invalid_request,
 	// unsupported_response_type, invalid_scope, or invalid_target.
@@ -176,16 +156,14 @@ type ExchangeOAuthCodeParams struct {
 	ExpectedResource string
 }
 
-// OAuthTokenGrant is a successful exchange: the token, and its plaintext, which
-// exists only here.
+// OAuthTokenGrant contains the issued token and its plaintext secret.
 type OAuthTokenGrant struct {
 	Secret string
 	Token  *db.APIToken
 	Scopes []string
 }
 
-// OAuthTokenError reports a failed exchange in the vocabulary of RFC 6749
-// §5.2. Status is the HTTP status the transport answers with.
+// OAuthTokenError contains the token endpoint error code, description, and HTTP status.
 type OAuthTokenError struct {
 	// Code is invalid_request, invalid_client, invalid_grant, or
 	// unsupported_grant_type.
@@ -209,10 +187,7 @@ const (
 	OAuthErrUnsupportedGrantType    = "unsupported_grant_type"
 )
 
-// OAuthRedirectURL builds the URL an authorization response is delivered on:
-// redirectURI with values, state and the issuer (RFC 9207) added to its query.
-// It is used for both the success and the error response, so a client can
-// rely on state and iss being present on either.
+// OAuthRedirectURL adds the authorization result, state, and issuer to the redirect URI.
 func OAuthRedirectURL(redirectURI, issuer, state string, values url.Values) string {
 	u, err := url.Parse(redirectURI)
 	if err != nil {
@@ -233,10 +208,7 @@ func OAuthRedirectURL(redirectURI, issuer, state string, values url.Values) stri
 	return u.String()
 }
 
-// ── Codes and PKCE ─────────────────────────────────────────────────────────
-
-// NewOAuthCode returns a fresh authorization code: the prefix and 256 bits of
-// randomness in base64url.
+// NewOAuthCode returns an authorization code with 256 bits of random entropy.
 func NewOAuthCode() string {
 	raw := make([]byte, oauthCodeBytes)
 	rand.Read(raw) //nolint:errcheck // documented to always succeed
@@ -263,8 +235,7 @@ func ValidOAuthCode(s string) bool {
 // OAuthCodeHash returns the stored digest of an authorization code.
 func OAuthCodeHash(code string) string { return digest(domainOAuthCode, code) }
 
-// ValidOAuthCodeVerifier reports whether v is a PKCE code verifier: 43–128
-// unreserved characters (RFC 7636 §4.1). The same alphabet bounds a challenge.
+// ValidOAuthCodeVerifier checks the PKCE verifier length and unreserved alphabet (RFC 7636).
 func ValidOAuthCodeVerifier(v string) bool {
 	if len(v) < MinOAuthCodeVerifierLength || len(v) > MaxOAuthCodeVerifierLength {
 		return false
@@ -277,8 +248,7 @@ func ValidOAuthCodeVerifier(v string) bool {
 	return true
 }
 
-// OAuthCodeChallenge derives the S256 challenge of a verifier: base64url,
-// unpadded, of its SHA-256 (RFC 7636 §4.2).
+// OAuthCodeChallenge derives the S256 PKCE challenge.
 func OAuthCodeChallenge(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
@@ -301,17 +271,13 @@ func pkceChar(c byte) bool {
 	return base64URLChar(c) || c == '.' || c == '~'
 }
 
-// ── Redirect URIs ──────────────────────────────────────────────────────────
-
-// ValidOAuthRedirectURI applies the rule every registered or published
-// redirect URI must satisfy: absolute, no fragment, and either https with a
-// host or http on a loopback host.
+// ValidOAuthRedirectURI permits HTTPS or loopback HTTP URLs without userinfo or fragments.
 func ValidOAuthRedirectURI(raw string) bool {
 	if raw == "" || len(raw) > MaxOAuthRedirectURILength || strings.Contains(raw, "#") {
 		return false
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Opaque != "" || u.Hostname() == "" {
+	if err != nil || u.Opaque != "" || u.Hostname() == "" || u.User != nil {
 		return false
 	}
 	switch u.Scheme {
@@ -330,9 +296,6 @@ func OAuthLoopbackRedirectURI(raw string) bool {
 	return err == nil && oauthLoopbackHost(u.Hostname())
 }
 
-// oauthLoopbackHost is the RFC 8252 §7.3 loopback set. Hostnames are
-// case-insensitive, so `LOCALHOST` is `localhost`; url.Hostname has already
-// stripped the brackets from an IPv6 literal.
 func oauthLoopbackHost(host string) bool {
 	switch strings.ToLower(host) {
 	case "localhost", "127.0.0.1", "::1":
@@ -341,9 +304,7 @@ func oauthLoopbackHost(host string) bool {
 	return false
 }
 
-// oauthRedirectMatches reports whether candidate is one of the registered
-// URIs. The match is exact, except that a loopback URI may carry any port,
-// because a native client binds whichever one is free (RFC 8252 §7.3).
+// oauthRedirectMatches requires an exact match except for a loopback redirect port.
 func oauthRedirectMatches(registered []string, candidate string) bool {
 	if !ValidOAuthRedirectURI(candidate) {
 		return false
@@ -361,7 +322,7 @@ func oauthRedirectMatches(registered []string, candidate string) bool {
 			continue
 		}
 		if r.Scheme == c.Scheme && strings.EqualFold(r.Hostname(), c.Hostname()) &&
-			r.Path == c.Path && r.RawQuery == c.RawQuery {
+			r.EscapedPath() == c.EscapedPath() && r.RawQuery == c.RawQuery && r.ForceQuery == c.ForceQuery {
 			return true
 		}
 	}
@@ -396,9 +357,6 @@ func validOAuthLink(raw string) bool {
 	return err == nil && u.Scheme == "https" && u.Hostname() != ""
 }
 
-// oauthClientName canonicalises a client's display name, reporting whether it
-// was usable. The fallback is the host of the first redirect URI, which is
-// what the owner would recognise the client by anyway.
 func oauthClientName(raw string, redirectURIs []string) (string, bool) {
 	name := strings.TrimSpace(raw)
 	if name == "" {
@@ -419,15 +377,7 @@ func oauthClientNameFallback(redirectURIs []string) string {
 	return "OAuth client"
 }
 
-// ── Registration ───────────────────────────────────────────────────────────
-
-// RegisterOAuthClient records a dynamic registration (RFC 7591). The transport
-// must rate-limit this operation: it writes a row for a caller who has proved
-// nothing.
-//
-// Validation failures are [InvalidInputError]s whose Field is "redirect_uris"
-// for a problem with the URIs and the offending field's name otherwise, which
-// is the distinction the RFC's two error codes draw.
+// RegisterOAuthClient validates and stores a public client registration.
 func (s *Service) RegisterOAuthClient(ctx context.Context, p RegisterOAuthClientParams) (*db.OAuthClient, error) {
 	uris, err := validateOAuthRedirectURIs(p.RedirectURIs)
 	if err != nil {
@@ -489,12 +439,7 @@ func (s *Service) RegisterOAuthClient(ctx context.Context, p RegisterOAuthClient
 	return client, nil
 }
 
-// ── Client identity ────────────────────────────────────────────────────────
-
-// OAuthClientByID resolves a client_id: a registration's id, or the URL of a
-// client metadata document, which is fetched. Unknown, unfetchable and
-// invalid are all [ErrNotFound]; which of the three it was is the log's
-// business, not the caller's.
+// OAuthClientByID resolves a registered client or fetches its HTTPS metadata document.
 func (s *Service) OAuthClientByID(ctx context.Context, clientID string) (*OAuthClient, error) {
 	if u, ok := oauthMetadataURL(clientID); ok {
 		return s.oauthClientFromDocument(ctx, clientID, u)
@@ -518,9 +463,6 @@ func (s *Service) OAuthClientByID(ctx context.Context, clientID string) (*OAuthC
 	}, nil
 }
 
-// oauthMetadataURL reports whether a client_id names a metadata document: an
-// https URL with a host and a path beyond the root, and nothing a document
-// address has no use for (userinfo, a fragment).
 func oauthMetadataURL(clientID string) (*url.URL, bool) {
 	if len(clientID) > MaxOAuthRedirectURILength || !strings.HasPrefix(clientID, "https://") {
 		return nil, false
@@ -558,11 +500,8 @@ func (m *oauthMetadata) httpClient() *http.Client {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.client == nil {
-		// Proxy goes: an environment proxy would resolve and connect to the
-		// target itself, outside the dial policy. Every socket is opened by the
-		// netpolicy dialer, which resolves the hostname once, requires every
-		// address in the answer to be public, and dials one of those literals.
 		transport := http.DefaultTransport.(*http.Transport).Clone()
+		// Environment proxies would bypass the public-address dial policy.
 		transport.Proxy = nil
 		transport.DialContext = (&netpolicy.Dialer{}).DialContext
 		m.client = newOAuthMetadataClient(transport)
@@ -570,10 +509,6 @@ func (m *oauthMetadata) httpClient() *http.Client {
 	return m.client
 }
 
-// newOAuthMetadataClient builds the client the fetch runs on over transport:
-// bounded in time, and following no redirects. A redirect is answered as the
-// 3xx it is, which the fetch refuses: the document must live at the URL the
-// client claims as its identity, not wherever that URL points today.
 func newOAuthMetadataClient(transport http.RoundTripper) *http.Client {
 	return &http.Client{
 		Timeout:   oauthMetadataTimeout,
@@ -623,9 +558,7 @@ type oauthMetadataDocument struct {
 	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
 }
 
-// oauthClientFromDocument fetches and validates a client metadata document,
-// from a public address only, over TLS, following no redirects, reading at
-// most oauthMetadataMaxBytes, within oauthMetadataTimeout.
+// oauthClientFromDocument fetches bounded metadata from public addresses without redirects.
 func (s *Service) oauthClientFromDocument(ctx context.Context, clientID string, u *url.URL) (*OAuthClient, error) {
 	if !netpolicy.PublicHost(u.Hostname()) {
 		return nil, ErrNotFound
@@ -665,9 +598,6 @@ func (s *Service) oauthClientFromDocument(ctx context.Context, clientID string, 
 	if doc.TokenEndpointAuthMethod != "" && doc.TokenEndpointAuthMethod != "none" {
 		return nil, ErrNotFound
 	}
-	// URIs the rules refuse are dropped rather than failing the document: a
-	// client may publish schemes Hark never sends a browser to, and only the
-	// ones it could are its identity here.
 	var uris []string
 	for _, uri := range doc.RedirectURIs {
 		if ValidOAuthRedirectURI(uri) && !slices.Contains(uris, uri) {
@@ -694,16 +624,7 @@ func (s *Service) oauthClientFromDocument(ctx context.Context, clientID string, 
 	return &client, nil
 }
 
-// ── Authorization ──────────────────────────────────────────────────────────
-
-// OAuthConsent validates an authorization request for the consent screen.
-// resource is this deployment's MCP resource identifier.
-//
-// The client's identity and its redirect URI are judged first, and a failure
-// there is an [OAuthClientError]: the browser stays on the consent screen,
-// because sending it to an unverified address is exactly what the check
-// exists to prevent. Every other problem is an [OAuthRedirectError], which
-// the client hears about on the URI it did register.
+// OAuthConsent validates client identity and redirect URI before the remaining parameters.
 func (s *Service) OAuthConsent(ctx context.Context, req OAuthAuthorizationRequest, resource string) (*OAuthConsent, error) {
 	if req.ClientID == "" {
 		return nil, &OAuthClientError{Message: "The request names no client_id."}
@@ -732,10 +653,10 @@ func (s *Service) OAuthConsent(ctx context.Context, req OAuthAuthorizationReques
 	if req.CodeChallenge == "" {
 		return nil, &OAuthRedirectError{Code: OAuthErrInvalidRequest, Description: "code_challenge is required"}
 	}
-	if !ValidOAuthCodeVerifier(req.CodeChallenge) {
+	challenge, err := base64.RawURLEncoding.Strict().DecodeString(req.CodeChallenge)
+	if err != nil || len(challenge) != sha256.Size || len(req.CodeChallenge) != base64.RawURLEncoding.EncodedLen(sha256.Size) {
 		return nil, &OAuthRedirectError{Code: OAuthErrInvalidRequest,
-			Description: fmt.Sprintf("code_challenge must be %d-%d unreserved characters",
-				MinOAuthCodeVerifierLength, MaxOAuthCodeVerifierLength)}
+			Description: "code_challenge must be the unpadded base64url encoding of a SHA-256 digest"}
 	}
 	switch req.CodeChallengeMethod {
 	case OAuthCodeChallengeMethod:
@@ -804,24 +725,9 @@ func (s *Service) ApproveOAuth(ctx context.Context, consent *OAuthConsent, userI
 	return code, nil
 }
 
-// ── Token exchange ─────────────────────────────────────────────────────────
-
-// ExchangeOAuthCode redeems an authorization code for an API token.
-//
-// The decision runs in one transaction, and the code is what it looks up
-// first: a request that does not hold a code the owner issued costs one
-// indexed read and nothing else. In particular the client is never resolved
-// on the caller's say-so — a metadata document is not fetched here at all,
-// because everything the exchange needs from a client, the redirect URI and
-// the name the owner saw, was bound to the code at consent — so the token
-// endpoint cannot be used to make this server fetch a URL of the caller's
-// choosing.
-//
-// The guarded consume is what authorises the mint, so two requests presenting
-// the same code cannot both succeed. A code is spent by its first
-// presentation — the consume is committed even when a later check fails —
-// because a code that survives a failed exchange is a code an attacker can
-// keep trying verifiers against.
+// ExchangeOAuthCode consumes a code and issues its token in one transaction.
+// Client identity, redirect URI, PKCE, and resource are bound at consent; no metadata is fetched.
+// Validation refusals after consumption commit the consumed state to prevent retries.
 func (s *Service) ExchangeOAuthCode(ctx context.Context, p ExchangeOAuthCodeParams) (*OAuthTokenGrant, error) {
 	switch {
 	case p.Code == "":
@@ -869,8 +775,7 @@ func (s *Service) ExchangeOAuthCode(ctx context.Context, p ExchangeOAuthCodePara
 			return nil
 		}
 
-		// From here on the consume is kept whatever happens: returning nil
-		// commits it, and failure carries the verdict out.
+		// Returning nil commits the consumed code on validation failures.
 		switch {
 		case code.ClientID != p.ClientID:
 			failure = oauthTokenError(OAuthErrInvalidGrant, "code was issued to a different client")
@@ -900,7 +805,7 @@ func (s *Service) ExchangeOAuthCode(ctx context.Context, p ExchangeOAuthCodePara
 			}
 		}
 
-		active, err := tx.APITokens.CountActive(ctx, code.UserID, now)
+		active, err := tx.APITokens.CountActiveForUpdate(ctx, code.UserID, now)
 		if err != nil {
 			return fmt.Errorf("auth: count active API tokens: %w", err)
 		}
@@ -943,9 +848,7 @@ func (s *Service) ExchangeOAuthCode(ctx context.Context, p ExchangeOAuthCodePara
 	return grant, nil
 }
 
-// oauthCodeResource is the resource a token request must name, when it names
-// one: the one the authorization request named, or — when it named none —
-// the deployment's own, which is the only resource there is.
+// oauthCodeResource defaults an omitted authorization resource to this deployment.
 func oauthCodeResource(code *db.OAuthCode, expected string) string {
 	if code.Resource != nil {
 		return *code.Resource

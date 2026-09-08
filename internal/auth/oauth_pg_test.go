@@ -3,9 +3,11 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -219,9 +221,6 @@ func TestOAuthExchangeRefusals(t *testing.T) {
 		t.Errorf("exchange without a resource = %v, want the grant", err)
 	}
 
-	// A loopback redirect may change port between the two halves of the flow
-	// only in the sense that consent accepts any port; the token request must
-	// repeat the exact value the authorization request carried.
 	code = approve(t, ctx, service, client.ID, "http://127.0.0.1:51234/cb", "", verifier, user.ID)
 	if _, tokenErr := exchange(t, ctx, service, code, client.ID, "http://127.0.0.1:51235/cb", verifier); tokenErr == nil || tokenErr.Code != OAuthErrInvalidGrant {
 		t.Errorf("port drift at the token endpoint = %+v, want invalid_grant", tokenErr)
@@ -392,5 +391,119 @@ func TestRegisterOAuthClientPurgesAbandonedRegistrations(t *testing.T) {
 	registerClient(t, ctx, service)
 	if _, err := service.OAuthClientByID(ctx, used.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("a registration idle for a year survived: %v", err)
+	}
+}
+
+func TestConcurrentOAuthAndManualGrantsRespectTokenCap(t *testing.T) {
+	ctx, service, _ := requireService(t)
+	user := seedAccount(t, ctx, service)
+	client := registerClient(t, ctx, service)
+	verifier := strings.Repeat("v", 43)
+	for range db.MaxActiveAPITokens - 1 {
+		if _, _, err := service.CreateAPIToken(ctx, user.ID, CreateAPITokenParams{Name: "filler", Scopes: []string{"events:read"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const attempts = 8
+	codes := make([]string, attempts/2)
+	for i := range codes {
+		codes[i] = approve(t, ctx, service, client.ID, registeredRedirectURI, "events:read", verifier, user.ID)
+	}
+	// Delay insertion so concurrent count-and-insert transactions overlap.
+	_, err := schemaPool.Exec(ctx, `
+ CREATE FUNCTION delay_token_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+ BEGIN PERFORM pg_sleep(0.05); RETURN NEW; END $$;
+ CREATE TRIGGER delay_token_insert BEFORE INSERT ON api_tokens
+ FOR EACH ROW EXECUTE FUNCTION delay_token_insert();`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := schemaPool.Exec(context.WithoutCancel(ctx), `DROP TRIGGER delay_token_insert ON api_tokens; DROP FUNCTION delay_token_insert()`); err != nil {
+			t.Error(err)
+		}
+	})
+	start := make(chan struct{})
+	results := make(chan error, attempts)
+	var workers sync.WaitGroup
+	for i := range attempts {
+		workers.Go(func() {
+			<-start
+			if i%2 == 0 {
+				_, err := service.ExchangeOAuthCode(ctx, ExchangeOAuthCodeParams{Code: codes[i/2], ClientID: client.ID, RedirectURI: registeredRedirectURI, CodeVerifier: verifier, Resource: testResource, ExpectedResource: testResource})
+				if err != nil {
+					var refusal *OAuthTokenError
+					if !errors.As(err, &refusal) || refusal.Code != OAuthErrInvalidGrant {
+						results <- fmt.Errorf("unexpected OAuth failure: %w", err)
+						return
+					}
+					results <- ErrTokenLimit
+					return
+				}
+				results <- nil
+				return
+			}
+			_, _, err := service.CreateAPIToken(ctx, user.ID, CreateAPITokenParams{Name: "concurrent", Scopes: []string{"events:read"}})
+			results <- err
+		})
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	granted := 0
+	for err := range results {
+		if err == nil {
+			granted++
+		} else if !errors.Is(err, ErrTokenLimit) {
+			t.Error(err)
+		}
+	}
+	if granted != 1 {
+		t.Errorf("granted %d tokens for one remaining slot", granted)
+	}
+	if active, err := service.store.APITokens.CountActive(ctx, user.ID, service.Now()); err != nil || active != db.MaxActiveAPITokens {
+		t.Errorf("active tokens = %d, %v; want %d", active, err, db.MaxActiveAPITokens)
+	}
+}
+
+func TestConcurrentOAuthCodeExchangeIssuesOneToken(t *testing.T) {
+	ctx, service, _ := requireService(t)
+	user := seedAccount(t, ctx, service)
+	client := registerClient(t, ctx, service)
+	verifier := strings.Repeat("v", 43)
+	code := approve(t, ctx, service, client.ID, registeredRedirectURI, "events:read", verifier, user.ID)
+	const attempts = 8
+	start := make(chan struct{})
+	results := make(chan error, attempts)
+	var workers sync.WaitGroup
+	for range attempts {
+		workers.Go(func() {
+			<-start
+			_, err := service.ExchangeOAuthCode(ctx, ExchangeOAuthCodeParams{
+				Code: code, ClientID: client.ID, RedirectURI: registeredRedirectURI,
+				CodeVerifier: verifier, Resource: testResource, ExpectedResource: testResource,
+			})
+			results <- err
+		})
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	granted := 0
+	for err := range results {
+		if err == nil {
+			granted++
+			continue
+		}
+		var refusal *OAuthTokenError
+		if !errors.As(err, &refusal) || refusal.Code != OAuthErrInvalidGrant {
+			t.Errorf("unexpected exchange failure: %v", err)
+		}
+	}
+	if granted != 1 {
+		t.Errorf("granted %d tokens for one authorization code", granted)
+	}
+	if active, err := service.store.APITokens.CountActive(ctx, user.ID, service.Now()); err != nil || active != 1 {
+		t.Errorf("active tokens = %d, %v; want 1", active, err)
 	}
 }

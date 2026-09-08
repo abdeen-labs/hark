@@ -13,6 +13,7 @@ import (
 // this package, so its definitions cannot be imported back; these mirror them.
 const (
 	codeUnauthorized     = "unauthorized"
+	codeOriginNotAllowed = "origin_not_allowed"
 	codeMethodNotAllowed = "method_not_allowed"
 	codeNotFound         = "not_found"
 	codeValidation       = "validation_failed"
@@ -54,10 +55,15 @@ func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(s.serve)
 }
 
-// serve checks the token on every request. The transport is stateless, so
-// there is no session for a revoked token to hide behind: the next request
-// after revocation is a 401.
+// serve validates the origin and token on every request.
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
+	if origins := r.Header.Values("Origin"); len(origins) != 0 &&
+		(len(origins) != 1 || s.origin == "" || !strings.EqualFold(origins[0], s.origin)) {
+		writeEnvelope(w, http.StatusForbidden, codeOriginNotAllowed,
+			"The request origin must match this server's public origin.")
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeEnvelope(w, http.StatusMethodNotAllowed, codeMethodNotAllowed,
@@ -65,9 +71,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only an API token is admitted. A session token is refused before any
-	// lookup: everything a tool creates is attributed to a token, so there is
-	// no principal a session could act as here.
+	// MCP operations require token attribution; session tokens are refused.
 	secret, ok := bearerSecret(r.Header.Get("Authorization"))
 	if !ok || !strings.HasPrefix(secret, auth.APITokenPrefix) {
 		s.unauthorized(w, "Present an API token as `Authorization: Bearer hark_…`; "+
@@ -85,9 +89,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The correlation id the surrounding middleware assigned is on the
-	// response so far. Carrying it on the request lets a tool hand it to the
-	// loopback call, so both access-log lines share one id.
+	// Share the outer request ID with loopback requests.
 	if rid := w.Header().Get(requestIDHeader); rid != "" {
 		r.Header.Set(requestIDHeader, rid)
 	}

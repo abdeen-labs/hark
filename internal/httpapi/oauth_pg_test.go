@@ -25,9 +25,6 @@ func (f *fixture) form(path string, values url.Values) *httptest.ResponseRecorde
 	return rec
 }
 
-// TestOAuthFlowIssuesAUsableToken walks the whole grant over the real handler:
-// a client registers, the owner consents, the code is exchanged, and what
-// comes back is an ordinary scoped API token.
 func TestOAuthFlowIssuesAUsableToken(t *testing.T) {
 	f := newFixture(t, fixtureOptions{})
 	const redirectURI = "https://claude.ai/api/mcp/auth_callback"

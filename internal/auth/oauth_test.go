@@ -69,9 +69,6 @@ const validDocument = `{
 	"unknown_field": {"nested": true}
 }`
 
-// newDocumentService returns a Service with no database behind it and a
-// metadata client that answers from docs. Resolving a metadata-document client
-// never touches the store, so the pure tests need no PostgreSQL.
 func newDocumentService(t *testing.T, docs map[string]*http.Response) (*Service, *documentTransport, *testClock) {
 	t.Helper()
 	clock := &testClock{now: time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)}
@@ -90,6 +87,8 @@ func TestRedirectURIRules(t *testing.T) {
 		"http://127.0.0.1:1234/callback":          true,
 		"http://[::1]:9000/cb":                    true,
 		"http://LOCALHOST/cb":                     true,
+		"http://user@localhost/cb":                false,
+		"https://user:password@example.com/cb":    false,
 		"https://example.com/cb#fragment":         false,
 		"https://example.com/cb#":                 false,
 		"http://example.com/cb":                   false,
@@ -117,6 +116,8 @@ func TestRedirectURIRules(t *testing.T) {
 		"http://localhost:51234/cb?x=1":    true,
 		"http://localhost:51234/cb":        false,
 		"http://localhost:51234/other":     false,
+		"http://127.0.0.1:51234/%63b":      false,
+		"http://user@127.0.0.1:51234/cb":   false,
 		"http://[::1]:51234/cb":            false,
 		"https://127.0.0.1:51234/cb":       false,
 		"http://127.0.0.1:51234/cb#frag":   false,
@@ -332,9 +333,6 @@ func TestClientMetadataDocumentIsValidated(t *testing.T) {
 	}
 }
 
-// TestClientMetadataDocumentHostMustBePublic pins the address policy: a
-// client_id pointing at a loopback, private or local address is refused before
-// any request is made, whatever the document there would say.
 func TestClientMetadataDocumentHostMustBePublic(t *testing.T) {
 	for _, clientID := range []string{
 		"https://127.0.0.1/oauth/client.json",
@@ -451,16 +449,19 @@ func TestOAuthConsentValidatesTheRequest(t *testing.T) {
 		mutate func(*OAuthAuthorizationRequest)
 		code   string
 	}{
-		"no response_type":    {func(r *OAuthAuthorizationRequest) { r.ResponseType = "" }, OAuthErrInvalidRequest},
-		"token response_type": {func(r *OAuthAuthorizationRequest) { r.ResponseType = "token" }, OAuthErrUnsupportedResponseType},
-		"no challenge":        {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = "" }, OAuthErrInvalidRequest},
-		"short challenge":     {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = "short" }, OAuthErrInvalidRequest},
-		"no method":           {func(r *OAuthAuthorizationRequest) { r.CodeChallengeMethod = "" }, OAuthErrInvalidRequest},
-		"plain method":        {func(r *OAuthAuthorizationRequest) { r.CodeChallengeMethod = "plain" }, OAuthErrInvalidRequest},
-		"unknown scope":       {func(r *OAuthAuthorizationRequest) { r.Scope = "devices:read the:moon" }, OAuthErrInvalidScope},
-		"long state":          {func(r *OAuthAuthorizationRequest) { r.State = strings.Repeat("s", MaxOAuthStateLength+1) }, OAuthErrInvalidRequest},
-		"foreign resource":    {func(r *OAuthAuthorizationRequest) { r.Resource = "https://other.example/mcp" }, OAuthErrInvalidTarget},
-		"resource with slash": {func(r *OAuthAuthorizationRequest) { r.Resource = testResource + "/" }, OAuthErrInvalidTarget},
+		"no response_type":            {func(r *OAuthAuthorizationRequest) { r.ResponseType = "" }, OAuthErrInvalidRequest},
+		"token response_type":         {func(r *OAuthAuthorizationRequest) { r.ResponseType = "token" }, OAuthErrUnsupportedResponseType},
+		"no challenge":                {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = "" }, OAuthErrInvalidRequest},
+		"short challenge":             {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = "short" }, OAuthErrInvalidRequest},
+		"long challenge":              {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = strings.Repeat("a", 64) }, OAuthErrInvalidRequest},
+		"verifier alphabet challenge": {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = strings.Repeat("~", 43) }, OAuthErrInvalidRequest},
+		"noncanonical challenge":      {func(r *OAuthAuthorizationRequest) { r.CodeChallenge = strings.Repeat("a", 43) }, OAuthErrInvalidRequest},
+		"no method":                   {func(r *OAuthAuthorizationRequest) { r.CodeChallengeMethod = "" }, OAuthErrInvalidRequest},
+		"plain method":                {func(r *OAuthAuthorizationRequest) { r.CodeChallengeMethod = "plain" }, OAuthErrInvalidRequest},
+		"unknown scope":               {func(r *OAuthAuthorizationRequest) { r.Scope = "devices:read the:moon" }, OAuthErrInvalidScope},
+		"long state":                  {func(r *OAuthAuthorizationRequest) { r.State = strings.Repeat("s", MaxOAuthStateLength+1) }, OAuthErrInvalidRequest},
+		"foreign resource":            {func(r *OAuthAuthorizationRequest) { r.Resource = "https://other.example/mcp" }, OAuthErrInvalidTarget},
+		"resource with slash":         {func(r *OAuthAuthorizationRequest) { r.Resource = testResource + "/" }, OAuthErrInvalidTarget},
 	} {
 		req := validRequest()
 		tc.mutate(&req)
@@ -476,9 +477,6 @@ func TestOAuthConsentValidatesTheRequest(t *testing.T) {
 	}
 }
 
-// TestExchangeRefusesMalformedRequestsWithoutTheStore covers the checks that
-// precede any lookup, which is also what lets the transport tests run against
-// a Service with no database.
 func TestExchangeRefusesMalformedRequestsWithoutTheStore(t *testing.T) {
 	s, _, _ := newDocumentService(t, map[string]*http.Response{
 		testClientID: document(http.StatusOK, validDocument, nil),

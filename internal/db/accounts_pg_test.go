@@ -1,7 +1,6 @@
 package db
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -45,43 +44,19 @@ func TestConcurrentBootstrapCreatesOneAdmin(t *testing.T) {
 	}
 }
 
-func TestAccountRoleMigrationPreservesExistingOwner(t *testing.T) {
-	ctx, _ := requireStore(t)
-	tx, err := schemaPool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
+func TestFreshSchemaAccountRoles(t *testing.T) {
+	ctx, store := requireStore(t)
+	owner, err := store.Users.CreateFirst(ctx, CreateUserParams{
+		ID: id.New(), Username: "owner", Email: "owner@hark.local", Now: time.Now(),
+	})
+	if err != nil || owner.Role != RoleAdmin {
+		t.Fatalf("bootstrap owner=%+v, err=%v", owner, err)
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
-	if _, err := tx.Exec(ctx, "CREATE SCHEMA hark_role_upgrade_test; SET LOCAL search_path TO hark_role_upgrade_test"); err != nil {
-		t.Fatal(err)
-	}
-	migrations, err := LoadMigrations(Migrations())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tx.Exec(ctx, migrations[0].SQL); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tx.Exec(ctx, `INSERT INTO users (id, username, email, display_name, password_hash, created_at, updated_at)
-		VALUES ('existing-owner', 'custom-owner', 'owner@example.com', 'Owner', 'existing-hash', now(), now())`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tx.Exec(ctx, migrations[1].SQL); err != nil {
-		t.Fatal(err)
-	}
-	store := newStore(tx)
-	owner, err := store.Users.ByID(ctx, "existing-owner")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if owner.Role != RoleAdmin || owner.Username != "custom-owner" || owner.PasswordHash == nil || *owner.PasswordHash != "existing-hash" {
-		t.Fatalf("migration changed the owner incorrectly: %+v", owner)
-	}
-	user := mustUser(ctx, t, store, "new-user")
+	user := mustUser(ctx, t, store, "regular-user")
 	if user.Role != RoleUser {
-		t.Fatalf("new role = %q, want user", user.Role)
+		t.Fatalf("new role=%q, want user", user.Role)
 	}
-	if _, err := tx.Exec(ctx, "UPDATE users SET role = 'admin' WHERE id = $1", user.ID); !IsUniqueViolation(err, "users_one_admin_key") {
-		t.Fatalf("second admin = %v, want unique violation", err)
+	if _, err := schemaPool.Exec(ctx, "UPDATE users SET role = 'admin' WHERE id = $1", user.ID); !IsUniqueViolation(err, "users_one_admin_key") {
+		t.Fatalf("second admin=%v, want unique violation", err)
 	}
 }

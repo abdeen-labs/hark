@@ -110,7 +110,6 @@ type Database struct {
 	ConnectTimeout  time.Duration
 	MaxConnLifetime time.Duration
 	MaxConnIdleTime time.Duration
-	AutoMigrate     bool
 }
 
 // Admin bootstraps the administrator when the user table is empty. The admin
@@ -185,7 +184,6 @@ func Load(getenv Getenv) (*Config, error) {
 			ConnectTimeout:  l.duration("HARK_DB_CONNECT_TIMEOUT", DefaultDBConnectTimeout),
 			MaxConnLifetime: l.duration("HARK_DB_MAX_CONN_LIFETIME", DefaultDBMaxConnLifetime),
 			MaxConnIdleTime: l.duration("HARK_DB_MAX_CONN_IDLE_TIME", DefaultDBMaxConnIdleTime),
-			AutoMigrate:     l.boolean("HARK_DB_AUTO_MIGRATE", true),
 		},
 		RateLimit: RateLimit{
 			RequesterPerMinute: l.positiveInt("HARK_RATE_LIMIT_REQUESTER_PER_MINUTE", DefaultRequesterRatePerMinute),
@@ -239,7 +237,6 @@ func (c *Config) LogValue() slog.Value {
 		slog.String("log_format", string(c.LogFormat)),
 		slog.String("database_url", RedactURL(c.Database.URL)),
 		slog.Int("database_max_conns", int(c.Database.MaxConns)),
-		slog.Bool("database_auto_migrate", c.Database.AutoMigrate),
 		slog.String("admin_username", c.Admin.Username),
 		slog.Bool("admin_seedable", c.Admin.Seedable()),
 		slog.Bool("apns_configured", c.APNs.Configured()),
@@ -378,19 +375,6 @@ func (l *loader) nonNegativeInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
-}
-
-func (l *loader) boolean(key string, fallback bool) bool {
-	v := l.raw(key)
-	if v == "" {
-		return fallback
-	}
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		l.errorf("%s: must be a boolean (true/false), got %q", key, v)
-		return fallback
-	}
-	return b
 }
 
 func (l *loader) duration(key string, fallback time.Duration) time.Duration {

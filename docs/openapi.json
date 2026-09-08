@@ -915,6 +915,8 @@
           "client_id": { "type": "string", "description": "Sent as client_id in the authorization request and the token exchange. No client_secret is issued.", "examples": ["0198f3a1-2b4c-7d8e-9f01-23456789abcd"] },
           "client_id_issued_at": { "type": "integer", "description": "Epoch seconds.", "examples": [1786099200] },
           "client_name": { "type": "string" },
+          "client_uri": { "type": "string", "format": "uri" },
+          "logo_uri": { "type": "string", "format": "uri" },
           "redirect_uris": { "type": "array", "items": { "type": "string", "format": "uri" } },
           "grant_types": { "type": "array", "items": { "const": "authorization_code" } },
           "response_types": { "type": "array", "items": { "const": "code" } },
@@ -934,7 +936,7 @@
           "redirect_uri": { "type": "string", "format": "uri", "description": "The same value the authorization request carried." },
           "client_id": { "type": "string", "description": "The same client_id the authorization request carried." },
           "code_verifier": { "type": "string", "minLength": 43, "maxLength": 128, "pattern": "^[A-Za-z0-9._~-]+$", "writeOnly": true, "description": "Its SHA-256, base64url-encoded without padding, must equal the code_challenge of the authorization request." },
-          "resource": { "type": "string", "format": "uri", "description": "If present, must equal the resource of the authorization request." }
+          "resource": { "type": "string", "format": "uri", "description": "If present, must match the authorization request's resource, or the deployment's MCP resource if authorization omitted it." }
         }
       },
       "OAuthTokenResponse": {

@@ -373,13 +373,9 @@ func openDatabase(ctx context.Context, cfg *config.Config, log *slog.Logger) (*p
 	}
 	log.Info("connected to postgres", "url", db.Redact(cfg.Database.URL))
 
-	if cfg.Database.AutoMigrate {
-		if err := db.Migrate(ctx, pool, db.Migrations(), log); err != nil {
-			pool.Close()
-			return nil, err
-		}
-	} else {
-		log.Warn("automatic migrations are disabled (HARK_DB_AUTO_MIGRATE=false)")
+	if err := db.InitializeSchema(ctx, pool, log); err != nil {
+		pool.Close()
+		return nil, err
 	}
 	return pool, nil
 }

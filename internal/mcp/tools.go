@@ -11,7 +11,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// instructions is what a client shows the model about this server.
+// instructions describes the available operations to MCP clients.
 const instructions = "Hark reaches the owner's iPhone. " +
 	"Use send_notification for a one-way alert that needs no reply. " +
 	"Use ask_question when you need the owner's decision before continuing: " +
@@ -28,10 +28,8 @@ const instructions = "Hark reaches the owner's iPhone. " +
 // GET /interactions/{id} allows.
 const maxWaitSeconds = 25
 
-// Argument sets. A field without omitempty is a required argument; a pointer
-// field admits an explicit null, which the endpoint reads as "remove". The
-// descriptions carry the enum values and ranges the endpoint enforces, since
-// the endpoint is what validates them.
+// Argument schemas use omitempty for optional fields and pointers for
+// nullable fields. The API validates enum values and ranges.
 
 type sendNotificationArgs struct {
 	Body           string   `json:"body" jsonschema:"The notification text, 1-2000 characters."`
@@ -138,8 +136,6 @@ type noArgs struct{}
 
 func ptr(b bool) *bool { return &b }
 
-// Annotations. Nothing here deletes: a cancel or an end settles a record that
-// stays readable, so no tool is marked destructive.
 func readOnly() *sdk.ToolAnnotations {
 	return &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: ptr(false)}
 }
@@ -148,8 +144,8 @@ func additive() *sdk.ToolAnnotations {
 	return &sdk.ToolAnnotations{DestructiveHint: ptr(false), OpenWorldHint: ptr(false)}
 }
 
-func settling() *sdk.ToolAnnotations {
-	return &sdk.ToolAnnotations{DestructiveHint: ptr(false), IdempotentHint: true, OpenWorldHint: ptr(false)}
+func mutating(idempotent bool) *sdk.ToolAnnotations {
+	return &sdk.ToolAnnotations{DestructiveHint: ptr(true), IdempotentHint: idempotent, OpenWorldHint: ptr(false)}
 }
 
 func (s *Server) addTools(server *sdk.Server) {
@@ -195,7 +191,7 @@ func (s *Server) addTools(server *sdk.Server) {
 		Title: "Cancel a question",
 		Description: "Withdraw a pending question this token asked. Use it when the decision is no longer needed. " +
 			"A question that is already answered, canceled or expired cannot be canceled.",
-		Annotations: settling(),
+		Annotations: mutating(true),
 	}, s.cancelQuestion)
 
 	sdk.AddTool(server, &sdk.Tool{
@@ -204,7 +200,7 @@ func (s *Server) addTools(server *sdk.Server) {
 		Description: "Start a Live Activity: an updatable Lock Screen card for a long-running job such as a deploy, " +
 			"a build or a test run. A phone shows one at a time, so pass replace to end whatever is showing, " +
 			"and a key to address the activity by name in later calls. Returns the activity and its sequence.",
-		Annotations: additive(),
+		Annotations: mutating(false),
 	}, s.startLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
@@ -213,7 +209,7 @@ func (s *Server) addTools(server *sdk.Server) {
 		Description: "Change a running Live Activity's title, status, detail or progress and push the change. " +
 			"Every field is optional but at least one is required; send detail or progress as null to remove them. " +
 			"Use if_sequence to refuse the update when the activity moved on since you read it.",
-		Annotations: additive(),
+		Annotations: mutating(false),
 	}, s.updateLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
@@ -221,7 +217,7 @@ func (s *Server) addTools(server *sdk.Server) {
 		Title: "End a Live Activity",
 		Description: "Finish a Live Activity with its final state and push it. Use it when the job it tracked is done; " +
 			"the finished card stays on screen for dismiss_after_seconds. The activity remains readable in history.",
-		Annotations: settling(),
+		Annotations: mutating(false),
 	}, s.endLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
@@ -282,8 +278,7 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.fetch)
 }
 
-// forward makes one call carrying the model's arguments as the body, less the
-// keys the adapter consumed itself.
+// forward removes adapter arguments and forwards the remaining JSON body.
 func (s *Server) forward(ctx context.Context, req *sdk.CallToolRequest, method, path, idempotencyKey string, consumed ...string) (*sdk.CallToolResult, any, error) {
 	body, err := bodyWithout(req.Params.Arguments, consumed...)
 	if err != nil {
@@ -327,7 +322,7 @@ func (s *Server) askQuestion(ctx context.Context, req *sdk.CallToolRequest, in a
 	if err != nil {
 		return nil, nil, err
 	}
-	if created.status != http.StatusCreated || in.WaitSeconds == 0 {
+	if !created.ok() || in.WaitSeconds == 0 {
 		return result(created), nil, nil
 	}
 	id := interactionID(created.body)
@@ -335,9 +330,7 @@ func (s *Server) askQuestion(ctx context.Context, req *sdk.CallToolRequest, in a
 		return result(created), nil, nil
 	}
 
-	// The question is already out. Nothing about the wait may fail the tool:
-	// a token without interactions:read gets the question as created, and
-	// can still be told the answer through a callback or by the owner.
+	// Preserve the successful create if the optional read fails.
 	fresh, err := s.call(ctx, header, apiCall{
 		method: http.MethodGet,
 		path:   "/interactions/" + url.PathEscape(id),
@@ -418,8 +411,7 @@ func (s *Server) listWebhookEvents(ctx context.Context, req *sdk.CallToolRequest
 	return s.read(ctx, req, http.MethodGet, "/events", listQuery("", in.Limit, in.Cursor))
 }
 
-// listQuery carries the paging arguments the model set; the endpoint's own
-// defaults apply to the rest.
+// listQuery includes supplied paging arguments and preserves API defaults.
 func listQuery(status string, limit int, cursor string) url.Values {
 	q := url.Values{}
 	if status != "" {

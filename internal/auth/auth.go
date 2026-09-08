@@ -71,21 +71,14 @@ func invalid(field, message string) error {
 }
 
 // Service issues and resolves credentials against the store.
-//
-// One instance is shared by every request; its only mutable state is the
-// OAuth client metadata cache, which guards itself.
 type Service struct {
 	store *db.Store
 	now   func() time.Time
-	// metadata fetches and caches OAuth client metadata documents; see
-	// oauth.go.
+	// metadata protects its cache with a mutex.
 	metadata oauthMetadata
 }
 
-// UseMetadataClient replaces the HTTP client used to fetch OAuth client
-// metadata documents. Tests install one whose transport answers from memory;
-// production keeps the default, which dials only public addresses, follows no
-// redirects and gives up after oauthMetadataTimeout.
+// UseMetadataClient replaces the OAuth metadata HTTP client for tests.
 func (s *Service) UseMetadataClient(c *http.Client) { s.metadata.use(c) }
 
 // New returns a Service backed by store. A nil now uses [time.Now]; tests pass

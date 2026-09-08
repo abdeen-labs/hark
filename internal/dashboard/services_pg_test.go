@@ -1,7 +1,7 @@
 package dashboard
 
 // The services pages against a real store: create, read back, edit, rotate,
-// delete. Set TEST_DATABASE_URL (or HARK_TEST_DATABASE_URL) to run:
+// delete. Set TEST_DATABASE_URL to run:
 //
 //	TEST_DATABASE_URL=postgres://hark:hark@localhost:5432/hark_test go test ./internal/dashboard
 //
@@ -43,9 +43,6 @@ func newPGDashboard(t *testing.T) (*Dashboard, *db.Store, string) {
 
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
-		dsn = os.Getenv("HARK_TEST_DATABASE_URL")
-	}
-	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 
@@ -65,7 +62,7 @@ func newPGDashboard(t *testing.T) (*Dashboard, *db.Store, string) {
 			dashSchemaErr = err
 			return
 		}
-		if err := db.Migrate(ctx, pool, db.Migrations(), slog.New(slog.DiscardHandler)); err != nil {
+		if err := db.InitializeSchema(ctx, pool, slog.New(slog.DiscardHandler)); err != nil {
 			dashSchemaErr = err
 			return
 		}

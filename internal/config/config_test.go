@@ -55,9 +55,6 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MaxRequestBytes != DefaultMaxRequestBytes {
 		t.Errorf("MaxRequestBytes = %d, want %d", cfg.MaxRequestBytes, DefaultMaxRequestBytes)
 	}
-	if !cfg.Database.AutoMigrate {
-		t.Error("Database.AutoMigrate = false, want true by default")
-	}
 	if cfg.Database.MaxConns != DefaultDBMaxConns {
 		t.Errorf("Database.MaxConns = %d, want %d", cfg.Database.MaxConns, DefaultDBMaxConns)
 	}
@@ -97,7 +94,6 @@ func TestLoadOverrides(t *testing.T) {
 		"HARK_TRUSTED_CLIENT_IP_HEADER":        " X-Real-IP ",
 		"HARK_DB_MAX_CONNS":                    "25",
 		"HARK_DB_MIN_CONNS":                    "5",
-		"HARK_DB_AUTO_MIGRATE":                 "false",
 		"HARK_RATE_LIMIT_REQUESTER_PER_MINUTE": "50",
 		"HARK_RATE_LIMIT_ACCOUNT_PER_MINUTE":   "500",
 		"HARK_APNS_ATTEMPT_RETENTION_DAYS":     "90",
@@ -123,9 +119,6 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.TrustedClientIPHeader != "X-Real-IP" {
 		t.Errorf("TrustedClientIPHeader = %q, want trimmed", cfg.TrustedClientIPHeader)
-	}
-	if cfg.Database.AutoMigrate {
-		t.Error("Database.AutoMigrate = true, want false")
 	}
 	if cfg.Admin.Email != "ops@example.com" {
 		t.Errorf("Admin.Email = %q, want lowercased", cfg.Admin.Email)

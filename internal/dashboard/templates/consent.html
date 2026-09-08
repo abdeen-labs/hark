@@ -53,8 +53,7 @@
 
   <div class="span-12">
     <p class="grant__warning">Only approve requests you started. Approving issues an API token this client holds until you revoke it on the Tokens page.</p>
-    {{/* Not boosted: the answer is a redirect to the client's own address,
-         which the browser must follow as a navigation rather than fetch. */}}
+    {{/* OAuth redirects require browser navigation. */}}
     <form method="post" action="{{$.Paths.OAuthAuthorize}}" class="row row--actions" data-consent-decision hx-boost="false">
       <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
       <input type="hidden" name="response_type" value="{{$.Request.ResponseType}}">

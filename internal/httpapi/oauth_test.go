@@ -279,3 +279,39 @@ func TestOAuthEndpointsAreRateLimited(t *testing.T) {
 		}
 	}
 }
+
+func TestOAuthPreflight(t *testing.T) {
+	h := newTestServer(t, stubPinger{})
+	for _, path := range []string{OAuthRegisterPath, OAuthTokenPath} {
+		req := httptest.NewRequest(http.MethodOptions, path, nil)
+		req.Header.Set("Origin", "https://inspector.example")
+		req.Header.Set("Access-Control-Request-Method", "POST")
+		req.Header.Set("Access-Control-Request-Headers", "content-type")
+		rec := send(t, h, req)
+		if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != "*" || rec.Header().Get("Access-Control-Allow-Methods") != "POST, OPTIONS" || rec.Header().Get("Access-Control-Allow-Headers") != "Content-Type" {
+			t.Errorf("%s preflight: status=%d headers=%v", path, rec.Code, rec.Header())
+		}
+	}
+}
+
+func TestOAuthTokenRejectsDuplicateParameters(t *testing.T) {
+	h := newTestServer(t, stubPinger{})
+	for _, field := range []string{"grant_type", "code", "client_id", "redirect_uri", "code_verifier", "resource"} {
+		form := url.Values{"grant_type": {"authorization_code"}, "code": {"malformed"}, "client_id": {"client"}, "redirect_uri": {"https://example.com/cb"}, "code_verifier": {strings.Repeat("v", 43)}, "resource": {"https://hark.example.com/mcp"}}
+		form.Add(field, form.Get(field))
+		rec := postForm(t, h, OAuthTokenPath, form, "application/x-www-form-urlencoded")
+		if got := decodeOAuthError(t, rec); rec.Code != http.StatusBadRequest || got.Error != "invalid_request" {
+			t.Errorf("duplicate %s: status=%d error=%q", field, rec.Code, got.Error)
+		}
+	}
+}
+
+func TestOAuthRegistrationRejectsTrailingJSON(t *testing.T) {
+	h := newTestServer(t, stubPinger{})
+	for _, suffix := range []string{" {}", " garbage"} {
+		rec := do(t, h, http.MethodPost, OAuthRegisterPath, strings.NewReader(`{"redirect_uris":["https://example.com/cb"]}`+suffix))
+		if got := decodeOAuthError(t, rec); rec.Code != http.StatusBadRequest || got.Error != oauthErrInvalidClientMetadata {
+			t.Errorf("trailing %q: status=%d error=%q", suffix, rec.Code, got.Error)
+		}
+	}
+}

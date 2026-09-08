@@ -19,8 +19,7 @@ type fetchArgs struct {
 	ID string `json:"id" jsonschema:"A result id from search: kind:id, with kind one of service, device, event, question, activity."`
 }
 
-// searchHit and the two documents are the shapes docs/api.md § MCP gives for
-// search and fetch.
+// Search and fetch response types are documented in docs/api.md.
 type searchHit struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
@@ -159,8 +158,7 @@ func (s *Server) search(ctx context.Context, req *sdk.CallToolRequest, in search
 		if err != nil {
 			return nil, nil, err
 		}
-		// A kind the token cannot read is simply not searched; any other
-		// refusal is the model's to see.
+		// Skip records outside the token's read scopes.
 		if resp.status == http.StatusForbidden {
 			continue
 		}

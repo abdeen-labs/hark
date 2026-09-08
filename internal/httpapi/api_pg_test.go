@@ -85,9 +85,6 @@ func newFixture(t *testing.T, opts fixtureOptions) *fixture {
 
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
-		dsn = os.Getenv("HARK_TEST_DATABASE_URL")
-	}
-	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
 
@@ -102,13 +99,13 @@ func newFixture(t *testing.T, opts fixtureOptions) *fixture {
 			apiSchemaErr = err
 			return
 		}
-		// Recreate the schema so it matches the migration ledger.
+		// Initialize an empty test schema.
 		if _, err := pool.Exec(ctx,
 			"DROP SCHEMA IF EXISTS "+testSchema+" CASCADE; CREATE SCHEMA "+testSchema); err != nil {
 			apiSchemaErr = err
 			return
 		}
-		if err := db.Migrate(ctx, pool, db.Migrations(), slog.New(slog.DiscardHandler)); err != nil {
+		if err := db.InitializeSchema(ctx, pool, slog.New(slog.DiscardHandler)); err != nil {
 			apiSchemaErr = err
 			return
 		}
@@ -1095,5 +1092,78 @@ func TestInteractionOnTheLockScreenEndsWhenItIsAnswered(t *testing.T) {
 	}
 	if state.Status != "Approved" || state.Interaction == nil || state.Interaction.State != db.InteractionApproved {
 		t.Errorf("end state = %+v, want it to show the answer", state)
+	}
+}
+
+func TestActivityOperationRetriesPreserveTheOriginalActivity(t *testing.T) {
+	f := newFixture(t, fixtureOptions{})
+	device := f.registerDevice(strings.Repeat("e7", 32))
+
+	var started activityResponse
+	const startBody = `{"key":"deploy","title":"Deploy","status":"Running"}`
+	f.expect(http.MethodPost, "/activities", f.token, startBody, http.StatusCreated, &started)
+	f.expect(http.MethodPut, "/devices/"+device.ID+"/activity-update-token", f.session,
+		`{"update_token":"`+strings.Repeat("ef", 32)+`","native_activity_id":"retry-activity","environment":"sandbox"}`,
+		http.StatusOK, nil)
+
+	updateBody := `{"status":"Passing","if_sequence":` + strconv.Itoa(started.Activity.Sequence) + `}`
+	var updated, replayed activityResponse
+	f.withHeader(http.MethodPatch, "/activities/deploy", f.token, updateBody,
+		IdempotencyKeyHeader, "update-retry", http.StatusOK, &updated)
+	f.sender.reset()
+	f.withHeader(http.MethodPatch, "/activities/deploy", f.token, updateBody,
+		IdempotencyKeyHeader, "update-retry", http.StatusOK, &replayed)
+	if !replayed.Replayed || replayed.Activity.ID != started.Activity.ID || replayed.Activity.Sequence != updated.Activity.Sequence {
+		t.Fatalf("update replay = %+v, want original activity at sequence %d", replayed, updated.Activity.Sequence)
+	}
+	if pushes := len(f.sender.activities); pushes != 0 {
+		t.Errorf("update replay sent %d pushes", pushes)
+	}
+
+	endBody := `{"status":"Done","if_sequence":` + strconv.Itoa(updated.Activity.Sequence) + `}`
+	var ended activityResponse
+	f.withHeader(http.MethodPost, "/activities/deploy/end", f.token, endBody,
+		IdempotencyKeyHeader, "end-retry", http.StatusOK, &ended)
+	f.sender.reset()
+	f.withHeader(http.MethodPost, "/activities/deploy/end", f.token, endBody,
+		IdempotencyKeyHeader, "end-retry", http.StatusOK, &replayed)
+	if !replayed.Replayed || replayed.Activity.ID != ended.Activity.ID || replayed.Activity.Status != db.ActivityEnded {
+		t.Fatalf("end replay = %+v, want original ended activity", replayed)
+	}
+	if pushes := len(f.sender.activities); pushes != 0 {
+		t.Errorf("end replay sent %d pushes", pushes)
+	}
+
+	var replacement activityResponse
+	f.expect(http.MethodPost, "/activities", f.token, startBody, http.StatusCreated, &replacement)
+	f.sender.reset()
+	f.withHeader(http.MethodPatch, "/activities/deploy", f.token, updateBody,
+		IdempotencyKeyHeader, "update-retry", http.StatusOK, &replayed)
+	if !replayed.Replayed || replayed.Activity.ID != started.Activity.ID {
+		t.Fatalf("update after key reuse = %+v, want original activity", replayed)
+	}
+	f.withHeader(http.MethodPost, "/activities/deploy/end", f.token, endBody,
+		IdempotencyKeyHeader, "end-retry", http.StatusOK, &replayed)
+	if !replayed.Replayed || replayed.Activity.ID != started.Activity.ID {
+		t.Fatalf("end after key reuse = %+v, want original activity", replayed)
+	}
+	var current activityReadResponse
+	f.expect(http.MethodGet, "/activities/deploy", f.token, "", http.StatusOK, &current)
+	if current.Activity.ID != replacement.Activity.ID || current.Activity.Status != db.ActivityActive || current.Activity.Sequence != replacement.Activity.Sequence {
+		t.Errorf("replacement changed on replay: %+v", current.Activity)
+	}
+	if pushes := len(f.sender.activities); pushes != 0 {
+		t.Errorf("retries after key reuse sent %d pushes", pushes)
+	}
+
+	f.withHeader(http.MethodPatch, "/activities/deploy", f.token, `{"status":"Different"}`,
+		IdempotencyKeyHeader, "update-retry", http.StatusConflict, nil)
+	f.withHeader(http.MethodPost, "/activities/deploy/end", f.token, `{"status":"Different"}`,
+		IdempotencyKeyHeader, "end-retry", http.StatusConflict, nil)
+	var conflict ErrorResponse
+	f.withHeader(http.MethodPatch, "/activities/deploy", f.token, `{"status":"Passing","if_sequence":999}`,
+		IdempotencyKeyHeader, "update-retry", http.StatusConflict, &conflict)
+	if conflict.Error.Code != CodeConflict {
+		t.Errorf("changed sequence code = %q, want %q", conflict.Error.Code, CodeConflict)
 	}
 }

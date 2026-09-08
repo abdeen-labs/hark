@@ -6,10 +6,6 @@ import (
 )
 
 // OAuthClient is a dynamically registered OAuth client (RFC 7591).
-//
-// There is no secret: every client is public and proves possession of its
-// authorization code with PKCE. A client that identifies itself with a
-// metadata document has no row at all.
 type OAuthClient struct {
 	ID           string    `db:"id"`
 	Name         string    `db:"name"`
@@ -60,10 +56,6 @@ func (s *OAuthClients) TouchLastUsed(ctx context.Context, id string, now time.Ti
 	return execOne(ctx, s.q, "touch OAuth client", q, id, Millis(now))
 }
 
-// Purge deletes registrations that never completed an authorization within
-// unusedFor of being created, and ones whose last use is older than idleFor.
-// Called opportunistically when a new registration arrives, so the table stays
-// small without a scheduled job.
 func (s *OAuthClients) Purge(ctx context.Context, now time.Time, unusedFor, idleFor time.Duration) (int64, error) {
 	const q = `
 		DELETE FROM oauth_clients
@@ -74,15 +66,9 @@ func (s *OAuthClients) Purge(ctx context.Context, now time.Time, unusedFor, idle
 }
 
 // OAuthCode is an authorization code awaiting exchange, or already spent.
-//
-// The code itself is stored only as a digest: the client holds the plaintext
-// and presents it once at the token endpoint.
 type OAuthCode struct {
-	ID       string `db:"id"`
-	CodeHash string `db:"code_hash"`
-	// ClientID is what the client sent: a registration's id or the URL of its
-	// metadata document. ClientName is captured at consent so the issued token
-	// keeps the name the owner saw.
+	ID            string   `db:"id"`
+	CodeHash      string   `db:"code_hash"`
 	ClientID      string   `db:"client_id"`
 	ClientName    string   `db:"client_name"`
 	UserID        string   `db:"user_id"`
@@ -140,9 +126,6 @@ func (s *OAuthCodes) ByCodeHash(ctx context.Context, hash string) (*OAuthCode, e
 }
 
 // Consume marks a code as spent, which is what authorises issuing the token.
-// It is guarded on the code being unspent and unexpired, so two exchanges
-// presenting the same code cannot both succeed; false means the guard did not
-// match.
 func (s *OAuthCodes) Consume(ctx context.Context, id string, now time.Time) (bool, error) {
 	const q = `
 		UPDATE oauth_authorization_codes SET consumed_at = $2
