@@ -54,6 +54,10 @@ func TestToolsListPublishesTheFifteenTools(t *testing.T) {
 		if schema["type"] != "object" {
 			t.Errorf("%s: inputSchema.type = %v, want object", tool.Name, schema["type"])
 		}
+		output := asJSON(t, tool.OutputSchema)
+		if output["type"] != "object" || output["properties"] == nil || output["required"] == nil {
+			t.Errorf("%s: outputSchema must describe a result object with required properties: %v", tool.Name, output)
+		}
 		if tool.Title == "" || tool.Description == "" {
 			t.Errorf("%s: title or description is empty", tool.Name)
 		}

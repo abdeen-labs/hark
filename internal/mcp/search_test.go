@@ -6,7 +6,53 @@ import (
 	"net/url"
 	"slices"
 	"testing"
+
+	"github.com/google/jsonschema-go/jsonschema"
 )
+
+func TestSearchAndFetchResultsMatchOutputSchemas(t *testing.T) {
+	h := newHarness(t)
+	searchFixtures(h)
+	h.api.answer(http.MethodGet, "/services/s1", http.StatusOK, `{"service":`+serviceRecord+`}`)
+	session := h.connect(t, nil)
+	list, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		args map[string]any
+	}{
+		{"search", map[string]any{"query": "deploy"}},
+		{"search", map[string]any{"query": "no match"}},
+		{"fetch", map[string]any{"id": "service:s1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := callTool(t, session, tc.name, tc.args)
+			if res.IsError {
+				t.Fatal(textOf(t, res))
+			}
+			body, err := json.Marshal(toolNamed(t, list, tc.name).OutputSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var schema jsonschema.Schema
+			if err := json.Unmarshal(body, &schema); err != nil {
+				t.Fatal(err)
+			}
+			resolved, err := schema.Resolve(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := resolved.Validate(asJSON(t, res.StructuredContent)); err != nil {
+				t.Fatalf("result does not match outputSchema: %v", err)
+			}
+			if err := resolved.Validate(map[string]any{}); err == nil {
+				t.Error("outputSchema accepts an empty result")
+			}
+		})
+	}
+}
 
 const (
 	serviceRecord  = `{"id":"s1","title":"Deploy bot","image_url":null,"url":null,"priority":"normal","webhook_url":null}`

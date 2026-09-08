@@ -149,9 +149,11 @@ func mutating(idempotent bool) *sdk.ToolAnnotations {
 }
 
 func (s *Server) addTools(server *sdk.Server) {
+	outputs := toolOutputSchemas()
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "send_notification",
-		Title: "Send a notification",
+		Name:         "send_notification",
+		OutputSchema: outputs["send_notification"],
+		Title:        "Send a notification",
 		Description: "Send a one-shot push notification to the owner's iPhone. " +
 			"Use it for one-way alerts that need no reply: a job finished, a threshold was crossed, " +
 			"something needs a look. Returns the notification and how many devices accepted it.",
@@ -159,8 +161,9 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.sendNotification)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "ask_question",
-		Title: "Ask a question",
+		Name:         "ask_question",
+		OutputSchema: outputs["ask_question"],
+		Title:        "Ask a question",
 		Description: "Ask the owner a question on their iPhone and, optionally, wait for the answer. " +
 			"Use it when you need a decision before continuing: kind approval is answered approve or deny, " +
 			"yes_no is answered yes or no, reply takes free text. Set wait_seconds to block for the answer " +
@@ -170,8 +173,9 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.askQuestion)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "get_question",
-		Title: "Read a question",
+		Name:         "get_question",
+		OutputSchema: outputs["get_question"],
+		Title:        "Read a question",
 		Description: "Read one question by id, optionally holding the call open until it is answered. " +
 			"Use it to poll for an answer after ask_question, or to check whether a question is still pending. " +
 			"Only questions this token asked are visible.",
@@ -179,24 +183,27 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.getQuestion)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "list_questions",
-		Title: "List questions",
+		Name:         "list_questions",
+		OutputSchema: outputs["list_questions"],
+		Title:        "List questions",
 		Description: "List the questions this token asked, newest first: pending ones by default, " +
 			"or every question with status all. Paged; pass next_cursor back as cursor.",
 		Annotations: readOnly(),
 	}, s.listQuestions)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "cancel_question",
-		Title: "Cancel a question",
+		Name:         "cancel_question",
+		OutputSchema: outputs["cancel_question"],
+		Title:        "Cancel a question",
 		Description: "Withdraw a pending question this token asked. Use it when the decision is no longer needed. " +
 			"A question that is already answered, canceled or expired cannot be canceled.",
 		Annotations: mutating(true),
 	}, s.cancelQuestion)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "start_live_activity",
-		Title: "Start a Live Activity",
+		Name:         "start_live_activity",
+		OutputSchema: outputs["start_live_activity"],
+		Title:        "Start a Live Activity",
 		Description: "Start a Live Activity: an updatable Lock Screen card for a long-running job such as a deploy, " +
 			"a build or a test run. A phone shows one at a time, so pass replace to end whatever is showing, " +
 			"and a key to address the activity by name in later calls. Returns the activity and its sequence.",
@@ -204,8 +211,9 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.startLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "update_live_activity",
-		Title: "Update a Live Activity",
+		Name:         "update_live_activity",
+		OutputSchema: outputs["update_live_activity"],
+		Title:        "Update a Live Activity",
 		Description: "Change a running Live Activity's title, status, detail or progress and push the change. " +
 			"Every field is optional but at least one is required; send detail or progress as null to remove them. " +
 			"Use if_sequence to refuse the update when the activity moved on since you read it.",
@@ -213,56 +221,63 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.updateLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "end_live_activity",
-		Title: "End a Live Activity",
+		Name:         "end_live_activity",
+		OutputSchema: outputs["end_live_activity"],
+		Title:        "End a Live Activity",
 		Description: "Finish a Live Activity with its final state and push it. Use it when the job it tracked is done; " +
 			"the finished card stays on screen for dismiss_after_seconds. The activity remains readable in history.",
 		Annotations: mutating(false),
 	}, s.endLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "get_live_activity",
-		Title: "Read a Live Activity",
+		Name:         "get_live_activity",
+		OutputSchema: outputs["get_live_activity"],
+		Title:        "Read a Live Activity",
 		Description: "Read one Live Activity by id or key, with its current state, sequence and delivery counts. " +
 			"Use it before an update that should only apply to the state you last saw.",
 		Annotations: readOnly(),
 	}, s.getLiveActivity)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "list_live_activities",
-		Title: "List Live Activities",
+		Name:         "list_live_activities",
+		OutputSchema: outputs["list_live_activities"],
+		Title:        "List Live Activities",
 		Description: "List Live Activities, newest first: the ones on a Lock Screen right now by default, " +
 			"or every one with status all. Paged; pass next_cursor back as cursor.",
 		Annotations: readOnly(),
 	}, s.listLiveActivities)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "list_devices",
-		Title: "List devices",
+		Name:         "list_devices",
+		OutputSchema: outputs["list_devices"],
+		Title:        "List devices",
 		Description: "List the iPhones registered on the account with their capabilities. " +
 			"Use it to pick device_ids for a targeted send, or to see whether a device can show Live Activities.",
 		Annotations: readOnly(),
 	}, s.listDevices)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "list_services",
-		Title: "List services",
+		Name:         "list_services",
+		OutputSchema: outputs["list_services"],
+		Title:        "List services",
 		Description: "List the webhook services configured on the account with their defaults. " +
 			"Webhook credentials are never included.",
 		Annotations: readOnly(),
 	}, s.listServices)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "list_webhook_events",
-		Title: "List webhook events",
+		Name:         "list_webhook_events",
+		OutputSchema: outputs["list_webhook_events"],
+		Title:        "List webhook events",
 		Description: "List webhook deliveries, newest first, with their delivery status and any error. " +
 			"Paged; pass next_cursor back as cursor.",
 		Annotations: readOnly(),
 	}, s.listWebhookEvents)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "search",
-		Title: "Search",
+		Name:         "search",
+		OutputSchema: outputs["search"],
+		Title:        "Search",
 		Description: "Search services, devices, webhook events, questions and Live Activities by title, body, " +
 			"prompt, name or status, case-insensitively. Looks at the newest 100 of each kind and skips kinds " +
 			"this token cannot read. Returns ids of the form kind:id to pass to fetch.",
@@ -270,8 +285,9 @@ func (s *Server) addTools(server *sdk.Server) {
 	}, s.search)
 
 	sdk.AddTool(server, &sdk.Tool{
-		Name:  "fetch",
-		Title: "Fetch",
+		Name:         "fetch",
+		OutputSchema: outputs["fetch"],
+		Title:        "Fetch",
 		Description: "Read one record found by search, by its kind:id. Returns the record's JSON as text, " +
 			"with a title, a dashboard URL and its kind.",
 		Annotations: readOnly(),

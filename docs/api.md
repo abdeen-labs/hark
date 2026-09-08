@@ -2589,7 +2589,9 @@ needs a decision before it continues can therefore ask and block in one call,
 or ask with no wait and poll with `get_question`.
 
 **Results** contain the endpoint's JSON response as a `text` content block
-and `structuredContent`. An endpoint's `4xx` or `5xx` becomes a tool error
+and `structuredContent`. Every tool publishes an `outputSchema` describing
+its successful result, including nested records, nullable fields and paging
+cursors. An endpoint's `4xx` or `5xx` becomes a tool error
 with `isError: true` and the [error envelope](#errors) as its text.
 
 **`search` and `fetch`** provide record retrieval. `search` takes
