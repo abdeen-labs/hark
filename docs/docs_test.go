@@ -24,7 +24,7 @@ func TestOpenAPICoversTheCanonicalContract(t *testing.T) {
 	want := make(map[string]bool)
 	for _, match := range endpointHeading.FindAllStringSubmatch(APIContract, -1) {
 		path := match[2]
-		if path == "/cli/authorize" || path == "/docs" {
+		if path == "/cli/authorize" || path == "/docs" || path == "/oauth/authorize" {
 			continue
 		}
 		want[strings.ToLower(match[1])+" "+path] = true

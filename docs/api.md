@@ -68,6 +68,7 @@ see whether APNs accepted it.
 | A service that can only call a URL | [Create a service](#post-services), then call its [`/hooks/{token}`](#post-hookstoken) URL | Webhook token in the URL |
 | An iOS client | [Session authentication](#session), then [register the device](#post-devices) | Session |
 | A headless client that needs owner approval | [Device authorization](#post-authdevicecode) | Device grant, then API token |
+| An AI assistant or agent — Claude, ChatGPT, Codex, or any MCP client | [MCP](#mcp) | Scoped API token, or one issued through [OAuth](#oauth) |
 
 Use the [OpenAPI 3.1 document](/openapi.json) for generated clients and
 validation. Text-oriented tools can use the [raw Markdown](/docs.md) or the
@@ -310,10 +311,10 @@ scopes:
 Authorization: Bearer hark_c2xLm9JbR1tXyLp0aNfCd7eJhSu4WgO7xY2bWvK
 ```
 
-Tokens are created by the account owner ([`POST /tokens`](#post-tokens))
-or issued by the [device grant](#post-authdevicecode). The plaintext is shown
-exactly once, at creation, and is never recoverable — the server stores only a
-digest.
+Tokens are created by the account owner ([`POST /tokens`](#post-tokens)),
+issued by the [device grant](#post-authdevicecode), or issued to an MCP client
+through [OAuth](#oauth). The plaintext is shown exactly once, at creation, and
+is never recoverable — the server stores only a digest.
 
 **API tokens cannot create or modify credentials.** Token management and device
 authorization approval require a session. An API token can revoke itself through
@@ -374,6 +375,8 @@ per-client ceiling and a process-wide one twenty times larger:
 | `POST /auth/login` | 10 | 200 |
 | `POST /auth/device/code` | 20 | 400 |
 | `POST /auth/device/token` | 120 | 2400 |
+| `POST /oauth/register` | 20 | 400 |
+| `POST /oauth/token` | 120 | 2400 |
 
 Exceeding either gives `429 rate_limited` with `Retry-After` in seconds.
 
@@ -488,6 +491,12 @@ with `Retry-After`.
 | `GET` | [`/auth/device/requests/{user_code}`](#get-authdevicerequestsuser_code) | session |
 | `POST` | [`/auth/device/requests/{user_code}/approve`](#post-authdevicerequestsuser_codeapprove) | session |
 | `POST` | [`/auth/device/requests/{user_code}/deny`](#post-authdevicerequestsuser_codedeny) | session |
+| `POST` | [`/mcp`](#post-mcp) | token, with the scopes each tool needs |
+| `GET` | [`/.well-known/oauth-protected-resource`](#get-well-knownoauth-protected-resource) | none |
+| `GET` | [`/.well-known/oauth-authorization-server`](#get-well-knownoauth-authorization-server) | none |
+| `POST` | [`/oauth/register`](#post-oauthregister) | none |
+| `GET`·`POST` | [`/oauth/authorize`](#get-oauthauthorize) | session cookie (HTML, not JSON) |
+| `POST` | [`/oauth/token`](#post-oauthtoken) | authorization code in body |
 | `GET` | [`/tokens`](#get-tokens) | session |
 | `POST` | [`/tokens`](#post-tokens) | session |
 | `DELETE` | [`/tokens/{id}`](#delete-tokensid) | session |
@@ -537,7 +546,8 @@ with `Retry-After`.
 | `PATCH` | [`/hooks/{token}/activities/{identifier}`](#the-webhook-live-activity-routes) | webhook token in path |
 | `POST` | [`/hooks/{token}/activities/{identifier}/end`](#the-webhook-live-activity-routes) | webhook token in path |
 
-Hark makes outbound HTTP requests only for [answer callbacks](#the-answer-callback).
+Hark makes outbound HTTP requests only for [answer callbacks](#the-answer-callback)
+and to read an OAuth client's [metadata document](#client-identity).
 
 ### `GET /healthz`
 
@@ -2465,6 +2475,423 @@ Supports `Idempotency-Key`.
 
 ---
 
+## MCP
+
+Hark is a [Model Context Protocol](https://modelcontextprotocol.io) server. An
+AI assistant or agent connects to `POST /mcp` and gets what an API token can do —
+send a notification, ask a question and wait for the answer, drive a Live
+Activity, read state — as MCP tools. Claude, ChatGPT, Codex, the Claude and
+OpenAI APIs, and any other client of the Streamable HTTP transport can use it.
+
+Every tool is a thin adapter over an endpoint in this document. Its arguments
+are that endpoint's request fields, its result is that endpoint's response, and
+the scopes, rate limits, idempotency and delivery rules that apply are the
+endpoint's. Nothing is reachable through MCP that the same token could not
+reach through the API.
+
+### `POST /mcp`
+
+The MCP endpoint, on the Streamable HTTP transport.
+
+**Authentication.** `Authorization: Bearer hark_…` — an [API token](#api-token).
+A session token is refused with `401`: everything a tool creates is a delivery
+attributed to a token, as [`POST /notifications`](#post-notifications) is. A
+client that cannot hold a token of its own obtains one through
+[OAuth](#oauth).
+
+A request with no usable token is answered `401` with the challenge the MCP
+authorization specification defines, naming the
+[resource metadata](#get-well-knownoauth-protected-resource) a client starts
+OAuth from and the scopes the tools use:
+
+```
+WWW-Authenticate: Bearer resource_metadata="https://hark.example.com/.well-known/oauth-protected-resource", scope="activities:read activities:write devices:read events:read interactions:create interactions:read notifications:send services:read services:write"
+```
+
+The token is checked on every request. One that has been revoked or has expired
+is a `401` from then on, whatever the client thinks its session is.
+
+**Sessions.** The server is stateless. It issues no `Mcp-Session-Id`, every
+`POST` carries a complete JSON-RPC message, and `GET /mcp` and `DELETE /mcp`
+answer `405`. Responses are `application/json`; a client must still send
+`Accept: application/json, text/event-stream`, as the transport requires.
+
+**Server description.** `initialize` reports `serverInfo.name` `hark`, the
+build's version, and `instructions` that tell the model when to reach for each
+tool.
+
+**Trying it by hand:**
+
+```sh
+curl --fail-with-body "$HARK_URL/mcp" \
+  --header "Authorization: Bearer $HARK_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"send_notification","arguments":{"title":"Deploy","body":"v42 is live."}}}'
+```
+
+### Tools
+
+| Tool | Does | Scopes |
+| --- | --- | --- |
+| `send_notification` | [`POST /notifications`](#post-notifications) | `notifications:send` |
+| `ask_question` | [`POST /interactions`](#post-interactions), then optionally waits for the answer | `interactions:create`, `notifications:send`; `interactions:read` to wait |
+| `get_question` | [`GET /interactions/{id}`](#get-interactionsid), optionally waiting | `interactions:read` |
+| `list_questions` | [`GET /interactions`](#get-interactions) | `interactions:read` |
+| `cancel_question` | [`POST /interactions/{id}/cancel`](#post-interactionsidcancel) | `interactions:create` |
+| `start_live_activity` | [`POST /activities`](#post-activities) | `activities:write` |
+| `update_live_activity` | [`PATCH /activities/{identifier}`](#patch-activitiesidentifier) | `activities:write` |
+| `end_live_activity` | [`POST /activities/{identifier}/end`](#post-activitiesidentifierend) | `activities:write` |
+| `get_live_activity` | [`GET /activities/{identifier}`](#get-activitiesidentifier) | `activities:read` |
+| `list_live_activities` | [`GET /activities`](#get-activities) | `activities:read` |
+| `list_devices` | [`GET /devices`](#get-devices) | `devices:read` |
+| `list_services` | [`GET /services`](#get-services) | `services:read` |
+| `list_webhook_events` | [`GET /events`](#get-events) | `events:read` |
+| `search` | Finds records across everything the token may read | any read scope |
+| `fetch` | Reads one record `search` found | the read scope for that record |
+
+**Arguments** are the endpoint's request fields, with the same names, types,
+defaults and limits. Path parameters become arguments — `id` for a question,
+`identifier` for a Live Activity — and so do query parameters: `wait_seconds`,
+`status`, `limit`, `cursor`. The tools that send accept an optional
+`idempotency_key`, which travels as the [`Idempotency-Key`](#idempotency)
+header. Every tool publishes a JSON Schema for its arguments, and an argument
+the schema rejects never reaches the endpoint.
+
+`ask_question` adds `wait_seconds` (0–25, default 0). When it is set and the
+token holds `interactions:read`, the tool asks, then waits through
+`GET /interactions/{id}?wait_seconds=…`, and the `interaction` in its result
+is the freshest state — answered, if the answer arrived in time. An agent that
+needs a decision before it continues can therefore ask and block in one call,
+or ask with no wait and poll with `get_question`.
+
+**Results** carry the endpoint's JSON response twice, as the transport asks
+for: as one `text` content block, and as `structuredContent`. A `4xx` or `5xx`
+from the endpoint becomes a tool error — `isError: true` with the
+[error envelope](#errors) as its text — so the model sees what went wrong and
+can correct it; it is never a JSON-RPC error.
+
+**`search` and `fetch`** exist so that clients which expect a searchable
+connector — ChatGPT's connectors are one — can use Hark. `search` takes
+`{ "query": "…" }` and returns
+
+```json
+{
+  "results": [
+    { "id": "service:0198f3a1-2b4c-7d8e-9f01-23456789abcd", "title": "Backups", "url": "https://hark.example.com/dashboard/services/0198f3a1-2b4c-7d8e-9f01-23456789abcd" }
+  ]
+}
+```
+
+It matches the query case-insensitively against the titles, bodies, prompts
+and names of the services, devices, webhook events, questions and Live
+Activities the token may read, skipping any kind it lacks the scope for, and
+looks at the newest 100 of each paged kind. Ids are `<kind>:<id>` with the kinds
+`service`, `device`, `event`, `question` and `activity`. `fetch` takes
+`{ "id": "…" }` and returns `{ "id", "title", "text", "url", "metadata" }`,
+where `text` is the record's JSON as the endpoint renders it and `metadata`
+carries `kind`. Both return the same document as `structuredContent`.
+
+### Connecting a client
+
+Every example uses the deployment's origin. A token comes from the Tokens page,
+[`POST /tokens`](#post-tokens), or the [device grant](#post-authdevicecode);
+where no token is given, the client signs the owner in through [OAuth](#oauth).
+
+**Claude Code**
+
+```sh
+claude mcp add --transport http hark https://hark.example.com/mcp \
+  --header "Authorization: Bearer hark_…"
+```
+
+Without `--header`, run `/mcp` inside Claude Code to sign in through the browser.
+
+**Claude** (claude.ai, Claude Desktop, mobile) — *Customize › Connectors › Add
+custom connector*, with `https://hark.example.com/mcp` as the URL. Leave the
+OAuth client settings alone: Claude identifies itself with its own client
+metadata document or registers dynamically, sends the owner to the consent
+page, and holds the token it is issued. Organization owners add it under
+*Organization settings › Connectors* instead.
+
+**Claude Messages API**
+
+```json
+{
+  "model": "claude-opus-5",
+  "max_tokens": 1024,
+  "messages": [{ "role": "user", "content": "Tell my phone the deploy finished." }],
+  "mcp_servers": [
+    { "type": "url", "url": "https://hark.example.com/mcp", "name": "hark", "authorization_token": "hark_…" }
+  ],
+  "tools": [{ "type": "mcp_toolset", "mcp_server_name": "hark" }]
+}
+```
+
+with the `anthropic-beta: mcp-client-2025-11-20` header.
+
+**ChatGPT** — *Settings › Connectors › Create* (developer mode) with the same
+URL. ChatGPT detects OAuth, identifies itself with its client metadata document
+or registers dynamically, and sends the owner to the consent page. `search` and
+`fetch` are what its connectors require.
+
+**OpenAI Responses API**
+
+```json
+{
+  "model": "gpt-6-astra",
+  "input": "Tell my phone the deploy finished.",
+  "tools": [
+    { "type": "mcp", "server_label": "hark", "server_url": "https://hark.example.com/mcp", "authorization": "hark_…", "require_approval": "never" }
+  ]
+}
+```
+
+**Codex CLI**
+
+```sh
+codex mcp add hark --url https://hark.example.com/mcp --bearer-token-env-var HARK_TOKEN
+```
+
+or in `config.toml`:
+
+```toml
+[mcp_servers.hark]
+url = "https://hark.example.com/mcp"
+bearer_token_env_var = "HARK_TOKEN"
+```
+
+Without a token, `codex mcp add hark --url https://hark.example.com/mcp` then
+`codex mcp login hark` signs in through the browser.
+
+**Anything else** that speaks Streamable HTTP connects the same way: the URL,
+and either an `Authorization` header or the OAuth flow. A client that only
+speaks stdio can reach a remote server through a bridge such as `mcp-remote`.
+
+---
+
+## OAuth
+
+An MCP client that cannot hold a Hark token of its own — the Claude and ChatGPT
+connector settings, Claude Code and Codex when no header is configured — obtains
+one through OAuth 2.1. Hark is both the resource server, at `/mcp`, and the
+authorization server: there is no third party, and the access token it issues
+is an ordinary [API token](#api-token), listed on the Tokens page and revocable
+there like any other.
+
+The flow is the authorization code grant with PKCE, as the
+[MCP authorization specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+requires, and nothing else: no refresh tokens, no client secrets, no other
+grant. The access token does not expire. When a client should lose access, the
+owner revokes the token on the Tokens page or with
+[`DELETE /tokens/{id}`](#delete-tokensid); from then on `/mcp` answers `401`
+and the client has to run the flow again.
+
+1. The client reads the
+   [protected resource metadata](#get-well-knownoauth-protected-resource) the
+   `401` challenge on `/mcp` names, and from it the
+   [authorization server metadata](#get-well-knownoauth-authorization-server).
+2. It identifies itself: with a [client metadata document](#client-identity),
+   or by registering at [`POST /oauth/register`](#post-oauthregister).
+3. It sends the owner's browser to [`/oauth/authorize`](#get-oauthauthorize).
+   The owner signs in to the dashboard if needed and approves or denies.
+4. It exchanges the code at [`POST /oauth/token`](#post-oauthtoken), and calls
+   `/mcp` with the token.
+
+Every OAuth endpoint sends `Access-Control-Allow-Origin: *`, because a client
+that runs in a browser — the MCP Inspector, for one — calls them directly, and
+the metadata is public and the other two are protected by PKCE rather than by
+an origin.
+
+### Client identity
+
+A client is identified by its `client_id`, which is one of two things.
+
+**A registered client.** The id [`POST /oauth/register`](#post-oauthregister)
+returned. The redirect URIs, name and links it registered with are what Hark
+checks and shows.
+
+**A client metadata document.** An `https` URL with a path, such as
+`https://claude.ai/.well-known/oauth-client.json`, that the client itself
+publishes. When an authorization request names one, Hark fetches it — from a
+public address only, over TLS, following no redirects, at most 64 KiB, within
+five seconds — and requires a JSON document whose `client_id` is exactly that
+URL and which lists `redirect_uris`. `client_name`, `client_uri` and `logo_uri`
+are used as a registration's would be; `token_endpoint_auth_method`, if present,
+must be `none`. A document is cached for ten minutes. This is the mechanism the
+authorization server metadata advertises as
+`client_id_metadata_document_supported`, and the one Claude and ChatGPT prefer.
+
+Either way, a client is a **public client**: it authenticates with nothing but
+PKCE, and Hark never issues a client secret.
+
+**Redirect URIs** are matched exactly against the ones the client registered or
+published. Each must be an absolute `https` URL with no fragment, or an `http`
+URL whose host is `localhost`, `127.0.0.1` or `[::1]` — a loopback address, for
+a client running on the owner's own machine. For a loopback URI the port may
+differ from the registered one, as RFC 8252 allows; nothing else may.
+
+### `GET /.well-known/oauth-protected-resource`
+
+The metadata of `/mcp` as a protected resource (RFC 9728). **No
+authentication.** Also served at `/.well-known/oauth-protected-resource/mcp`,
+the path-specific form a client tries first. Public and cacheable.
+
+```json
+{
+  "resource": "https://hark.example.com/mcp",
+  "authorization_servers": ["https://hark.example.com"],
+  "scopes_supported": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "services:read", "services:write"],
+  "bearer_methods_supported": ["header"],
+  "resource_name": "Hark",
+  "resource_documentation": "https://hark.example.com/docs"
+}
+```
+
+`resource` is the identifier a token is issued for. A client that sends the
+`resource` parameter of RFC 8707 sends this value.
+
+### `GET /.well-known/oauth-authorization-server`
+
+The authorization server's metadata (RFC 8414). **No authentication.** Public
+and cacheable.
+
+```json
+{
+  "issuer": "https://hark.example.com",
+  "authorization_endpoint": "https://hark.example.com/oauth/authorize",
+  "token_endpoint": "https://hark.example.com/oauth/token",
+  "registration_endpoint": "https://hark.example.com/oauth/register",
+  "scopes_supported": ["activities:read", "activities:write", "devices:read", "events:read", "interactions:create", "interactions:read", "notifications:send", "services:read", "services:write"],
+  "response_types_supported": ["code"],
+  "response_modes_supported": ["query"],
+  "grant_types_supported": ["authorization_code"],
+  "token_endpoint_auth_methods_supported": ["none"],
+  "code_challenge_methods_supported": ["S256"],
+  "client_id_metadata_document_supported": true,
+  "authorization_response_iss_parameter_supported": true,
+  "service_documentation": "https://hark.example.com/docs"
+}
+```
+
+`issuer` is the deployment's public origin, and every redirect back to a client
+carries it as `iss` (RFC 9207).
+
+### `POST /oauth/register`
+
+Registers a client (RFC 7591). **No authentication.** Rate limited to 20
+requests per minute per client.
+
+**Request**
+
+```http
+POST /oauth/register
+Content-Type: application/json
+
+{
+  "client_name": "Claude",
+  "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+  "grant_types": ["authorization_code"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none",
+  "client_uri": "https://claude.ai"
+}
+```
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `redirect_uris` | array of string | yes | 1–10 entries, each up to 2048 characters, each valid under the [redirect URI rules](#client-identity). |
+| `client_name` | string | no | 1–80 characters, trimmed. Shown on the consent screen and used as the issued token's name. Defaults to the host of the first redirect URI. |
+| `client_uri` | string | no | An `https` URL, linked from the consent screen. |
+| `logo_uri` | string | no | An `https` URL. Stored, not shown. |
+| `grant_types` | array of string | no | If present, only `authorization_code`. |
+| `response_types` | array of string | no | If present, only `code`. |
+| `token_endpoint_auth_method` | string | no | If present, `none`. |
+| `scope` | string | no | Space-separated known scopes. Informational. |
+
+Other RFC 7591 fields are ignored. Unlike the rest of the API, an unknown field
+is not an error here.
+
+**201 Created**
+
+```json
+{
+  "client_id": "0198f3a1-2b4c-7d8e-9f01-23456789abcd",
+  "client_id_issued_at": 1786099200,
+  "client_name": "Claude",
+  "redirect_uris": ["https://claude.ai/api/mcp/auth_callback"],
+  "grant_types": ["authorization_code"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+There is no `client_secret`, and there is no way to read a registration back;
+a client that loses its id registers again.
+
+**Errors** use the RFC 7591 form, `{ "error": "…", "error_description": "…" }`,
+with status `400`:
+
+| `error` | When |
+| --- | --- |
+| `invalid_redirect_uri` | `redirect_uris` is missing, empty, too long, or holds a URI the rules refuse. |
+| `invalid_client_metadata` | Any other field is unusable, or the body is not JSON. |
+
+`429 rate_limited` uses the [standard envelope](#errors).
+
+A registration that has never completed an authorization is discarded after a
+day, and one unused for a year is discarded too. Hark removes them
+opportunistically when new registrations arrive.
+
+### `POST /oauth/token`
+
+Exchanges an authorization code for an API token (RFC 6749 §4.1.3, with PKCE).
+**The code in the body is the credential.** Rate limited to 120 requests per
+minute per client.
+
+**Request** — `application/x-www-form-urlencoded`:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `grant_type` | yes | Must be `authorization_code`. |
+| `code` | yes | The code the consent screen redirected with. |
+| `redirect_uri` | yes | The same value the authorization request carried. |
+| `client_id` | yes | The same `client_id` the authorization request carried. |
+| `code_verifier` | yes | 43–128 characters; its SHA-256, base64url-encoded, must equal the `code_challenge` of the request. |
+| `resource` | no | If present, must equal the `resource` of the authorization request. |
+
+**200 OK** — `Cache-Control: no-store`:
+
+```json
+{
+  "access_token": "hark_c2xLm9JbR1tXyLp0aNfCd7eJhSu4WgO7xY2bWvK",
+  "token_type": "Bearer",
+  "scope": "interactions:create interactions:read notifications:send"
+}
+```
+
+`access_token` is an [API token](#api-token) named after the client, carrying
+the scopes the owner approved, and it does not expire: there is no
+`expires_in` and no `refresh_token`, and the token lasts until the owner
+revokes it. It is returned exactly once. A code issues at most one token: the exchange is guarded so that
+two requests presenting the same code cannot both succeed. The code is what the
+endpoint checks first: a request that does not hold a code Hark issued does no
+other work, and in particular never makes Hark fetch a client metadata
+document.
+
+**Errors** use the RFC 6749 §5.2 form, `{ "error": "…", "error_description": "…" }`:
+
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid_request` | A required field is missing, the body is not form-encoded, or `code_verifier` is malformed. |
+| 400 | `unsupported_grant_type` | `grant_type` is not `authorization_code`. |
+| 401 | `invalid_client` | `client_id` names a registration that no longer exists. |
+| 400 | `invalid_grant` | The code is unknown, expired, already used, or was issued to a different client (one Hark does not know included), redirect URI or resource; or `code_verifier` does not match; or the account already holds its maximum number of active tokens, in which case `error_description` says so. |
+
+`429 rate_limited` uses the [standard envelope](#errors).
+
+---
+
 ## Dashboard
 
 Hark includes an owner administration interface at `/dashboard`. Its routes are
@@ -2503,6 +2930,8 @@ separate from the JSON API:
 | `POST` | `/dashboard/test` | Sends one notification and reports what APNs said. |
 | `GET` | `/cli/authorize` | The [device authorization approval screen](#get-cliauthorize). |
 | `POST` | `/cli/authorize` | Records Approve or Deny, or looks up a typed code. |
+| `GET` | `/oauth/authorize` | The [OAuth consent screen](#get-oauthauthorize) an MCP client sends the owner to. |
+| `POST` | `/oauth/authorize` | Records Approve or Deny and returns the browser to the client. |
 | `GET` | `/docs` | Rendered API documentation. |
 | `GET` | `/docs.md` | Raw Markdown API documentation. |
 | `GET` | `/openapi.json` | OpenAPI 3.1 document. |
@@ -2589,6 +3018,53 @@ and redisplays the code field.
 `POST /cli/authorize` accepts `code`, `csrf_token` and an optional
 `decision` of `approve` or `deny`; without a decision it is the lookup the
 field submits. It answers `303` back to this page.
+
+### `GET /oauth/authorize`
+
+The consent screen of the [OAuth](#oauth) flow. An MCP client opens it in the
+owner's browser with the authorization request in the query string; the owner
+signs in if they are not already, reviews the request, and approves or denies
+it. It uses the dashboard session and CSRF protection.
+
+| Parameter | Required | Notes |
+| --- | --- | --- |
+| `response_type` | yes | Must be `code`. |
+| `client_id` | yes | A registered client's id, or the URL of a [client metadata document](#client-identity). |
+| `redirect_uri` | yes | Must exactly match one the client registered or published. |
+| `scope` | no | Space-separated [scopes](#scopes). Omitted means every scope in `scopes_supported`. |
+| `state` | no | Returned to the client unchanged. Up to 1024 characters. |
+| `code_challenge` | yes | The PKCE challenge, 43–128 characters. |
+| `code_challenge_method` | yes | Must be `S256`. |
+| `resource` | no | If present, must be the deployment's MCP resource identifier, `https://hark.example.com/mcp`. |
+
+When the owner is signed out, the page redirects to sign-in and returns to the
+full authorization request afterwards. API tokens cannot reach it.
+
+The page shows the client's name, where the browser will be sent afterwards, the
+requested scopes with their descriptions, and that the token an approval issues
+lasts until the owner revokes it. A client whose `redirect_uri` is a loopback
+address is labelled as running on the owner's own computer.
+
+**A request Hark cannot answer to the client stays on this page.** An unknown or
+unfetchable `client_id`, or a `redirect_uri` the client did not register, is an
+HTML `400` that names the problem and offers no redirect: sending a browser to
+an unverified address is exactly what that check exists to prevent. Every other
+problem is reported to the client by redirecting to `redirect_uri` with
+`error`, `error_description`, `state` and `iss` in the query:
+
+| `error` | When |
+| --- | --- |
+| `invalid_request` | A required parameter is missing or malformed, or `state` is too long. |
+| `unsupported_response_type` | `response_type` is not `code`. |
+| `invalid_scope` | `scope` names something that is not a Hark scope. |
+| `invalid_target` | `resource` is not this deployment's MCP resource identifier. |
+| `access_denied` | The owner denied the request. |
+
+`POST /oauth/authorize` accepts the same parameters as hidden form fields plus
+`csrf_token` and a `decision` of `approve` or `deny`. It re-validates
+everything, then answers `303` to `redirect_uri` with `code`, `state` and `iss`
+on approval, or with `error=access_denied` on denial. The code is single-use and
+expires after ten minutes.
 
 ### `GET /docs`
 

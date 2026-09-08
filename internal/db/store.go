@@ -41,6 +41,8 @@ type Store struct {
 	Devices       *Devices
 	APITokens     *APITokens
 	DeviceAuth    *DeviceAuthorizations
+	OAuthClients  *OAuthClients
+	OAuthCodes    *OAuthCodes
 	Events        *Events
 	Notifications *Notifications
 	Interactions  *Interactions
@@ -67,6 +69,8 @@ func newStore(q Querier) *Store {
 		Devices:       &Devices{q},
 		APITokens:     &APITokens{q},
 		DeviceAuth:    &DeviceAuthorizations{q},
+		OAuthClients:  &OAuthClients{q},
+		OAuthCodes:    &OAuthCodes{q},
 		Events:        &Events{q},
 		Notifications: &Notifications{q},
 		Interactions:  &Interactions{q},

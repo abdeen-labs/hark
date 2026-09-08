@@ -28,6 +28,7 @@ var (
 	tmplAccounts         = mustParse("accounts.html")
 	tmplTest             = mustParse("test.html")
 	tmplAuthorize        = mustParse("authorize.html")
+	tmplConsent          = mustParse("consent.html")
 	tmplError            = mustParse("error.html")
 
 	// The public documentation page uses its own layout and table of contents.

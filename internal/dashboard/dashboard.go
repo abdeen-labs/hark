@@ -47,6 +47,14 @@ type Authenticator interface {
 	ApproveDeviceGrant(ctx context.Context, userCode, userID string) (*db.DeviceAuthorization, error)
 	DenyDeviceGrant(ctx context.Context, userCode string) (*db.DeviceAuthorization, error)
 
+	// The consent half of the OAuth flow, on this surface for the same reason
+	// the device grant is. OAuthConsent validates an authorization request
+	// against the client it names; resource is this deployment's MCP resource
+	// identifier. ApproveOAuth records the owner's approval and returns the
+	// code the client exchanges.
+	OAuthConsent(ctx context.Context, req auth.OAuthAuthorizationRequest, resource string) (*auth.OAuthConsent, error)
+	ApproveOAuth(ctx context.Context, consent *auth.OAuthConsent, userID string) (string, error)
+
 	// Now is the server's clock, so a freshly issued cookie expires with the
 	// row behind it.
 	Now() time.Time
@@ -106,16 +114,18 @@ const (
 	// navigated to.
 	pathLiveOverview = httpapi.DashboardPrefix + "/live/overview"
 
-	// pathAuthorize is the device-grant approval screen, and pathDocs the
-	// published API contract. Both sit outside the dashboard's prefix because
-	// they are addresses other things hand out: a CLI prints the first into a
-	// terminal, and the second is a link people paste. internal/httpapi owns
-	// both path constants.
-	pathAuthorize = httpapi.DeviceVerificationPath
-	pathDocs      = httpapi.DocsPath
-	pathDocsMD    = httpapi.DocsMarkdownPath
-	pathOpenAPI   = httpapi.OpenAPIPath
-	pathLLMs      = httpapi.LLMsPath
+	// pathAuthorize is the device-grant approval screen, pathOAuthAuthorize
+	// the OAuth consent screen, and pathDocs the published API contract. All
+	// sit outside the dashboard's prefix because they are addresses other
+	// things hand out: a CLI prints the first into a terminal, the
+	// authorization server metadata publishes the second, and the third is a
+	// link people paste. internal/httpapi owns the path constants.
+	pathAuthorize      = httpapi.DeviceVerificationPath
+	pathOAuthAuthorize = httpapi.OAuthAuthorizePath
+	pathDocs           = httpapi.DocsPath
+	pathDocsMD         = httpapi.DocsMarkdownPath
+	pathOpenAPI        = httpapi.OpenAPIPath
+	pathLLMs           = httpapi.LLMsPath
 )
 
 // Dashboard is the HTTP handler. Build it with [New].
@@ -138,7 +148,7 @@ type Dashboard struct {
 // paths is the link table handed to every template.
 type paths struct {
 	Home, Login, Logout, History, Services, CriticalServices, Devices, Tokens, Test string
-	Authorize, Docs, DocsMarkdown, OpenAPI, LLMs                                    string
+	Authorize, OAuthAuthorize, Docs, DocsMarkdown, OpenAPI, LLMs                    string
 	LiveOverview                                                                    string
 	Accounts                                                                        string
 }
@@ -173,7 +183,8 @@ func New(opts Options) *Dashboard {
 			Home: pathHome, Login: pathLogin, Logout: pathLogout, History: pathHistory,
 			Services: pathServices, CriticalServices: pathCriticalServices,
 			Devices: pathDevices, Tokens: pathTokens, Test: pathTest,
-			Authorize: pathAuthorize, Docs: pathDocs, DocsMarkdown: pathDocsMD,
+			Authorize: pathAuthorize, OAuthAuthorize: pathOAuthAuthorize,
+			Docs: pathDocs, DocsMarkdown: pathDocsMD,
 			OpenAPI: pathOpenAPI, LLMs: pathLLMs,
 			LiveOverview: pathLiveOverview,
 			Accounts:     pathAccounts,
@@ -236,6 +247,11 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathAuthorize, d.page(d.showAuthorize))
 	d.mux.HandleFunc("POST "+pathAuthorize, d.form(d.submitAuthorize))
 
+	// The OAuth consent screen, outside the prefix for the same reason: an MCP
+	// client opens its URL in the owner's browser.
+	d.mux.HandleFunc("GET "+pathOAuthAuthorize, d.page(d.showOAuthConsent))
+	d.mux.HandleFunc("POST "+pathOAuthAuthorize, d.form(d.submitOAuthConsent))
+
 	// Public documentation routes do not use session or CSRF middleware.
 	d.mux.HandleFunc("GET "+pathDocs, d.showDocs)
 	d.mux.HandleFunc("GET "+pathDocsMD, d.showDocsMarkdown)
@@ -272,15 +288,28 @@ func (d *Dashboard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	d.mux.ServeHTTP(w, r)
 }
 
-const contentSecurityPolicy = "default-src 'none'; " +
-	"style-src 'self' https://fonts.googleapis.com; " +
-	"font-src https://fonts.gstatic.com; " +
-	"script-src 'self'; " +
-	// The overview's poll for its own live fragment is the only fetch any page
-	// makes, and it goes to this origin.
-	"connect-src 'self'; " +
-	"img-src 'self' https: data:; " +
-	"form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+const contentSecurityPolicy = policyBeforeFormAction + "form-action 'self'; " + policyAfterFormAction
+
+const (
+	policyBeforeFormAction = "default-src 'none'; " +
+		"style-src 'self' https://fonts.googleapis.com; " +
+		"font-src https://fonts.gstatic.com; " +
+		"script-src 'self'; " +
+		// The overview's poll for its own live fragment is the only fetch any
+		// page makes, and it goes to this origin.
+		"connect-src 'self'; " +
+		"img-src 'self' https: data:; "
+	policyAfterFormAction = "base-uri 'none'; frame-ancestors 'none'"
+)
+
+// policyAllowingFormTo is the policy with origin added to form-action. Every
+// form on these pages posts to this origin, but Chromium also holds the
+// redirect that answers a submission to form-action, so a page whose form is
+// answered by a redirect elsewhere — the OAuth consent screen, which returns
+// the browser to the client — has to name that destination.
+func policyAllowingFormTo(origin string) string {
+	return policyBeforeFormAction + "form-action 'self' " + origin + "; " + policyAfterFormAction
+}
 
 // handler is a page or form handler, called with the signed-in owner.
 type handler func(w http.ResponseWriter, r *http.Request, p *auth.Principal)
@@ -377,18 +406,23 @@ func (d *Dashboard) redirectToLogin(w http.ResponseWriter, r *http.Request) {
 
 // returnTo is where the browser was heading before it was sent to sign in.
 //
-// The path alone is enough everywhere but the approval screen, which carries
-// the one query worth keeping: the user code the client put in the link. Losing
-// it would land the owner on an empty form holding a code they would have to go
-// and find again.
+// The path alone is enough everywhere but the two approval screens, which
+// carry a query worth keeping. For the device grant it is the user code the
+// client put in the link; losing it would land the owner on an empty form
+// holding a code they would have to go and find again. For the OAuth consent
+// screen it is the whole authorization request, which exists nowhere but in
+// that query.
 func returnTo(r *http.Request) string {
-	if r.URL.Path != pathAuthorize {
-		return r.URL.Path
+	switch r.URL.Path {
+	case pathAuthorize:
+		if code, ok := auth.NormalizeUserCode(r.URL.Query().Get("code")); ok {
+			return pathAuthorize + "?code=" + code
+		}
+		return pathAuthorize
+	case pathOAuthAuthorize:
+		return oauthReturnTarget(oauthRequestFrom(r.URL.Query()))
 	}
-	if code, ok := auth.NormalizeUserCode(r.URL.Query().Get("code")); ok {
-		return pathAuthorize + "?code=" + code
-	}
-	return pathAuthorize
+	return r.URL.Path
 }
 
 // safeNext bounds a post-sign-in redirect to this server's own pages.
@@ -397,6 +431,12 @@ func returnTo(r *http.Request) string {
 // prefix — collapses to the home page rather than being followed, so the
 // sign-in form cannot be turned into an open redirect.
 func safeNext(raw string) string {
+	// The consent screen carries a whole authorization request in its query,
+	// longer than any other target and bounded on its own terms.
+	if target, query, _ := strings.Cut(raw, "?"); target == pathOAuthAuthorize {
+		return safeOAuthNext(raw, query)
+	}
+
 	if len(raw) > 512 || raw == pathHome {
 		return pathHome
 	}
@@ -415,15 +455,21 @@ func safeNext(raw string) string {
 		return pathAuthorize
 	}
 
-	if !strings.HasPrefix(raw, pathHome+"/") || path.Clean(raw) != raw {
+	if !strings.HasPrefix(raw, pathHome+"/") || path.Clean(raw) != raw || hasUnsafeChars(raw) {
 		return pathHome
 	}
-	for _, c := range raw {
+	return raw
+}
+
+// hasUnsafeChars reports a control character or a backslash, neither of which
+// a redirect target may carry.
+func hasUnsafeChars(s string) bool {
+	for _, c := range s {
 		if c < 0x20 || c == 0x7f || c == '\\' {
-			return pathHome
+			return true
 		}
 	}
-	return raw
+	return false
 }
 
 // redirect answers a completed write. Outcomes travel as a code from a fixed

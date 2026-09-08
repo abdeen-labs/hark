@@ -52,7 +52,8 @@ curl -s localhost:8080/healthz
 
 Open <http://localhost:8080/> to use the admin dashboard. It includes the current
 delivery status, history, webhook services, registered devices, API tokens, test
-notifications, and command-line client authorization. See the
+notifications, command-line client authorization, and the consent page an MCP
+client signs the owner in through. See the
 [dashboard reference](docs/api.md#dashboard) for its routes and behavior.
 
 ### Send a notification with a webhook
@@ -73,6 +74,89 @@ APNs credentials and a registered device. See the
 [webhook reference](docs/api.md#webhooks) for options, replies, and callbacks,
 or the [API quickstart](docs/api.md#send-your-first-notification) to send with
 an API token.
+
+### Use Hark from Claude, ChatGPT and other agents
+
+Hark is also a [Model Context Protocol](https://modelcontextprotocol.io) server
+at `/mcp`. An assistant or agent connected to it gets what an API token can do
+as tools — send a notification, ask a question and wait for the answer, drive a
+Live Activity, read state — and nothing that the same token could not do
+through the API. Create a token under **Tokens** with the scopes the tools
+need, then connect, with your deployment's origin in place of
+`hark.example.com`:
+
+**Claude Code**
+
+```sh
+claude mcp add --transport http hark https://hark.example.com/mcp \
+  --header "Authorization: Bearer hark_…"
+```
+
+Without `--header`, run `/mcp` inside Claude Code to sign in through the browser.
+
+**Claude** (claude.ai, Claude Desktop, mobile) — *Customize › Connectors › Add
+custom connector*, with `https://hark.example.com/mcp` as the URL. Leave the
+OAuth client settings alone: Claude identifies itself with its own client
+metadata document or registers dynamically, sends the owner to the consent
+page, and holds the token it is issued. Organization owners add it under
+*Organization settings › Connectors* instead.
+
+**ChatGPT** — *Settings › Connectors › Create* (developer mode) with the same
+URL. ChatGPT detects OAuth, identifies itself with its client metadata document
+or registers dynamically, and sends the owner to the consent page. `search` and
+`fetch` are what its connectors require.
+
+**Codex CLI**
+
+```sh
+codex mcp add hark --url https://hark.example.com/mcp --bearer-token-env-var HARK_TOKEN
+```
+
+or in `config.toml`:
+
+```toml
+[mcp_servers.hark]
+url = "https://hark.example.com/mcp"
+bearer_token_env_var = "HARK_TOKEN"
+```
+
+Without a token, `codex mcp add hark --url https://hark.example.com/mcp` then
+`codex mcp login hark` signs in through the browser.
+
+**Claude Messages API**
+
+```json
+{
+  "model": "claude-opus-5",
+  "max_tokens": 1024,
+  "messages": [{ "role": "user", "content": "Tell my phone the deploy finished." }],
+  "mcp_servers": [
+    { "type": "url", "url": "https://hark.example.com/mcp", "name": "hark", "authorization_token": "hark_…" }
+  ],
+  "tools": [{ "type": "mcp_toolset", "mcp_server_name": "hark" }]
+}
+```
+
+with the `anthropic-beta: mcp-client-2025-11-20` header.
+
+**OpenAI Responses API**
+
+```json
+{
+  "model": "gpt-6-astra",
+  "input": "Tell my phone the deploy finished.",
+  "tools": [
+    { "type": "mcp", "server_label": "hark", "server_url": "https://hark.example.com/mcp", "authorization": "hark_…", "require_approval": "never" }
+  ]
+}
+```
+
+A connector that is given no token — Claude, ChatGPT, or Claude Code and Codex
+with nothing configured — signs the owner in through OAuth: the browser lands
+on the dashboard's consent page, the owner approves the requested scopes, and
+the token the client is issued is an ordinary API token, listed under
+**Tokens** and revocable there. See [MCP](docs/api.md#mcp) for the tools and
+their arguments, and [OAuth](docs/api.md#oauth) for the flow.
 
 ### The published contract
 
@@ -199,13 +283,17 @@ internal/dashboard/   The embedded admin UI and the /docs page: html/template,
                       two stylesheets, no build step.
 internal/httpapi/     Route table, middleware chain, JSON and error responses.
 internal/id/          UUIDv7 generation and validation.
+internal/mcp/         The Model Context Protocol server: one tool per documented
+                      endpoint, each called through the API with the caller's
+                      own token.
 docs/                 The Markdown, OpenAPI and llms.txt contracts, and the
                       embed directive that compiles them into the binary.
 ```
 
 The main dependencies are `jackc/pgx/v5` for PostgreSQL,
 `golang.org/x/crypto` for Argon2id, `golang.org/x/text` for password
-normalization, and `yuin/goldmark` for rendering the API documentation. Routing
+normalization, `modelcontextprotocol/go-sdk` for the MCP transport, and
+`yuin/goldmark` for rendering the API documentation. Routing
 uses the standard library's `net/http` package. Hark does not use a web framework
 or ORM.
 
@@ -233,6 +321,11 @@ contract. In summary:
 * **Device pairing** follows the OAuth 2.0 device authorization grant (RFC 8628).
   It lets a CLI obtain a scoped token with the owner's approval without handling
   the owner's password.
+* **OAuth** lets an MCP client — Claude, ChatGPT, Codex — obtain a scoped token
+  through the authorization code grant with PKCE, approved by the owner on the
+  dashboard's consent page. Hark is its own authorization server: clients are
+  public, no client secret or refresh token exists, and the access token is an
+  ordinary API token that lasts until the owner revokes it on the Tokens page.
 * Every digest is domain-separated by credential kind, so a value read out of
   one table cannot be replayed against another.
 
@@ -259,7 +352,7 @@ status.
 | --- | --- | --- |
 | `HARK_ENV` | `development` | `development` or `production`. Affects logging defaults only; never API behaviour. |
 | `HARK_LISTEN_ADDR` | `:8080` | Go listen address, e.g. `127.0.0.1:8080`. |
-| `HARK_PUBLIC_URL` | `http://localhost:8080` | Public origin. Composed into webhook URLs, device-pairing approval links, and push payload links, and it decides the session cookie's name and `Secure` flag and which origin may make cookie-authenticated writes. **Set it to the real `https://` origin in production.** Trailing slashes are stripped. |
+| `HARK_PUBLIC_URL` | `http://localhost:8080` | Public origin. Composed into webhook URLs, device-pairing approval links, push payload links, and the OAuth metadata MCP clients read, and it decides the session cookie's name and `Secure` flag and which origin may make cookie-authenticated writes. **Set it to the real `https://` origin in production.** Trailing slashes are stripped. |
 | `HARK_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
 | `HARK_LOG_FORMAT` | `text` (`json` in production) | `text` or `json`. |
 | `HARK_SHUTDOWN_TIMEOUT` | `20s` | Grace period for in-flight requests. |
@@ -318,7 +411,7 @@ Critical Alerts permission in the app.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `HARK_TRUSTED_CLIENT_IP_HEADER` | *(unset)* | Header set by a trusted reverse proxy with the real client address. **Leave unset when there is no proxy.** Without this setting, sign-in and device-pairing limits apply globally instead of per client. |
+| `HARK_TRUSTED_CLIENT_IP_HEADER` | *(unset)* | Header set by a trusted reverse proxy with the real client address. **Leave unset when there is no proxy.** Without this setting, sign-in, device-pairing, and OAuth limits apply globally instead of per client. |
 | `HARK_RATE_LIMIT_REQUESTER_PER_MINUTE` | `300` | Per webhook service or API token. |
 | `HARK_RATE_LIMIT_ACCOUNT_PER_MINUTE` | `1500` | Across the whole account. |
 

@@ -49,7 +49,8 @@ var (
 )
 
 const apiTables = `users, sessions, services, devices, api_tokens,
-	device_authorization_requests, events, agent_notifications, interactions,
+	device_authorization_requests, oauth_clients, oauth_authorization_codes,
+	events, agent_notifications, interactions,
 	live_activities, live_activity_deliveries, live_activity_operations,
 	live_activity_delivery_attempts`
 

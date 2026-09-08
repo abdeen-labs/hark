@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/abdeen-labs/hark/internal/auth"
+	"github.com/abdeen-labs/hark/internal/mcp"
 )
 
 // TestCredentialRoutesAreClosedByDefault walks the whole auth surface without a
@@ -32,6 +33,7 @@ func TestCredentialRoutesAreClosedByDefault(t *testing.T) {
 		{http.MethodGet, "/tokens"},
 		{http.MethodPost, "/tokens"},
 		{http.MethodDelete, "/tokens/0198f3a1-2b4c-7d8e-9f01-23456789abcd"},
+		{http.MethodPost, mcp.Path},
 	}
 	for _, route := range closed {
 		rec := do(t, h, route.method, route.path, strings.NewReader("{}"))
@@ -203,6 +205,8 @@ func TestDashboardMount(t *testing.T) {
 		// something else hands out: the link a CLI prints, and the contract.
 		{http.MethodGet, DeviceVerificationPath},
 		{http.MethodPost, DeviceVerificationPath},
+		{http.MethodGet, OAuthAuthorizePath},
+		{http.MethodPost, OAuthAuthorizePath},
 		{http.MethodGet, DocsPath},
 		{http.MethodGet, DocsMarkdownPath},
 		{http.MethodGet, OpenAPIPath},
@@ -279,7 +283,7 @@ func TestTheContractIsServedOutsideTheCredentialChain(t *testing.T) {
 func TestWithoutADashboardTheRootIs404(t *testing.T) {
 	h := newTestServer(t, stubPinger{})
 
-	for _, path := range []string{"/", DashboardPrefix, DeviceVerificationPath, DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
+	for _, path := range []string{"/", DashboardPrefix, DeviceVerificationPath, OAuthAuthorizePath, DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
 		rec := do(t, h, http.MethodGet, path, nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("GET %s: status = %d, want 404", path, rec.Code)

@@ -1,0 +1,78 @@
+{{define "content"}}
+<header class="page-head">
+  <p class="page-head__eyebrow meta">
+    <span><span class="idx">MCP</span> Client authorization</span>
+  </p>
+  <h1 class="page-head__title display">Authorize a client</h1>
+  <p class="page-head__lede lede">Review the requested access before this client is issued a token.</p>
+</header>
+
+{{with .Consent}}
+<section class="grant grid" aria-label="Request" data-consent>
+  <div class="span-7">
+    <p class="meta">Client</p>
+    <p class="grant__client">
+      <span class="h-ui">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}</a>{{else}}{{.Client.Name}}{{end}}</span>
+    </p>
+    {{if .Client.MetadataDocument}}
+    <p class="grant__warning">Identified by a client metadata document published at <code>{{$.ClientHost}}</code>.</p>
+    {{end}}
+    {{if .Loopback}}
+    <p class="grant__warning">After your decision the browser returns to <code>{{$.RedirectHost}}</code>, a client running on this computer.</p>
+    {{else}}
+    <p class="grant__warning">After your decision the browser returns to <code>{{$.RedirectHost}}</code>.</p>
+    {{end}}
+  </div>
+
+  <div class="module span-5">
+    <div class="module__head">
+      <h2 class="module__label"><span class="module__index">01</span>Request</h2>
+    </div>
+    <div class="scroll">
+      <table class="table">
+        <tbody>
+          <tr>
+            <th>Scopes</th>
+            <td class="cell--wrap">
+              {{range .Scopes}}
+              <div class="scope-definition">
+                <code>{{.}}</code>
+                <span>{{scopeDescription .}}</span>
+              </div>
+              {{else}}<span class="muted">No access requested.</span>{{end}}
+            </td>
+          </tr>
+          <tr>
+            <th>Token lifetime</th>
+            <td>Until you revoke it on the <a href="{{$.Paths.Tokens}}">Tokens</a> page.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="span-12">
+    <p class="grant__warning">Only approve requests you started. Approving issues an API token this client holds until you revoke it on the Tokens page.</p>
+    {{/* Not boosted: the answer is a redirect to the client's own address,
+         which the browser must follow as a navigation rather than fetch. */}}
+    <form method="post" action="{{$.Paths.OAuthAuthorize}}" class="row row--actions" data-consent-decision hx-boost="false">
+      <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+      <input type="hidden" name="response_type" value="{{$.Request.ResponseType}}">
+      <input type="hidden" name="client_id" value="{{$.Request.ClientID}}">
+      <input type="hidden" name="redirect_uri" value="{{$.Request.RedirectURI}}">
+      <input type="hidden" name="scope" value="{{$.Request.Scope}}">
+      <input type="hidden" name="state" value="{{$.Request.State}}">
+      <input type="hidden" name="code_challenge" value="{{$.Request.CodeChallenge}}">
+      <input type="hidden" name="code_challenge_method" value="{{$.Request.CodeChallengeMethod}}">
+      <input type="hidden" name="resource" value="{{$.Request.Resource}}">
+      <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve <span class="arrow">→</span></button>
+      <button class="btn btn--danger" type="submit" name="decision" value="deny">Deny</button>
+    </form>
+  </div>
+</section>
+{{else}}
+<section class="grant" aria-label="Request">
+  <p class="empty empty--bare">This request cannot be answered. Return to the client and start again.</p>
+</section>
+{{end}}
+{{end}}

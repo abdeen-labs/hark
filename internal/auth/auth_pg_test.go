@@ -44,7 +44,8 @@ var (
 )
 
 // allTables is every table these tests write, for the per-test reset.
-const allTables = `users, sessions, api_tokens, device_authorization_requests`
+const allTables = `users, sessions, api_tokens, device_authorization_requests,
+	oauth_clients, oauth_authorization_codes`
 
 // requireService returns a Service over a freshly emptied schema, together with
 // a clock the test controls. Expiry and sliding refresh are the whole subject

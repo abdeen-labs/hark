@@ -20,6 +20,7 @@ import (
 
 	"github.com/abdeen-labs/hark/internal/auth"
 	"github.com/abdeen-labs/hark/internal/db"
+	"github.com/abdeen-labs/hark/internal/mcp"
 	"github.com/abdeen-labs/hark/internal/push"
 	"github.com/abdeen-labs/hark/internal/secret"
 )
@@ -162,19 +163,38 @@ func New(opts Options) http.Handler {
 	api = append(api, Authenticate(opts.Auth, opts.PublicURL, opts.Auth.Now))
 
 	handler := Chain(rt.handler(), api...)
-	if opts.Dashboard == nil {
-		return handler
-	}
 
-	// The published contract is served outside the credential chain rather
-	// than merely left unguarded inside it. Nothing about a public document
-	// should rest on a middleware continuing to ignore it: no cookie is read,
-	// no Authorization header is honoured, no session is slid forward, and
-	// there is no principal for anything downstream to find.
+	// The published contract and the authorization server metadata are served
+	// outside the credential chain rather than merely left unguarded inside
+	// it. Nothing about a public document should rest on a middleware
+	// continuing to ignore it: no cookie is read, no Authorization header is
+	// honoured, no session is slid forward, and there is no principal for
+	// anything downstream to find.
 	root := http.NewServeMux()
 	root.Handle("/", handler)
-	for _, publicDoc := range []string{DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
-		root.Handle(publicDoc, Chain(opts.Dashboard, base...))
+	root.Handle(AuthorizationServerMetadataPath, Chain(s.authorizationServerMetadata(), base...))
+
+	// The MCP endpoint admits an API token and nothing else, and answers a
+	// request without one with the challenge that starts OAuth. That gate is
+	// its own, outside the chain, whose 401 would name neither the resource
+	// metadata nor the scopes. Every tool call it serves is a request against
+	// the assembled API, credential and all.
+	agent := mcp.New(mcp.Options{
+		API:       handler,
+		Resolver:  opts.Auth,
+		PublicURL: opts.PublicURL,
+		Version:   opts.Version,
+		Logger:    opts.Logger,
+	})
+	root.Handle(mcp.Path, Chain(agent.Handler(), base...))
+	for _, metadata := range []string{mcp.ProtectedResourceMetadataPath, mcp.ProtectedResourceMetadataPath + mcp.Path} {
+		root.Handle(metadata, Chain(agent.ResourceMetadata(), base...))
+	}
+
+	if opts.Dashboard != nil {
+		for _, publicDoc := range []string{DocsPath, DocsMarkdownPath, OpenAPIPath, LLMsPath} {
+			root.Handle(publicDoc, Chain(opts.Dashboard, base...))
+		}
 	}
 	return root
 }
@@ -197,15 +217,16 @@ func (s *server) routes(rt *router) {
 	// methods itself: it answers in HTML, so the router's JSON 404 and 405 are
 	// the wrong replies for anything inside it.
 	//
-	// The device-grant approval screen is a dashboard page too. It sits outside
-	// the prefix only because its URL is one a client prints into a terminal
-	// for a human to open, and /cli/authorize is what that human should see
-	// there.
+	// The device-grant approval screen and the OAuth consent screen are
+	// dashboard pages too. They sit outside the prefix only because their URLs
+	// are ones a client hands out — printed into a terminal, or published as
+	// the authorization endpoint — for a human to open.
 	if s.opts.Dashboard != nil {
 		rt.mount("/{$}", s.opts.Dashboard)
 		rt.mount(DashboardPrefix, s.opts.Dashboard)
 		rt.mount(DashboardPrefix+"/", s.opts.Dashboard)
 		rt.mount(DeviceVerificationPath, s.opts.Dashboard)
+		rt.mount(OAuthAuthorizePath, s.opts.Dashboard)
 	}
 
 	// Sign-in is public and rate limited; everything else on the auth surface
@@ -238,6 +259,8 @@ func (s *server) routes(rt *router) {
 		RequireSession(http.HandlerFunc(s.handleApproveDeviceRequest)))
 	rt.handle(http.MethodPost, "/auth/device/requests/{user_code}/deny",
 		RequireSession(http.HandlerFunc(s.handleDenyDeviceRequest)))
+
+	s.oauthRoutes(rt)
 
 	// Managing credentials requires a session, so a token can never widen its
 	// own authority or mint a successor. A token retires itself through

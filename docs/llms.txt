@@ -10,6 +10,7 @@ Each Hark deployment has one admin who provisions additional user accounts. Its 
 - [OpenAPI 3.1 document](/openapi.json): Operations and schemas for client generation and validation.
 - [HTML API reference](/docs): Searchable rendering of the Markdown reference.
 - [Readiness check](/healthz): Reports application and database availability.
+- [MCP server](/mcp): Model Context Protocol endpoint on the Streamable HTTP transport, POST only; its tools wrap the documented operations. Clients discover its OAuth flow through [/.well-known/oauth-protected-resource](/.well-known/oauth-protected-resource) and [/.well-known/oauth-authorization-server](/.well-known/oauth-authorization-server).
 
 ## Important rules
 
@@ -18,6 +19,7 @@ Each Hark deployment has one admin who provisions additional user accounts. Its 
 - A session may manage credentials. An API token cannot create credentials or increase its own permissions.
 - GET /accounts and POST /accounts require an admin session. Newly provisioned accounts are regular users; public sign-up is unavailable.
 - API-token operations declare their required scopes in the OpenAPI `x-hark-scopes` extension.
+- MCP and OAuth issue and use ordinary scoped API tokens: `POST /mcp` needs a `hark_…` token with the scopes of the tools it calls, and `POST /oauth/token` issues one carrying the scopes the owner approved on `/oauth/authorize`.
 - Use an `Idempotency-Key` when sending notifications, interactions, webhook events, or Live Activity changes.
 - Treat cursors as opaque. Handle errors by `error.code`, not by matching `message` text.
 - A `201` delivery response means Hark recorded and attempted the request; inspect its status/count fields to learn what APNs accepted.

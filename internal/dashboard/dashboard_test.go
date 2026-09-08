@@ -29,6 +29,16 @@ type fakeAuth struct {
 	decideErr error
 	approved  []string
 	denied    []string
+
+	// OAuth consent: the configured answer, what the page asked about, and the
+	// approvals it recorded. A nil consent with no error is an unknown client.
+	consent         *auth.OAuthConsent
+	consentErr      error
+	consentRequests []auth.OAuthAuthorizationRequest
+	consentResource string
+	code            string
+	approveErr      error
+	oauthApproved   []string
 }
 
 func (f *fakeAuth) Login(context.Context, string, string) (*auth.Principal, string, error) {
@@ -90,6 +100,26 @@ func (f *fakeAuth) DenyDeviceGrant(_ context.Context, code string) (*db.DeviceAu
 	}
 	f.denied = append(f.denied, code)
 	return f.grant, nil
+}
+
+func (f *fakeAuth) OAuthConsent(_ context.Context, req auth.OAuthAuthorizationRequest, resource string) (*auth.OAuthConsent, error) {
+	f.consentRequests = append(f.consentRequests, req)
+	f.consentResource = resource
+	if f.consentErr != nil {
+		return nil, f.consentErr
+	}
+	if f.consent == nil {
+		return nil, &auth.OAuthClientError{Message: "unknown client"}
+	}
+	return f.consent, nil
+}
+
+func (f *fakeAuth) ApproveOAuth(_ context.Context, consent *auth.OAuthConsent, userID string) (string, error) {
+	if f.approveErr != nil {
+		return "", f.approveErr
+	}
+	f.oauthApproved = append(f.oauthApproved, consent.Client.ID+" by "+userID)
+	return f.code, nil
 }
 
 func (f *fakeAuth) Now() time.Time { return f.now }
@@ -179,6 +209,7 @@ func TestSignedOutPagesRedirectToSignIn(t *testing.T) {
 		pathHome, pathHistory, pathLiveOverview,
 		pathServices, pathServices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd",
 		pathCriticalServices, pathDevices, pathTokens, pathTest, pathAuthorize,
+		pathOAuthAuthorize,
 	} {
 		rec := send(d, request(http.MethodGet, path, ""))
 		if rec.Code != http.StatusSeeOther {
@@ -279,6 +310,7 @@ func TestFormsRequireACSRFToken(t *testing.T) {
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/revoke",
 		pathTest,
 		pathAuthorize,
+		pathOAuthAuthorize,
 	}
 	for _, path := range paths {
 		rec := send(d, signedIn(http.MethodPost, path, "name=x"))
@@ -623,6 +655,31 @@ func fixturePages(d *Dashboard) map[string]pageFixture {
 			},
 		}},
 		"authorize/empty": {tmplAuthorize, authorizePage{view: frame}},
+		"consent": {tmplConsent, consentPage{
+			view:    frame,
+			Request: oauthRequestFrom(consentRequest()),
+			Consent: &auth.OAuthConsent{
+				Client: auth.OAuthClient{
+					ID: "https://client.example/.well-known/oauth-client.json", Name: "<script>alert(1)</script>",
+					ClientURI: ptr("https://client.example"), MetadataDocument: true,
+				},
+				RedirectURI: "http://127.0.0.1:43123/callback", Loopback: true,
+				Scopes: []string{db.ScopeNotificationsNew}, State: "<script>alert(1)</script>",
+				CodeChallenge: strings.Repeat("a", 43),
+			},
+			ClientHost: "client.example", RedirectHost: "127.0.0.1:43123",
+		}},
+		"consent/registered": {tmplConsent, consentPage{
+			view:    frame,
+			Request: oauthRequestFrom(consentRequest()),
+			Consent: &auth.OAuthConsent{
+				Client:      auth.OAuthClient{ID: "0198f3a1-2b4c-7d8e-9f01-23456789abcd", Name: "Claude"},
+				RedirectURI: "https://client.example/callback",
+				Scopes:      db.Scopes,
+			},
+			RedirectHost: "client.example",
+		}},
+		"consent/refused": {tmplConsent, consentPage{view: frame, Request: oauthRequestFrom(consentRequest())}},
 		"services": {tmplServices, servicesPage{
 			view:       frame,
 			Priorities: db.Priorities,
