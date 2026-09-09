@@ -1004,7 +1004,8 @@ Same errors as `approve`.
 
 Lists the account's API tokens, newest first. **Session only.**
 
-Revoked and expired tokens remain in the list for auditing.
+Revoked and expired tokens remain in the list for auditing until the owner
+deletes them from the dashboard's Tokens page.
 
 **200 OK**
 
@@ -1126,7 +1127,9 @@ lists it.
 Revokes one of the account's tokens. **Session only.**
 
 Revocation is immediate: the next request carrying that token gets `401`. The
-row is kept, so resources created by the token retain their attribution.
+row is kept, so resources created by the token retain their attribution, until
+the owner deletes the token from the dashboard's Tokens page. Deleting it also
+deletes the notifications, questions and Live Activities it created.
 
 **204 No Content** on success.
 

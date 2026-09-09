@@ -36,6 +36,7 @@ type Authenticator interface {
 	ListAPITokens(ctx context.Context, userID string) ([]db.APIToken, error)
 	CreateAPIToken(ctx context.Context, userID string, p auth.CreateAPITokenParams) (*db.APIToken, string, error)
 	RevokeAPIToken(ctx context.Context, tokenID, userID string) error
+	DeleteAPIToken(ctx context.Context, tokenID, userID string) error
 	SetAPITokenImage(ctx context.Context, tokenID, userID string, imageURL *string) (*db.APIToken, error)
 	ListAccounts(ctx context.Context, actor *auth.Principal) ([]db.User, error)
 	ProvisionAccount(ctx context.Context, actor *auth.Principal, p auth.CreateAccountParams) (*db.User, error)
@@ -220,6 +221,7 @@ func (d *Dashboard) routes() {
 	d.mux.HandleFunc("GET "+pathTokens, d.page(d.showTokens))
 	d.mux.HandleFunc("POST "+pathTokens, d.form(d.createToken))
 	d.mux.HandleFunc("POST "+pathTokens+"/{id}/revoke", d.form(d.revokeToken))
+	d.mux.HandleFunc("POST "+pathTokens+"/{id}/delete", d.form(d.deleteToken))
 	d.mux.HandleFunc("POST "+pathTokens+"/{id}/picture", d.form(d.setTokenPicture))
 
 	d.mux.HandleFunc("GET "+pathAccounts, d.page(d.admin(d.showAccounts)))
@@ -458,6 +460,7 @@ func (d *Dashboard) redirect(w http.ResponseWriter, r *http.Request, path, outco
 var notices = map[string]notice{
 	"device_deleted":  {Kind: noticeOK, Message: "Device unregistered."},
 	"token_revoked":   {Kind: noticeOK, Message: "API token revoked."},
+	"token_deleted":   {Kind: noticeOK, Message: "API token deleted."},
 	"token_picture":   {Kind: noticeOK, Message: "Token picture saved."},
 	"account_created": {Kind: noticeOK, Message: "Account created. Share the username and password with its owner so they can sign in."},
 	"signed_out":      {Kind: noticeOK, Message: "Signed out."},

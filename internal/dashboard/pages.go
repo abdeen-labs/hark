@@ -366,6 +366,21 @@ func (d *Dashboard) revokeToken(w http.ResponseWriter, r *http.Request, p *auth.
 	}
 }
 
+// deleteToken removes a revoked or expired token and everything it created.
+func (d *Dashboard) deleteToken(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
+	err := d.opts.Auth.DeleteAPIToken(r.Context(), r.PathValue("id"), p.UserID())
+	switch {
+	case err == nil:
+		d.redirect(w, r, pathTokens, "token_deleted")
+	case errors.Is(err, auth.ErrNotFound):
+		d.renderError(w, r, http.StatusNotFound, "No API token matches that identifier.")
+	case errors.Is(err, auth.ErrConflict):
+		d.renderError(w, r, http.StatusConflict, "Revoke the token before deleting it.")
+	default:
+		d.fail(w, r, "deleting an API token failed", err)
+	}
+}
+
 // setTokenPicture saves the picture a token row shows; an empty field removes it.
 func (d *Dashboard) setTokenPicture(w http.ResponseWriter, r *http.Request, p *auth.Principal) {
 	var image *string

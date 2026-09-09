@@ -29,6 +29,10 @@ type fakeAuth struct {
 	pictures   map[string]*string
 	pictureErr error
 
+	// Tokens the dashboard asked to delete, and the error to answer with instead.
+	deleted   []string
+	deleteErr error
+
 	// Device authorization request, configured result, and recorded decision.
 	grant     *db.DeviceAuthorization
 	grantErr  error
@@ -84,6 +88,14 @@ func (f *fakeAuth) CreateAPIToken(context.Context, string, auth.CreateAPITokenPa
 }
 
 func (f *fakeAuth) RevokeAPIToken(context.Context, string, string) error { return nil }
+
+func (f *fakeAuth) DeleteAPIToken(_ context.Context, tokenID, _ string) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	f.deleted = append(f.deleted, tokenID)
+	return nil
+}
 
 func (f *fakeAuth) ListAccounts(context.Context, *auth.Principal) ([]db.User, error) {
 	return nil, nil
@@ -380,6 +392,62 @@ func TestTokenPageOffersThePictureForm(t *testing.T) {
 	}
 }
 
+func TestTokenDeletionGoesThroughTheService(t *testing.T) {
+	d, service := newTestDashboard(t)
+	const tokenID = "0198f3a1-2b4c-7d8e-9f01-23456789abcd"
+	path := pathTokens + "/" + tokenID + "/delete"
+
+	rec := send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), ""))
+	if rec.Code != http.StatusSeeOther || !strings.Contains(rec.Header().Get("Location"), "done=token_deleted") {
+		t.Fatalf("status = %d, Location = %q: %s", rec.Code, rec.Header().Get("Location"), rec.Body)
+	}
+	if len(service.deleted) != 1 || service.deleted[0] != tokenID {
+		t.Errorf("the service was asked to delete %v, want %q", service.deleted, tokenID)
+	}
+
+	service.deleteErr = auth.ErrConflict
+	rec = send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), ""))
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "Revoke the token before deleting it.") {
+		t.Errorf("a token still in use: status = %d, want 409 telling the owner to revoke first: %s", rec.Code, rec.Body)
+	}
+
+	service.deleteErr = auth.ErrNotFound
+	rec = send(d, withCSRF(t, d, signedIn(http.MethodPost, path, ""), ""))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("an unknown token: status = %d, want 404", rec.Code)
+	}
+}
+
+func TestTokenPageOffersDeleteOnlyOnceATokenIsInactive(t *testing.T) {
+	d, service := newTestDashboard(t)
+	now := service.now
+	service.tokens = []db.APIToken{
+		{ID: "token-live", Name: "deploy-bot", Prefix: "hark_aaaa", Scopes: []string{db.ScopeEventsRead}, CreatedAt: now},
+		{ID: "token-revoked", Name: "old-laptop", Prefix: "hark_bbbb", Scopes: []string{db.ScopeEventsRead}, RevokedAt: &now, CreatedAt: now},
+		{ID: "token-expired", Name: "ci-reader", Prefix: "hark_cccc", Scopes: []string{db.ScopeEventsRead}, ExpiresAt: ptr(now.Add(-time.Hour)), CreatedAt: now},
+	}
+	rec := send(d, signedIn(http.MethodGet, pathTokens, ""))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	for _, row := range []struct {
+		id             string
+		revoke, delete bool
+	}{
+		{"token-live", true, false},
+		{"token-revoked", false, true},
+		{"token-expired", false, true},
+	} {
+		if got := strings.Contains(body, `action="`+pathTokens+`/`+row.id+`/revoke"`); got != row.revoke {
+			t.Errorf("%s: offers revoke = %v, want %v", row.id, got, row.revoke)
+		}
+		if got := strings.Contains(body, `action="`+pathTokens+`/`+row.id+`/delete"`); got != row.delete {
+			t.Errorf("%s: offers delete = %v, want %v", row.id, got, row.delete)
+		}
+	}
+}
+
 // TestFormsRequireACSRFToken walks every mutating route without a token. The
 // handlers behind them are never reached, which is also why none of them needs
 // a database.
@@ -397,6 +465,7 @@ func TestFormsRequireACSRFToken(t *testing.T) {
 		pathDevices + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathTokens,
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/revoke",
+		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/delete",
 		pathTokens + "/0198f3a1-2b4c-7d8e-9f01-23456789abcd/picture",
 		pathTest,
 		pathAuthorize,

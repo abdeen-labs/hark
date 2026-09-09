@@ -99,8 +99,8 @@ type APIToken struct {
 	ExpiresAt *time.Time `db:"expires_at"`
 	// LastUsedAt is written at most once a minute per token.
 	LastUsedAt *time.Time `db:"last_used_at"`
-	// RevokedAt nil means active. Tokens are never hard-deleted, so everything
-	// they created keeps its attribution.
+	// RevokedAt nil means active. A revoked token keeps its row, and with it
+	// the attribution of everything it created, until the owner deletes it.
 	RevokedAt *time.Time `db:"revoked_at"`
 	CreatedAt time.Time  `db:"created_at"`
 }
@@ -179,8 +179,9 @@ func (s *APITokens) ByID(ctx context.Context, id, userID string) (*APIToken, err
 	return queryOne[APIToken](ctx, s.q, "load API token", q, id, userID)
 }
 
-// ListForUser returns every token on the account, newest first. Revoked tokens
-// stay listed so their history is explainable.
+// ListForUser returns every token on the account, newest first. Revoked and
+// expired tokens stay listed, so their history is explainable, until the owner
+// deletes them.
 func (s *APITokens) ListForUser(ctx context.Context, userID string) ([]APIToken, error) {
 	const q = `SELECT ` + apiTokenColumns + ` FROM api_tokens
 		WHERE user_id = $1 ORDER BY created_at DESC, id DESC`
@@ -221,6 +222,19 @@ func (s *APITokens) Revoke(ctx context.Context, id, userID string, now time.Time
 func (s *APITokens) RevokeSelf(ctx context.Context, id string, now time.Time) (bool, error) {
 	const q = `UPDATE api_tokens SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL`
 	return execMatched(ctx, s.q, "revoke API token", q, id, Millis(now))
+}
+
+// Delete removes a token the caller owns once it can no longer authenticate.
+// An active token does not match: stopping a credential and discarding its
+// record are two deliberate steps, so a delete can never double as a revoke.
+//
+// This is destructive to history: the cascade takes the notifications,
+// questions and Live Activities the token created.
+func (s *APITokens) Delete(ctx context.Context, id, userID string, now time.Time) (bool, error) {
+	const q = `
+		DELETE FROM api_tokens
+		WHERE id = $1 AND user_id = $2 AND (revoked_at IS NOT NULL OR expires_at <= $3)`
+	return execMatched(ctx, s.q, "delete API token", q, id, userID, Millis(now))
 }
 
 // TouchLastUsed records that a token authenticated, at most once per interval.

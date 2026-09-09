@@ -428,6 +428,11 @@ func TestAPITokenLifecycle(t *testing.T) {
 		t.Fatalf("ListAPITokens = %d tokens, %v; want 1, nil", len(tokens), err)
 	}
 
+	// Stopping a credential and discarding its record are separate steps.
+	if err := service.DeleteAPIToken(ctx, token.ID, user.ID); !errors.Is(err, ErrConflict) {
+		t.Errorf("deleting an active token = %v, want ErrConflict", err)
+	}
+
 	if err := service.RevokeAPIToken(ctx, token.ID, user.ID); err != nil {
 		t.Fatalf("RevokeAPIToken: %v", err)
 	}
@@ -441,6 +446,16 @@ func TestAPITokenLifecycle(t *testing.T) {
 	// making sense.
 	if tokens, _ := service.ListAPITokens(ctx, user.ID); len(tokens) != 1 || tokens[0].RevokedAt == nil {
 		t.Errorf("after revocation the listing shows %+v, want the token still listed and marked revoked", tokens)
+	}
+
+	if err := service.DeleteAPIToken(ctx, token.ID, user.ID); err != nil {
+		t.Fatalf("DeleteAPIToken: %v", err)
+	}
+	if tokens, _ := service.ListAPITokens(ctx, user.ID); len(tokens) != 0 {
+		t.Errorf("after deletion the listing shows %+v, want nothing", tokens)
+	}
+	if err := service.DeleteAPIToken(ctx, token.ID, user.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("deleting twice = %v, want ErrNotFound", err)
 	}
 
 	// Expiry is judged in Go so that a NULL expiry keeps meaning "never".

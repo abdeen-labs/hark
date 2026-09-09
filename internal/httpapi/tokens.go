@@ -41,9 +41,9 @@ type tokenListResponse struct {
 }
 
 // handleListTokens returns every token on the account, newest first. Revoked
-// and expired ones stay listed: a credential's history is worth keeping
-// visible, and hiding a revoked token makes "did I already revoke that?"
-// unanswerable.
+// and expired ones stay listed until the owner deletes them from the
+// dashboard: a credential's history is worth keeping visible, and hiding a
+// revoked token makes "did I already revoke that?" unanswerable.
 func (s *server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 	principal := auth.PrincipalFrom(r.Context())
 

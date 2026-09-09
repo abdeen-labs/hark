@@ -711,8 +711,8 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 
 /* Tags ----------------------------------------------------------------------
  *
- * A label in a one-pixel frame. A state colours the text; a failure is the
- * one filled tag. */
+ * A label in a one-pixel frame. A state colours the text and its frame; a
+ * failure is the one filled tag. */
 
 .tag {
   display: inline-flex;
@@ -729,13 +729,19 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   vertical-align: middle;
 }
 .tag--code { font-family: var(--mono); font-size: 10px; }
-.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok { color: var(--ok); }
+.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok {
+  border-color: currentColor;
+  color: var(--ok);
+}
 .tag--failed, .tag--error, .tag--denied, .tag--retired {
   border-color: transparent;
   background: var(--alarm-field);
   color: var(--on-alarm-field);
 }
-.tag--partial, .tag--warn, .tag--starting, .tag--pending { color: var(--warn); }
+.tag--partial, .tag--warn, .tag--starting, .tag--pending {
+  border-color: currentColor;
+  color: var(--warn);
+}
 /* Neon yellow measures 1.01:1 on mist: on the light ground it is a fill under
  * carbon ink, never a glyph. */
 :root[data-theme="light"] :is(.tag--partial, .tag--warn, .tag--starting, .tag--pending) {

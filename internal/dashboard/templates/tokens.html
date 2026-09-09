@@ -115,7 +115,14 @@
                 <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
                 <button class="btn btn--danger btn--sm" type="submit">Revoke</button>
               </form>
-              {{else}}<span class="muted">—</span>{{end}}
+              {{else}}
+              <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/delete"
+                    data-confirm="Delete {{.Name}} and its history?"
+                    hx-disabled-elt="find button[type=submit]">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <button class="btn btn--danger btn--sm" type="submit">Delete</button>
+              </form>
+              {{end}}
             </td>
           </tr>
           {{end}}

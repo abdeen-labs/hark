@@ -489,10 +489,11 @@ func TestAPITokenLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := s.APITokens.Create(ctx, CreateAPITokenParams{
+	expired, err := s.APITokens.Create(ctx, CreateAPITokenParams{
 		ID: id.New(), UserID: user.ID, Name: "expired", TokenHash: "hash-2", Prefix: "hark_bbbb",
 		Scopes: []string{ScopeEventsRead}, ExpiresAt: ptr(now.Add(-time.Minute)), Now: now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("create expired: %v", err)
 	}
 
@@ -518,6 +519,28 @@ func TestAPITokenLifecycle(t *testing.T) {
 	}
 	if found.Active(now) {
 		t.Error("an expired token reported itself active")
+	}
+
+	// Deletion is reserved for tokens that can no longer authenticate, and it
+	// takes what they created with it.
+	if ok, err := s.APITokens.Delete(ctx, active.ID, user.ID, now); err != nil || ok {
+		t.Fatalf("Delete(active) = (%v, %v), want (false, nil)", ok, err)
+	}
+	note, err := s.Notifications.Create(ctx, CreateNotificationParams{
+		ID: id.New(), UserID: user.ID, RequesterTokenID: expired.ID,
+		Title: "Deploy", Body: "Build 4820 succeeded", Priority: PriorityNormal, Now: now,
+	})
+	if err != nil {
+		t.Fatalf("create notification: %v", err)
+	}
+	if ok, err := s.APITokens.Delete(ctx, expired.ID, user.ID, now); err != nil || !ok {
+		t.Fatalf("Delete(expired) = (%v, %v), want (true, nil)", ok, err)
+	}
+	if _, err := s.Notifications.ByID(ctx, note.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("after deleting its token the notification loads with %v, want ErrNotFound", err)
+	}
+	if ok, err := s.APITokens.Delete(ctx, expired.ID, user.ID, now); err != nil || ok {
+		t.Fatalf("deleting twice = (%v, %v), want (false, nil)", ok, err)
 	}
 
 	revoked, err := s.APITokens.Revoke(ctx, active.ID, user.ID, now)

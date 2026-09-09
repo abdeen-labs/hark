@@ -101,7 +101,8 @@ func (s *Service) CreateAPIToken(ctx context.Context, userID string, p CreateAPI
 }
 
 // ListAPITokens returns every token on the account, newest first. Revoked and
-// expired tokens stay listed so their history stays explainable.
+// expired tokens stay listed, so their history stays explainable, until the
+// owner deletes them.
 func (s *Service) ListAPITokens(ctx context.Context, userID string) ([]db.APIToken, error) {
 	tokens, err := s.store.APITokens.ListForUser(ctx, userID)
 	if err != nil {
@@ -160,6 +161,29 @@ func (s *Service) RevokeSelf(ctx context.Context, tokenID string) error {
 		return fmt.Errorf("auth: revoke API token: %w", err)
 	}
 	return nil
+}
+
+// DeleteAPIToken removes a revoked or expired token the account owns, together
+// with the notifications, questions and Live Activities it created.
+//
+// A token that can still authenticate is [ErrConflict]: it has to be revoked
+// first, so that discarding a credential's history is never a side effect of
+// stopping it. Unknown and foreign ids are [ErrNotFound].
+func (s *Service) DeleteAPIToken(ctx context.Context, tokenID, userID string) error {
+	deleted, err := s.store.APITokens.Delete(ctx, tokenID, userID, s.Now())
+	if err != nil {
+		return fmt.Errorf("auth: delete API token: %w", err)
+	}
+	if deleted {
+		return nil
+	}
+	if _, err := s.store.APITokens.ByID(ctx, tokenID, userID); err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("auth: load API token: %w", err)
+	}
+	return ErrConflict
 }
 
 // AuthenticateAPIToken resolves an agent secret to its principal.
