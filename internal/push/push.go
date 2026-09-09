@@ -81,6 +81,8 @@ type Alert struct {
 	URL *string
 	// PassURL is an Apple Wallet pass: the public HTTPS URL of a .pkpass file.
 	PassURL *string
+	// PassRecordID identifies the event or notification that owns the cached pass.
+	PassRecordID string
 
 	// ThreadKey groups related alerts into one conversation on the phone. Alerts
 	// from one service, or one agent title, share a key.

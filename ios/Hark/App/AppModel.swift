@@ -528,8 +528,8 @@ final class AppModel {
         }
 
         if actionIdentifier == UNNotificationDefaultActionIdentifier {
-            if let passURL = payload.passURL {
-                await addPassToWallet(recordID: payload.recordId, passURL: passURL)
+            if let passURL = payload.passURL, let recordID = payload.passRecordID {
+                await addPassToWallet(recordID: recordID, passURL: passURL)
                 return
             }
             if let urlString = payload.url, let url = HarkNotification.sanitizedTapURL(urlString) {

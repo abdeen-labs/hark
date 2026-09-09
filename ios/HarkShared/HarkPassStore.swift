@@ -4,7 +4,7 @@
 //
 //  A pass staged for Wallet. The notification service extension downloads
 //  the `.pkpass` a push names and leaves it in the app group container,
-//  keyed by the push's `record_id` — the same row id that follows the
+//  keyed by the push's `pass_record_id` — the same row id that follows the
 //  source prefix in a history item's composite id — so the app can offer it
 //  to Wallet from the tap or from history without going back to the
 //  network. The file is a cache: a miss means fetching `pass_url` again.
@@ -27,7 +27,7 @@ nonisolated enum HarkPassStore {
     // MARK: Keys
 
     /// The row id behind a history item's `<source>:<row id>`: the value a
-    /// push carries as `record_id`.
+    /// push carries as `pass_record_id`.
     static func recordID(historyID: String) -> String {
         guard let colon = historyID.firstIndex(of: ":") else { return historyID }
         return String(historyID[historyID.index(after: colon)...])

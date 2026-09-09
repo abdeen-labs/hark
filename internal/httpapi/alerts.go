@@ -12,12 +12,13 @@ import (
 
 // alertContent is one notification, before it is addressed to any device.
 type alertContent struct {
-	Title    string
-	Body     string
-	ImageURL *string
-	URL      *string
-	PassURL  *string
-	Priority string
+	Title        string
+	Body         string
+	ImageURL     *string
+	URL          *string
+	PassURL      *string
+	PassRecordID string
+	Priority     string
 	// SourceID and SourceName say who is sending: a service, or an API token.
 	SourceID   string
 	SourceName string
@@ -44,18 +45,19 @@ func (s *server) fanOut(r *http.Request, content alertContent, devices []db.Devi
 	alerts := make([]push.Alert, 0, len(devices))
 	for _, d := range devices {
 		alerts = append(alerts, push.Alert{
-			Target:      push.Target{DeviceID: d.ID, Token: d.APNsToken},
-			Title:       content.Title,
-			Body:        content.Body,
-			Priority:    content.Priority,
-			ImageURL:    content.ImageURL,
-			URL:         content.URL,
-			PassURL:     content.PassURL,
-			ThreadKey:   content.ThreadKey,
-			SourceID:    content.SourceID,
-			SourceName:  content.SourceName,
-			RecordID:    content.RecordID,
-			Interaction: content.Interaction,
+			Target:       push.Target{DeviceID: d.ID, Token: d.APNsToken},
+			Title:        content.Title,
+			Body:         content.Body,
+			Priority:     content.Priority,
+			ImageURL:     content.ImageURL,
+			URL:          content.URL,
+			PassURL:      content.PassURL,
+			PassRecordID: content.PassRecordID,
+			ThreadKey:    content.ThreadKey,
+			SourceID:     content.SourceID,
+			SourceName:   content.SourceName,
+			RecordID:     content.RecordID,
+			Interaction:  content.Interaction,
 		})
 	}
 

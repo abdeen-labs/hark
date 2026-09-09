@@ -224,6 +224,10 @@ func (s *server) handleListHistorySources(w http.ResponseWriter, r *http.Request
 	WriteJSON(w, r, http.StatusOK, historySourcesResponse{Sources: sources})
 }
 
+type historyDeleteResponse struct {
+	DeletedPassRecordIDs []string `json:"deleted_pass_record_ids"`
+}
+
 func (s *server) handleDeleteHistory(w http.ResponseWriter, r *http.Request) {
 	filters, ok := s.parseHistoryFilters(w, r)
 	if !ok {
@@ -231,11 +235,12 @@ func (s *server) handleDeleteHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	principal := auth.PrincipalFrom(r.Context())
-	if err := s.store().Feed.DeleteAll(r.Context(), principal.UserID(), filters); err != nil {
+	passIDs, err := s.store().Feed.DeleteAll(r.Context(), principal.UserID(), filters)
+	if err != nil {
 		s.writeInternal(w, r, "deleting history failed", err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	WriteJSON(w, r, http.StatusOK, historyDeleteResponse{DeletedPassRecordIDs: passIDs})
 }
 
 // handleDeleteHistoryItem removes one entry from the history.

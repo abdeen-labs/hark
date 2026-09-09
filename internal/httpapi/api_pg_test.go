@@ -413,7 +413,7 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("bulk delete with a bad priority: status = %d, want 422: %s", rec.Code, rec.Body)
 	}
-	f.expect(http.MethodDelete, "/history?source=harkctl", f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodDelete, "/history?source=harkctl", f.session, "", http.StatusOK, nil)
 	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 3 {
 		t.Fatalf("history after deleting harkctl = %+v, want three entries", history.Items)
@@ -428,13 +428,13 @@ func TestHistoryFiltersSourcesAndBulkDelete(t *testing.T) {
 		t.Fatalf("sources after the delete = %v, want %v", sources.Sources, want)
 	}
 
-	f.expect(http.MethodDelete, "/history?priority=critical", f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodDelete, "/history?priority=critical", f.session, "", http.StatusOK, nil)
 	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 2 {
 		t.Fatalf("history after deleting critical = %+v, want two entries", history.Items)
 	}
 
-	f.expect(http.MethodDelete, "/history", f.session, "", http.StatusNoContent, nil)
+	f.expect(http.MethodDelete, "/history", f.session, "", http.StatusOK, nil)
 	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
 	if len(history.Items) != 0 {
 		t.Fatalf("history after the full clear = %+v, want empty", history.Items)
@@ -1241,5 +1241,75 @@ func TestActivityOperationRetriesPreserveTheOriginalActivity(t *testing.T) {
 		IdempotencyKeyHeader, "update-retry", http.StatusConflict, &conflict)
 	if conflict.Error.Code != CodeConflict {
 		t.Errorf("changed sequence code = %q, want %q", conflict.Error.Code, CodeConflict)
+	}
+}
+
+func TestWebhookQuestionPassUsesHistoryRecordID(t *testing.T) {
+	f := newFixture(t, fixtureOptions{})
+	f.registerDevice(strings.Repeat("d5", 32))
+	_, hook := f.createService("Tickets")
+	var sent webhookNotifyResponse
+	f.expect(http.MethodPost, hook, "", `{"body":"Keep this ticket?","pass_url":"https://tickets.example.com/42.pkpass","response":{"kind":"yes_no"}}`, http.StatusCreated, &sent)
+	if sent.Response == nil {
+		t.Fatal("question was not created")
+	}
+	alert := f.sender.lastAlert(t)
+	if alert.RecordID != sent.Response.InteractionID || alert.PassRecordID != sent.Event.ID {
+		t.Fatalf("push IDs = (%s, %s), want question %s and pass event %s", alert.RecordID, alert.PassRecordID, sent.Response.InteractionID, sent.Event.ID)
+	}
+	var history historyListResponse
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 1 || history.Items[0].ID != "event:"+alert.PassRecordID || history.Items[0].PassURL == nil {
+		t.Fatalf("history does not identify the staged pass: %+v", history.Items)
+	}
+}
+
+func TestFilteredHistoryDeletionReturnsOnlyDeletedPassIDs(t *testing.T) {
+	f := newFixture(t, fixtureOptions{requesterRate: 1000, accountRate: 1000})
+	f.registerDevice(strings.Repeat("d6", 32))
+	_, removeHook := f.createService("Remove")
+	_, keepHook := f.createService("Keep")
+	var kept webhookNotifyResponse
+	f.expect(http.MethodPost, keepHook, "", `{"body":"Keep this ticket?","pass_url":"https://tickets.example.com/keep.pkpass","response":{"kind":"yes_no"}}`, http.StatusCreated, &kept)
+	var agent notificationResponse
+	f.expect(http.MethodPost, "/notifications", f.token, `{"body":"Agent pass","pass_url":"https://tickets.example.com/agent.pkpass"}`, http.StatusCreated, &agent)
+	want := []string{}
+	for range 55 {
+		var sent webhookNotifyResponse
+		f.expect(http.MethodPost, removeHook, "", `{"body":"Pass","pass_url":"https://tickets.example.com/remove.pkpass"}`, http.StatusCreated, &sent)
+		want = append(want, sent.Event.ID)
+	}
+	f.expect(http.MethodPost, removeHook, "", `{"body":"No pass"}`, http.StatusCreated, nil)
+	var deleted historyDeleteResponse
+	f.expect(http.MethodDelete, "/history?source=Remove", f.session, "", http.StatusOK, &deleted)
+	slices.Sort(want)
+	slices.Sort(deleted.DeletedPassRecordIDs)
+	if !slices.Equal(deleted.DeletedPassRecordIDs, want) {
+		t.Fatalf("deleted pass IDs = %v, want %v", deleted.DeletedPassRecordIDs, want)
+	}
+	var history historyListResponse
+	f.expect(http.MethodGet, "/history", f.session, "", http.StatusOK, &history)
+	if len(history.Items) != 2 {
+		t.Fatalf("surviving history = %+v", history.Items)
+	}
+	for _, item := range history.Items {
+		if item.PassURL == nil || (item.ID != "event:"+kept.Event.ID && item.ID != "notification:"+agent.Notification.ID) {
+			t.Errorf("unexpected surviving pass: %+v", item)
+		}
+	}
+	question, err := f.store.Interactions.ByID(f.ctx, kept.Response.InteractionID)
+	if err != nil || question.Status != db.InteractionPending {
+		t.Fatalf("surviving question = %+v, %v", question, err)
+	}
+	f.expect(http.MethodDelete, "/history?kind=response", f.session, "", http.StatusOK, &deleted)
+	if deleted.DeletedPassRecordIDs == nil || len(deleted.DeletedPassRecordIDs) != 0 {
+		t.Fatalf("response deletion returned pass IDs: %v", deleted.DeletedPassRecordIDs)
+	}
+	f.expect(http.MethodDelete, "/history", f.session, "", http.StatusOK, &deleted)
+	want = []string{kept.Event.ID, agent.Notification.ID}
+	slices.Sort(want)
+	slices.Sort(deleted.DeletedPassRecordIDs)
+	if !slices.Equal(deleted.DeletedPassRecordIDs, want) {
+		t.Fatalf("full clear pass IDs = %v, want %v", deleted.DeletedPassRecordIDs, want)
 	}
 }

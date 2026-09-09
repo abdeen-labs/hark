@@ -1966,6 +1966,7 @@ sends one payload per device.
     "thread_key": "service-0198f3a1-2b4c-7d8e-9f01-000000000001",
     "url": "https://acme.example/signups/1042",
     "pass_url": "https://acme.example/passes/1042.pkpass",
+    "pass_record_id": "0198f3a1-2b4c-7d8e-9f01-000000000002",
     "source": {
       "id": "0198f3a1-2b4c-7d8e-9f01-000000000001",
       "name": "Acme CRM",
@@ -2009,6 +2010,7 @@ deliver at that level. Hark declares the entitlement on its app target.
 | `thread_key` | always | The conversation. Group the inbox by it the way `aps.thread-id` groups the Lock Screen. |
 | `url` | omitted when absent | The tap destination. See below. |
 | `pass_url` | omitted when absent | An Apple Wallet pass: the public HTTPS URL of a `.pkpass` file. See below. |
+| `pass_record_id` | present with `pass_url` | The event or notification ID used to cache the pass. Matches the row ID in history, even when `record_id` identifies a webhook question. |
 | `source.id` / `source.name` | always | The sender: a regular or critical service, or the API token that sent it. |
 | `source.image_url` | omitted when absent | A public HTTPS avatar. |
 | `question` | only on a question | Below. |
@@ -2326,7 +2328,9 @@ Removes every entry the filters match, in one transaction. **Session only.**
 Takes the same `kind`, `source`, and `priority` parameters as
 [`GET /history`](#get-history); with no parameters it clears the whole history.
 
-**204 No Content**, whether or not anything matched. An unknown `kind` or
+**200 OK** with `{"deleted_pass_record_ids": [...]}`. The array contains the
+event or notification IDs of deleted entries that carried a pass, so clients
+can remove only those cached files. It is empty when no pass entries matched. An unknown `kind` or
 `priority` is rejected with `422 validation_failed` naming the field.
 
 Deleting a webhook delivery also deletes its associated interaction, as

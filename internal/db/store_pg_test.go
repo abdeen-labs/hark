@@ -2129,38 +2129,38 @@ func TestFeedDeleteAll(t *testing.T) {
 	}
 	askedFeedID := FeedSourceEvent + ":" + askedEvent.ID
 
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: "bogus"}); err == nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: "bogus"}); err == nil {
 		t.Error("an unknown priority should be refused")
 	}
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: "bogus"}); err == nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: "bogus"}); err == nil {
 		t.Error("an unknown kind should be refused")
 	}
 	if got := remaining(); len(got) != 7 {
 		t.Fatalf("feed after refused deletes has %d items, want 7: %v", len(got), got)
 	}
 
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: FeedFilterResponse}); err != nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Kind: FeedFilterResponse}); err != nil {
 		t.Fatalf("DeleteAll(response): %v", err)
 	}
 	if got, want := remaining(), sorted(feed.deployEvent, feed.uptimeEvent, askedFeedID,
 		feed.notification, feed.operation, feed.critical); !slices.Equal(got, want) {
 		t.Fatalf("after deleting responses = %v, want %v", got, want)
 	}
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Source: "Deploy bot"}); err != nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Source: "Deploy bot"}); err != nil {
 		t.Fatalf("DeleteAll(Deploy bot): %v", err)
 	}
 	if got, want := remaining(), sorted(feed.uptimeEvent, askedFeedID,
 		feed.notification, feed.operation, feed.critical); !slices.Equal(got, want) {
 		t.Fatalf("after deleting the Deploy bot slice = %v, want %v", got, want)
 	}
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityTimeSensitive}); err != nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityTimeSensitive}); err != nil {
 		t.Fatalf("DeleteAll(time_sensitive): %v", err)
 	}
 	if got, want := remaining(), sorted(askedFeedID,
 		feed.notification, feed.operation, feed.critical); !slices.Equal(got, want) {
 		t.Fatalf("after deleting time_sensitive = %v, want %v", got, want)
 	}
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityCritical}); err != nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{Priority: PriorityCritical}); err != nil {
 		t.Fatalf("DeleteAll(critical): %v", err)
 	}
 	if got, want := remaining(), sorted(askedFeedID,
@@ -2175,7 +2175,7 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Fatalf("the agent's pending question was deleted early: %v", err)
 	}
 
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
 		t.Fatalf("DeleteAll: %v", err)
 	}
 	if got := remaining(); len(got) != 0 {
@@ -2188,7 +2188,7 @@ func TestFeedDeleteAll(t *testing.T) {
 		t.Errorf("the free-standing pending question was deleted: %v", err)
 	}
 
-	if err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
+	if _, err := s.Feed.DeleteAll(ctx, user.ID, FeedFilters{}); err != nil {
 		t.Fatalf("repeat DeleteAll: %v", err)
 	}
 	strangerFeed, err := s.Feed.List(ctx, stranger.ID, FeedFilterAll, Cursor{}, 50)

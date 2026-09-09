@@ -363,16 +363,17 @@ func (s *server) createWebhookQuestion(w http.ResponseWriter, r *http.Request, s
 // fanOutWebhook delivers the notification, as a question when one was asked.
 func (s *server) fanOutWebhook(r *http.Request, svc *db.Service, event *db.Event, question *db.Interaction, responseToken string, payload webhookPayload, devices []db.Device) push.AlertResult {
 	content := alertContent{
-		Title:      payload.Title,
-		Body:       payload.Body,
-		ImageURL:   payload.ImageURL,
-		URL:        payload.URL,
-		PassURL:    payload.PassURL,
-		Priority:   payload.Priority,
-		SourceID:   svc.ID,
-		SourceName: svc.Title,
-		RecordID:   event.ID,
-		ThreadKey:  "service-" + svc.ID,
+		Title:        payload.Title,
+		Body:         payload.Body,
+		ImageURL:     payload.ImageURL,
+		URL:          payload.URL,
+		PassURL:      payload.PassURL,
+		PassRecordID: event.ID,
+		Priority:     payload.Priority,
+		SourceID:     svc.ID,
+		SourceName:   svc.Title,
+		RecordID:     event.ID,
+		ThreadKey:    "service-" + svc.ID,
 	}
 	if question != nil {
 		content.RecordID = question.ID

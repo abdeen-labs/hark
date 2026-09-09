@@ -322,11 +322,19 @@ nonisolated struct HistoryItem: Decodable, Hashable, Identifiable, Sendable {
         case createdAt = "created_at"
     }
 
-    /// The row id behind the composite: what a push carries as `record_id`.
+    /// The row id behind the composite: what a push carries as `pass_record_id`.
     var recordID: String { HarkPassStore.recordID(historyID: id) }
 
     /// The pass this entry carries, when its URL passes the HTTPS check.
     var passURL: URL? { passUrl.flatMap(HarkNotification.httpsURL) }
+}
+
+nonisolated struct HistoryDeleteResponse: Decodable, Sendable {
+    var deletedPassRecordIDs: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case deletedPassRecordIDs = "deleted_pass_record_ids"
+    }
 }
 
 nonisolated struct HistoryPage: Decodable, Sendable {

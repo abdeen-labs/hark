@@ -56,6 +56,7 @@ nonisolated struct HarkPushPayload: Codable, Hashable, Sendable {
     /// A `.pkpass` for Wallet. HTTPS only; when present, a tap offers it to
     /// Wallet instead of opening `url`.
     var passURL: URL?
+    var passRecordID: String?
     var source: Source
     var question: Question?
 
@@ -66,6 +67,7 @@ nonisolated struct HarkPushPayload: Codable, Hashable, Sendable {
         case threadKey = "thread_key"
         case url
         case passURL = "pass_url"
+        case passRecordID = "pass_record_id"
         case source
         case question
     }
@@ -79,6 +81,7 @@ nonisolated struct HarkPushPayload: Codable, Hashable, Sendable {
         url = try container.decodeIfPresent(String.self, forKey: .url)
         passURL = try container.decodeIfPresent(String.self, forKey: .passURL)
             .flatMap(HarkNotification.httpsURL)
+        passRecordID = try container.decodeIfPresent(String.self, forKey: .passRecordID)
         source = try container.decode(Source.self, forKey: .source)
         question = try container.decodeIfPresent(Question.self, forKey: .question)
     }

@@ -177,16 +177,17 @@ func (s *server) handleSendNotification(w http.ResponseWriter, r *http.Request) 
 	}
 
 	result := s.fanOut(r, alertContent{
-		Title:      payload.Title,
-		Body:       payload.Body,
-		ImageURL:   payload.ImageURL,
-		URL:        payload.URL,
-		PassURL:    payload.PassURL,
-		Priority:   payload.Priority,
-		SourceID:   *req.TokenID,
-		SourceName: req.Name,
-		RecordID:   notification.ID,
-		ThreadKey:  threadKey(*req.TokenID, payload.Title),
+		Title:        payload.Title,
+		Body:         payload.Body,
+		ImageURL:     payload.ImageURL,
+		URL:          payload.URL,
+		PassURL:      payload.PassURL,
+		PassRecordID: notification.ID,
+		Priority:     payload.Priority,
+		SourceID:     *req.TokenID,
+		SourceName:   req.Name,
+		RecordID:     notification.ID,
+		ThreadKey:    threadKey(*req.TokenID, payload.Title),
 	}, devices)
 
 	settled := s.settleNotification(r, notification, deliveryStatus(len(devices), result.Accepted), result.Accepted)

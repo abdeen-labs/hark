@@ -263,12 +263,14 @@ struct HistoryView: View {
         clearing = true
         defer { clearing = false }
         do {
-            try await model.client.deleteHistory(
+            let deletedPassIDs = try await model.client.deleteHistory(
                 kind: kind == "all" ? nil : kind,
                 source: source,
                 priority: priority
             )
-            HarkPassStore.deleteAll()
+            for recordID in deletedPassIDs {
+                HarkPassStore.delete(recordID: recordID)
+            }
             await reload()
         } catch let error as HarkClientError where error.isUnauthorized {
             model.handleUnauthorized()

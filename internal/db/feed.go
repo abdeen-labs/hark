@@ -329,14 +329,16 @@ var feedDeleteQueries = []string{
 	 WHERE e.service_id = s.id AND s.user_id = $1
 	   AND $2::text IN ('all', 'notification')
 	   AND ($3::text IS NULL OR s.title = $3)
-	   AND ($4::text IS NULL OR e.priority = $4)`,
+	   AND ($4::text IS NULL OR e.priority = $4)
+	 RETURNING CASE WHEN e.pass_url IS NOT NULL THEN e.id END AS pass_record_id`,
 
 	`DELETE FROM agent_notifications n
 	 USING api_tokens t
 	 WHERE t.id = n.requester_token_id AND n.user_id = $1
 	   AND $2::text IN ('all', 'notification')
 	   AND ($3::text IS NULL OR t.name = $3)
-	   AND ($4::text IS NULL OR n.priority = $4)`,
+	   AND ($4::text IS NULL OR n.priority = $4)
+	 RETURNING CASE WHEN n.pass_url IS NOT NULL THEN n.id END AS pass_record_id`,
 
 	`DELETE FROM interactions
 	 WHERE id IN (
@@ -365,19 +367,37 @@ var feedDeleteQueries = []string{
 	 )`,
 }
 
-// DeleteAll removes every history entry matching f.
-func (s *Feed) DeleteAll(ctx context.Context, userID string, f FeedFilters) error {
+// DeleteAll removes matching history and returns the IDs of deleted pass records.
+func (s *Feed) DeleteAll(ctx context.Context, userID string, f FeedFilters) ([]string, error) {
 	if err := f.validate("delete feed"); err != nil {
-		return err
+		return nil, err
 	}
 	kind, source, priority := f.args()
-	return s.store.Tx(ctx, func(ctx context.Context, tx *Store) error {
-		for _, q := range feedDeleteQueries {
-			if _, err := execAffected(ctx, tx.q, "delete feed entries", q,
+	passIDs := []string{}
+	err := s.store.Tx(ctx, func(ctx context.Context, tx *Store) error {
+		for index, q := range feedDeleteQueries {
+			if index < 2 {
+				rows, err := queryAll[struct {
+					PassRecordID *string `db:"pass_record_id"`
+				}](ctx, tx.q,
+					"delete feed entries", q, userID, kind, source, priority)
+				if err != nil {
+					return err
+				}
+				for _, row := range rows {
+					if row.PassRecordID != nil {
+						passIDs = append(passIDs, *row.PassRecordID)
+					}
+				}
+			} else if _, err := execAffected(ctx, tx.q, "delete feed entries", q,
 				userID, kind, source, priority); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return passIDs, nil
 }

@@ -493,7 +493,7 @@
         "tags": ["History"], "summary": "Bulk-delete history entries", "operationId": "deleteHistory",
         "security": [{ "sessionBearer": [] }, { "sessionCookie": [] }], "x-hark-auth": "session",
         "parameters": [{ "$ref": "#/components/parameters/Kind" }, { "$ref": "#/components/parameters/HistorySource" }, { "$ref": "#/components/parameters/HistoryPriority" }],
-        "responses": { "204": { "description": "Matching history entries deleted." }, "default": { "$ref": "#/components/responses/Error" } }
+        "responses": { "200": { "description": "Matching history entries deleted; deleted_pass_record_ids lists their cached pass IDs.", "content": { "application/json": { "schema": { "type": "object", "required": ["deleted_pass_record_ids"], "properties": { "deleted_pass_record_ids": { "type": "array", "items": { "type": "string" } } } } } } }, "default": { "$ref": "#/components/responses/Error" } }
       }
     },
     "/history/sources": {

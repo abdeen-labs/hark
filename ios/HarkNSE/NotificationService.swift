@@ -73,9 +73,9 @@ final class NotificationService: UNNotificationServiceExtension {
     /// Downloads the pass a push names and stages it for the app. Failure
     /// leaves nothing behind; the app fetches the pass again on tap.
     private static func stagePass(_ payload: HarkPushPayload) async {
-        guard let url = payload.passURL else { return }
+        guard let url = payload.passURL, let recordID = payload.passRecordID else { return }
         guard let data = await HarkPassStore.download(from: url) else { return }
-        try? HarkPassStore.write(data, recordID: payload.recordId)
+        try? HarkPassStore.write(data, recordID: recordID)
     }
 
     // MARK: - Communication rendering

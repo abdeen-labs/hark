@@ -224,12 +224,13 @@ nonisolated struct HarkClient: Sendable {
         try await sendExpectingNoContent("DELETE", "/history/\(id)")
     }
 
-    func deleteHistory(kind: String? = nil, source: String? = nil, priority: String? = nil) async throws {
+    func deleteHistory(kind: String? = nil, source: String? = nil, priority: String? = nil) async throws -> [String] {
         var query: [URLQueryItem] = []
         if let kind { query.append(URLQueryItem(name: "kind", value: kind)) }
         if let source { query.append(URLQueryItem(name: "source", value: source)) }
         if let priority { query.append(URLQueryItem(name: "priority", value: priority)) }
-        try await sendExpectingNoContent("DELETE", "/history", query: query)
+        let response: HistoryDeleteResponse = try await send("DELETE", "/history", query: query)
+        return response.deletedPassRecordIDs
     }
 
     // MARK: - Live Activities (read side)
