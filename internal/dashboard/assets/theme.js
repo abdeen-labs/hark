@@ -14,7 +14,7 @@
     document.documentElement.dataset.theme = light ? "light" : "dark";
     document.documentElement.dataset.themeMode = mode;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = light ? "#f0f3fa" : "#0a0f1c";
+    if (meta) meta.content = light ? "#f4f5f8" : "#06080d";
   };
 
   apply();

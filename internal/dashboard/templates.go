@@ -32,15 +32,14 @@ var (
 
 	// The public documentation page uses its own layout and table of contents.
 	tmplDocs = template.Must(template.New("docs.html").Funcs(funcs).
-			ParseFS(templateFS, "templates/lockup.html", "templates/docs.html"))
+			ParseFS(templateFS, "templates/docs.html"))
 )
 
-// mustParse builds one page's template set: the shared layout, the brand lockup
-// every shell closes with, the feed item markup the overview and the history
-// both draw, and the page itself.
+// mustParse builds one page's template set: the shared layout, the feed item
+// markup the overview and the history both draw, and the page itself.
 func mustParse(page string) *template.Template {
 	return template.Must(template.New(page).Funcs(funcs).
-		ParseFS(templateFS, "templates/layout.html", "templates/lockup.html", "templates/feed.html", "templates/"+page))
+		ParseFS(templateFS, "templates/layout.html", "templates/feed.html", "templates/"+page))
 }
 
 // funcs are the handful of helpers the templates need. Everything else is a

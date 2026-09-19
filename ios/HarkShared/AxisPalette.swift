@@ -9,61 +9,61 @@ import UIKit
 nonisolated enum Axis {
     // MARK: Grounds
 
-    static let paper = Color(axisDark: axisVoidRGB, light: axisMistRGB)
-    static let surface = Color(axisDark: 0x121827, light: 0xEAEEF5)
-    static let surface2 = Color(axisDark: 0x192133, light: 0xDEE4F2)
-    static let surface3 = Color(axisDark: 0x212A40, light: 0xD2D9EB)
-    static let field = surface2
+    static let paper = Color(axisDark: axisPaperDarkRGB, light: axisPaperLightRGB)
+    static let surface = Color(axisDark: 0x0B0E14, light: 0xFFFFFF)
+    static let surface2 = Color(axisDark: 0x11161F, light: 0xEDEFF3)
+    static let surface3 = Color(axisDark: 0x1A212C, light: 0xE2E5EB)
+    static let field = Color(axisDark: 0x090C11, light: 0xECEEF2)
 
     // MARK: Ink
 
-    static let ink = Color(axisDark: axisChalkRGB, light: axisCarbonRGB)
-    static let inkMuted = Color(axisDark: 0xDBE2F4, light: 0x1E2537)
-    static let inkSubtle = Color(axisDark: 0xAFB9CF, light: 0x3C455A)
-    static let inkFaint = Color(axisDark: 0x939FBD, light: 0x3C455A)
+    static let ink = Color(axisDark: axisInkDarkRGB, light: axisInkLightRGB)
+    static let inkMuted = Color(axisDark: 0xD5DBE4, light: 0x2A313C)
+    static let inkSubtle = Color(axisDark: 0xA2ABB9, light: 0x525C6B)
+    static let inkFaint = Color(axisDark: 0x8F99AB, light: 0x616B7B)
     /// Decorative only — indexes and ledger numbers hidden from assistive
     /// technology. It does not meet AA against the paper.
-    static let inkDisabled = Color(axisDark: 0x555E75, light: 0x788197)
+    static let inkDisabled = Color(axisDark: 0x4D5665, light: 0xB6BDC9)
 
     // MARK: Rules
 
-    static let line = Color(axisDark: 0x313C5A, light: 0xBBC5DB)
-    static let lineStrong = Color(axisDark: 0x3A4769, light: 0xB1BBD2)
-    static let lineFaint = Color(axisDark: 0x212A40, light: 0xD2D9EB)
+    static let line = ink.opacity(0.12)
+    static let lineStrong = ink.opacity(0.24)
+    static let lineFaint = ink.opacity(0.06)
 
     // MARK: Signal
 
-    /// Lines, strips, rules, and lights. Not small text, and never a fill.
-    static let signal = Color(axisDark: axisAccentRGB, light: axisAccentDeepRGB)
-    /// The one filled scarlet, on either ground: accent-deep under
-    /// `onAlarmField`, or under the white a system control draws itself.
-    static let signalDeep = Color(axisRGB: axisAccentDeepRGB)
+    /// Lacquer red: fills, strips, rules, and lights. Not small text.
+    static let signal = Color(axisRGB: axisSignalRGB)
+    /// The filled lacquer on either ground, under `onAlarmField` or under
+    /// the white a system control draws itself.
+    static let signalDeep = Color(axisRGB: axisSignalRGB)
     /// The signal colour at text weight; passes AA on the paper.
-    static let signalText = Color(axisDark: axisAccentRGB, light: axisAccentInkRGB)
-    /// Carbon ink on the highlighter chip.
-    static let onField = Color(axisRGB: axisCarbonRGB)
+    static let signalText = Color(axisDark: axisAccentDarkRGB, light: axisAccentLightRGB)
+    /// Ink on a field filled with `warn`: dark on amber, white on the deeper
+    /// amber the light ground uses.
+    static let onField = Color(axisDark: axisInkLightRGB, light: 0xFFFFFF)
     static let signalWash = signal.opacity(0.12)
-    static let signalLine = Color(axisRGB: axisAccentDeepRGB)
+    static let signalLine = signal.opacity(0.55)
 
     // MARK: States
 
-    static let ok = Color(axisDark: 0x5AA7FF, light: 0x1D5A96)
+    /// Success is jade; red is never success.
+    static let ok = Color(axisDark: 0x16B37D, light: 0x0C7A54)
     static let okLine = ok.opacity(0.5)
-    /// Neon yellow. It sets a warning's line and label on the dark ground and
-    /// fills the highlighter chip under `onField` on either one. It measures
-    /// 1.01:1 on the light ground, so it never sets light-ground ink.
-    static let warn = Color(axisRGB: 0xF5FF00)
-    /// The alarm step: identity scarlet in a dashed frame, a struck rule, a
-    /// pulse, or a status light. It follows the Key's line — accent on the
-    /// dark ground, accent-deep on the light one — and is never a solid line.
-    static let alarm = Color(axisDark: axisAccentRGB, light: axisAccentDeepRGB)
-    /// The alarm label, on the link steps: accent on dark, accent-ink on light.
+    /// Amber. It reads as ink on either paper, and fills a chip under
+    /// `onField`.
+    static let warn = Color(axisDark: 0xE2A81E, light: 0x8F6600)
+    /// The alarm step: a dashed frame, a struck rule, a pulse, or a status
+    /// light, at the signal's text weight so it clears 3:1 on either paper.
+    static let alarm = signalText
+    /// The alarm label.
     static let alarmText = signalText
-    /// The alarm chip and the destructive control: accent-deep on either
-    /// ground, under `onAlarmField`.
+    /// The alarm chip and the destructive control: lacquer on either ground,
+    /// under `onAlarmField`.
     static let alarmField = signalDeep
-    /// Chalk ink on a filled scarlet field.
-    static let onAlarmField = Color(axisRGB: axisChalkRGB)
+    /// White ink on a filled lacquer field.
+    static let onAlarmField = Color(axisRGB: 0xFFFFFF)
 
     /// Fallback for invalid or low-contrast Live Activity accents.
     static let accent = signalText
@@ -98,14 +98,14 @@ nonisolated enum Axis {
     }
 }
 
-nonisolated private let axisVoidRGB: UInt32 = 0x0A0F1C
-nonisolated private let axisMistRGB: UInt32 = 0xF0F3FA
-nonisolated private let axisChalkRGB: UInt32 = 0xF3F7FF
-nonisolated private let axisCarbonRGB: UInt32 = 0x0A0F1C
+nonisolated private let axisPaperDarkRGB: UInt32 = 0x06080D
+nonisolated private let axisPaperLightRGB: UInt32 = 0xF4F5F8
+nonisolated private let axisInkDarkRGB: UInt32 = 0xF4F6F9
+nonisolated private let axisInkLightRGB: UInt32 = 0x10141B
 
-nonisolated private let axisAccentRGB: UInt32 = 0xFE002A
-nonisolated private let axisAccentDeepRGB: UInt32 = 0xD4212C
-nonisolated private let axisAccentInkRGB: UInt32 = 0xBE0018
+nonisolated private let axisSignalRGB: UInt32 = 0xCE2020
+nonisolated private let axisAccentDarkRGB: UInt32 = 0xE64949
+nonisolated private let axisAccentLightRGB: UInt32 = 0xB91C1C
 
 /// The floor an accent has to clear against the paper it is drawn on: the
 /// 3:1 of WCAG's non-text contrast, since the accent carries glyphs, bars,
@@ -144,9 +144,9 @@ nonisolated private func axisContrast(_ one: Double, _ other: Double) -> Double 
     (max(one, other) + 0.05) / (min(one, other) + 0.05)
 }
 
-nonisolated private let axisPaperDarkLuminance = axisLuminance(axisChannels(axisVoidRGB))
-nonisolated private let axisPaperLightLuminance = axisLuminance(axisChannels(axisMistRGB))
-nonisolated private let axisCarbonLuminance = axisLuminance(axisChannels(axisCarbonRGB))
+nonisolated private let axisPaperDarkLuminance = axisLuminance(axisChannels(axisPaperDarkRGB))
+nonisolated private let axisPaperLightLuminance = axisLuminance(axisChannels(axisPaperLightRGB))
+nonisolated private let axisInkLightLuminance = axisLuminance(axisChannels(axisInkLightRGB))
 
 /// The channels a server accent resolves to on one ground: the hex when it
 /// clears the accent floor, the brand's own accent otherwise.
@@ -157,7 +157,7 @@ nonisolated private func axisAccentChannels(_ hex: String, dark: Bool) -> (red: 
             return channels
         }
     }
-    return axisChannels(dark ? axisAccentRGB : axisAccentInkRGB)
+    return axisChannels(dark ? axisAccentDarkRGB : axisAccentLightRGB)
 }
 
 nonisolated private extension UIColor {
@@ -194,13 +194,13 @@ nonisolated extension Color {
         })
     }
 
-    /// The label ink on a field filled with `harkAccent`: carbon where it
-    /// clears AA, chalk where the accent is too deep for it.
+    /// The label ink on a field filled with `harkAccent`: the dark ink where
+    /// it clears AA, the light ink where the accent is too deep for it.
     static func harkAccentInk(_ hex: String) -> Color {
         Color(uiColor: UIColor { traits in
             let channels = axisAccentChannels(hex, dark: traits.userInterfaceStyle == .dark)
-            let carbon = axisContrast(axisLuminance(channels), axisCarbonLuminance) >= axisLabelFloor
-            return UIColor(axisRGB: carbon ? axisCarbonRGB : axisChalkRGB)
+            let darkInk = axisContrast(axisLuminance(channels), axisInkLightLuminance) >= axisLabelFloor
+            return UIColor(axisRGB: darkInk ? axisInkLightRGB : axisInkDarkRGB)
         })
     }
 }

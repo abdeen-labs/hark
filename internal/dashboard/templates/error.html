@@ -10,8 +10,8 @@
     <p><a class="btn btn--lg" href="{{.Paths.Home}}"><span class="arrow arrow--back" aria-hidden="true">←</span> Back to the dashboard</a></p>
   </div>
   <footer class="gate__foot meta">
-    {{template "lockup"}}
-    <span>Hark{{if .Version}} · Rev {{.Version}}{{end}}</span>
+    <span>Hark</span>
+    {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
   </footer>
 </section>
 {{end}}

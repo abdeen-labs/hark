@@ -1,134 +1,53 @@
-/* Hark dashboard. */
-
-/* Abdeen Labs · Redline. The brand tokens are declared as published in
- * system/colors_and_type.css; Hark's own roles below resolve from them. */
+/* Hark dashboard — Axis. */
 
 :root {
   color-scheme: dark;
 
-  --pitch-960: #000000;
-  --void: #0a0f1c;
-  --pitch-900: #121827;
-  --surface: #192133;
-  --pitch-800: #212a40;
-  --pitch-700: #29334d;
-  --pitch-600: #313c5a;
-  --border: #3a4769;
+  /* Grounds: pitch black, lighter as they rise. */
+  --paper: #06080d;
+  --surface: #0b0e14;
+  --surface-2: #11161f;
+  --surface-3: #1a212c;
+  --field: #090c11;
 
-  --graphite-900: #141b2e;
-  --graphite-800: #232a3e;
-  --graphite-700: #414a61;
-  --graphite-600: #555e75;
-  --graphite-500: #747d90;
-  --graphite-400: #939fbd;
-  --graphite-300: #afb9cf;
-  --graphite-200: #c9d1e4;
-  --graphite-100: #e1e7f4;
-
-  --chalk-100: #f3f7ff;
-  --chalk-200: #e9eefa;
-  --chalk-300: #dbe2f4;
-
-  --mist: #f0f3fa;
-  --mist-200: #eaeef5;
-  --mist-300: #dee4f2;
-  --mist-400: #d2d9eb;
-  --mist-500: #c3cce2;
-
-  --carbon-900: #0a0f1c;
-  --carbon-800: #1e2537;
-  --carbon-700: #3c455a;
-  --carbon-600: #535d75;
-  --carbon-500: #788197;
-  --carbon-300: #b1bbd2;
-  --carbon-200: #bbc5db;
-
-  --accent: #fe002a;
-  --accent-deep: #d4212c;
-  --accent-ink: #be0018;
-
-  --warn-400: #f5ff00;
-  --cobalt-400: #5aa7ff;
-  --cobalt-700: #1d5a96;
-
-  --font-mark: 'Aref Ruqaa', serif;
-  --font-mono: 'Geist Mono', ui-monospace, monospace;
-  --tracking-wordmark: 0.22em;
-
-  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
-  --motion-duration-state: 120ms;
-  --motion-duration-shift: 170ms;
-
-  --mark-optical-shift: 0.168em;
-  --seal-mark-scale: 0.36;
-  --seal-cut: 26%;
-  --seal-size: 40px;
-  --seal-line: max(1px, calc(var(--seal-size) / 40));
-  --seal-key-field: var(--pitch-900);
-  --seal-key-line: var(--accent);
-  --seal-key-ink: var(--chalk-100);
-  --lockup-divider: var(--pitch-600);
-}
-
-:root[data-theme="light"] {
-  color-scheme: light;
-
-  --seal-key-field: var(--mist-200);
-  --seal-key-line: var(--accent-deep);
-  --seal-key-ink: var(--carbon-900);
-  --lockup-divider: var(--carbon-200);
-}
-
-/* Hark's roles. The dark ground is canonical; light is its equal. */
-:root {
-  /* Hark's two lifts off the void. Scarlet text measures 4.6:1 on the second
-   * and fails AA on anything lighter, so no surface that carries it goes past
-   * these. */
-  --void-lift-1: #0d1322;
-  --void-lift-2: #0f1628;
-  --mist-lift: #f7f9fd;
-
-  --paper: var(--void);
-  --panel: var(--void-lift-1);
-  --panel-2: var(--pitch-800);
-  --panel-3: var(--pitch-700);
-  --field: var(--pitch-900);
-
-  --ink: var(--chalk-100);
-  --ink-muted: var(--chalk-300);
-  --ink-subtle: var(--graphite-300);
-  --ink-faint: var(--graphite-400);
+  /* Ink: chalk to graphite. */
+  --ink: #f4f6f9;
+  --ink-muted: #d5dbe4;
+  --ink-subtle: #a2abb9;
+  --ink-faint: #8f99ab;
   /* Furniture only: row counters and disabled controls. */
-  --ink-disabled: var(--graphite-600);
+  --ink-disabled: #4d5665;
 
-  --line: var(--pitch-600);
-  --line-strong: var(--border);
-  --line-faint: var(--pitch-800);
+  --line: rgba(244, 246, 249, 0.12);
+  --line-strong: rgba(244, 246, 249, 0.24);
+  --line-faint: rgba(244, 246, 249, 0.06);
   /* The edge of anything the hand operates: heavy enough to clear 3:1 against
-   * the panel behind it, which a rule never has to. */
-  --line-control: var(--graphite-500);
+   * the surface behind it, which a rule never has to. */
+  --line-control: rgba(244, 246, 249, 0.36);
 
-  /* Scarlet is identity: a line, never a filled control. */
-  --signal: var(--accent);
-  --signal-text: var(--accent);
-  --signal-line: var(--accent-deep);
+  /* Lacquer red: the primary action, the current place, the focus ring. */
+  --signal: #ce2020;
+  --signal-hover: #a31818;
+  --signal-text: #e64949;
+  --on-signal: #ffffff;
+  --signal-wash: rgba(206, 32, 32, 0.12);
+  --signal-line: rgba(206, 32, 32, 0.55);
 
-  /* Cobalt says verified; yellow marks a warning. The one filled scarlet is
-   * accent-deep under chalk on either ground: the failure tag or a
-   * destructive control. */
-  --ok: var(--cobalt-400);
-  --warn: var(--warn-400);
-  --alarm: var(--accent);
-  --alarm-text: var(--accent);
-  --alarm-field: var(--accent-deep);
-  --on-alarm-field: var(--chalk-100);
+  /* Status. Success is jade; red is never success. */
+  --ok: #16b37d;
+  --ok-line: rgba(22, 179, 125, 0.5);
+  --warn: #e2a81e;
+  --warn-line: rgba(226, 168, 30, 0.5);
+  --danger: #e64949;
 
-  --code: var(--pitch-900);
-  --code-ink: var(--chalk-100);
+  /* Code keeps the dark ground on either theme. */
+  --code: #090c11;
+  --code-ink: #eef1f6;
   --code-line: var(--line);
   --code-line-strong: var(--line-strong);
 
-  --row-hover: var(--void-lift-2);
+  --dot: rgba(244, 246, 249, 0.085);
+  --row-hover: rgba(244, 246, 249, 0.05);
   --scrim: rgb(0 0 0 / 0.62);
   --image-edge: oklch(1 0 0 / 0.1);
 
@@ -140,73 +59,58 @@
   --r-md: 6px;
   --r-lg: 10px;
 
-  /* The chamfer the Abdeen Key is cut with, at interface scale. */
-  --cut: 14px;
-
   --gutter: 48px;
   --gap: 24px;
   --max: 1560px;
   --mast-h: 60px;
 
-  --t-fast: var(--motion-duration-state);
-  --t-base: var(--motion-duration-shift);
-  --ease: var(--motion-ease);
+  --t-fast: 120ms;
+  --t-base: 170ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
 :root[data-theme="light"] {
-  --paper: var(--mist);
-  --panel: var(--mist-lift);
-  --panel-2: var(--mist-300);
-  --panel-3: var(--mist-400);
-  --field: var(--mist);
+  color-scheme: light;
 
-  --ink: var(--carbon-900);
-  --ink-muted: var(--carbon-800);
-  --ink-subtle: var(--carbon-700);
-  --ink-faint: var(--carbon-600);
-  --ink-disabled: var(--carbon-500);
+  --paper: #f4f5f8;
+  --surface: #ffffff;
+  --surface-2: #edeff3;
+  --surface-3: #e2e5eb;
+  --field: #eceef2;
 
-  --line: var(--carbon-200);
-  --line-strong: var(--carbon-300);
-  --line-faint: var(--mist-500);
-  --line-control: var(--carbon-500);
+  --ink: #10141b;
+  --ink-muted: #2a313c;
+  --ink-subtle: #525c6b;
+  --ink-faint: #616b7b;
+  --ink-disabled: #b6bdc9;
 
-  --signal: var(--accent-deep);
-  --signal-text: var(--accent-ink);
-  --signal-line: var(--accent-deep);
+  --line: rgba(16, 20, 27, 0.12);
+  --line-strong: rgba(16, 20, 27, 0.24);
+  --line-faint: rgba(16, 20, 27, 0.06);
+  --line-control: rgba(16, 20, 27, 0.46);
 
-  --ok: var(--cobalt-700);
-  --warn: var(--warn-400);
-  --alarm: var(--accent-deep);
-  --alarm-text: var(--accent-ink);
+  --signal-text: #b91c1c;
 
-  --code: var(--mist-300);
-  --code-ink: var(--carbon-900);
-  --code-line: var(--carbon-200);
-  --code-line-strong: var(--carbon-300);
+  --ok: #0c7a54;
+  --ok-line: rgba(12, 122, 84, 0.5);
+  --warn: #8f6600;
+  --warn-line: rgba(143, 102, 0, 0.5);
+  --danger: #b91c1c;
 
-  --row-hover: var(--mist);
-  --scrim: rgb(10 15 28 / 0.4);
+  --code-line: rgba(244, 246, 249, 0.14);
+  --code-line-strong: rgba(244, 246, 249, 0.26);
+
+  --dot: rgba(16, 20, 27, 0.1);
+  --row-hover: rgba(16, 20, 27, 0.045);
+  --scrim: rgb(16 20 27 / 0.4);
   --image-edge: oklch(0 0 0 / 0.1);
-}
-
-/* The faint step holds AA against the light ground and nothing else; inside a
- * panel it escalates one step. */
-:root[data-theme="light"] :is(.docs-search kbd, .secret__value, .prose pre, .prose code) {
-  --ink-faint: var(--carbon-700);
-}
-
-@property --btn-fill {
-  syntax: "<color>";
-  inherits: false;
-  initial-value: transparent;
 }
 
 @media (max-width: 1024px) {
   :root { --gutter: 24px; --gap: 20px; }
 }
 @media (max-width: 640px) {
-  :root { --gutter: 16px; --gap: 16px; --cut: 12px; }
+  :root { --gutter: 16px; --gap: 16px; }
 }
 
 /* Base --------------------------------------------------------------------- */
@@ -236,14 +140,14 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(circle, var(--line) 0.75px, transparent 1px);
+  background-image: radial-gradient(circle, var(--dot) 1px, transparent 1.3px);
   background-size: 24px 24px;
   background-position: calc(var(--gutter) - 12px) 6px;
-  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.55), transparent 85%);
+  mask-image: linear-gradient(to bottom, #000, transparent 85%);
   pointer-events: none;
 }
 
-::selection { background: var(--accent); color: var(--carbon-900); }
+::selection { background: var(--signal); color: var(--on-signal); }
 
 :focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
@@ -339,7 +243,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .meta a { color: inherit; text-decoration: none; }
 .meta a:hover { color: var(--ink); text-decoration: none; }
 .meta--signal { color: var(--signal-text); }
-.meta--alarm { color: var(--alarm-text); }
+.meta--alarm { color: var(--danger); }
 
 .lede {
   max-width: 60ch;
@@ -378,33 +282,6 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 /* A run of blocks, one under the other. */
 .column { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 
-/* The cut ------------------------------------------------------------------
- *
- * One chamfered corner, top left, the way the Key is cut. The clip removes
- * the corner and the pseudo-element draws the edge the border lost. A focus
- * ring that reaches past the box is clipped with it, so nothing focusable
- * sits in the corner of a cut surface. */
-
-.cut {
-  position: relative;
-  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
-}
-.cut::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  left: -1px;
-  z-index: 1;
-  width: var(--cut);
-  height: var(--cut);
-  background: linear-gradient(135deg,
-    transparent 50%,
-    var(--cut-line, var(--line)) 50%,
-    var(--cut-line, var(--line)) calc(50% + 1px),
-    transparent calc(50% + 1px));
-  pointer-events: none;
-}
-
 /* Chrome -------------------------------------------------------------------- */
 
 .mast {
@@ -440,15 +317,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
   letter-spacing: -0.035em;
 }
 .brand, .brand:hover { text-decoration: none; }
-.brand__mark {
-  flex: none;
-  width: 13px;
-  height: 13px;
-  background: var(--signal);
-  clip-path: polygon(30% 0, 100% 0, 100% 100%, 0 100%, 0 30%);
-  transition: transform var(--t-base) var(--ease);
-}
-.brand:hover .brand__mark { transform: rotate(90deg); }
+.brand__mark { flex: none; width: 12px; height: 12px; background: var(--signal); }
 
 .nav {
   display: flex;
@@ -568,8 +437,6 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   border-top: 1px solid var(--line);
   color: var(--ink-faint);
 }
-.foot .lockup { --seal-size: 24px; }
-.foot__meta { display: flex; flex-wrap: wrap; gap: 6px 20px; }
 
 /* Page head ------------------------------------------------------------------
  *
@@ -630,9 +497,9 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   position: relative;
   min-width: 0;
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface);
 }
-.module--signal { --cut-line: var(--signal-line); border-color: var(--signal-line); box-shadow: inset 4px 0 0 var(--signal); }
+.module--signal { border-color: var(--signal-line); box-shadow: inset 4px 0 0 var(--signal); }
 .module--signal > .module__head, .module--signal > .module__body { padding-left: 24px; }
 
 .module__head {
@@ -717,7 +584,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface);
 }
 .stat {
   display: flex;
@@ -930,12 +797,11 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   outline-offset: -1px;
   object-fit: cover;
   vertical-align: -5px;
-  background: var(--panel-3);
+  background: var(--surface-3);
 }
 .identity { display: flex; align-items: flex-start; }
 .identity > .avatar { flex: 0 0 20px; margin-top: 1px; }
 .picture {
-  --cut-line: var(--line-strong);
   width: min(30rem, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
@@ -956,7 +822,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 /* Tags ----------------------------------------------------------------------
  *
  * A label in a one-pixel frame. A state adds a lamp and colours the text and
- * its frame; a failure is the one filled tag. */
+ * its frame. */
 
 .tag {
   display: inline-flex;
@@ -974,20 +840,11 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   vertical-align: middle;
 }
 .tag--code { font-family: var(--mono); font-size: 10.5px; }
-.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok {
-  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
-  color: var(--ok);
-}
-.tag--failed, .tag--error, .tag--denied, .tag--retired {
-  border-color: transparent;
-  background: var(--alarm-field);
-  color: var(--on-alarm-field);
-}
-.tag--partial, .tag--warn, .tag--starting, .tag--pending {
-  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
-  color: var(--warn);
-}
+.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok { border-color: var(--ok-line); color: var(--ok); }
+.tag--failed, .tag--error, .tag--denied, .tag--retired { border-color: var(--signal-line); color: var(--danger); }
+.tag--partial, .tag--warn, .tag--starting, .tag--pending { border-color: var(--warn-line); color: var(--warn); }
 :is(.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok,
+    .tag--failed, .tag--error, .tag--denied, .tag--retired,
     .tag--partial, .tag--starting, .tag--pending)::before {
   content: "";
   flex: none;
@@ -996,13 +853,6 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   background: currentColor;
 }
 [data-live] :is(.tag--active, .tag--starting)::before { animation: lamp 2.4s ease-in-out infinite; }
-/* Neon yellow measures 1.01:1 on mist: on the light ground it is a fill under
- * carbon ink, never a glyph. */
-:root[data-theme="light"] :is(.tag--partial, .tag--warn, .tag--starting, .tag--pending) {
-  border-color: transparent;
-  background: var(--warn);
-  color: var(--carbon-900);
-}
 .tag--expired, .tag--ended, .tag--no_devices { border-color: var(--line); color: var(--ink-faint); }
 
 /* Feed ----------------------------------------------------------------------
@@ -1053,13 +903,11 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   width: 9px;
   height: 9px;
   border: 1px solid var(--line-control);
-  background: var(--panel);
+  background: var(--surface);
 }
-.feed__item:hover .feed__node::after { background: var(--row-hover); }
 .feed__item:is([data-status="accepted"], [data-status="active"]) .feed__node::after { border-color: var(--ok); background: var(--ok); }
 .feed__item:is([data-status="partial"], [data-status="starting"]) .feed__node::after { border-color: var(--warn); background: var(--warn); }
-.feed__item[data-status="failed"] .feed__node::after { border-color: var(--alarm); background: var(--alarm); }
-:root[data-theme="light"] .feed__item:is([data-status="partial"], [data-status="starting"]) .feed__node::after { border-color: var(--carbon-900); }
+.feed__item[data-status="failed"] .feed__node::after { border-color: var(--danger); background: var(--danger); }
 
 .feed__body { min-width: 0; padding: 16px 0 18px; border-bottom: 1px solid var(--line-faint); }
 .feed__item:last-child .feed__body { border-bottom: 0; }
@@ -1073,7 +921,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .feed__meta { margin: 8px 0 0; }
 .feed__error {
   margin: 8px 0 0;
-  color: var(--alarm-text);
+  color: var(--danger);
   font-family: var(--mono);
   font-size: 12px;
   overflow-wrap: anywhere;
@@ -1136,13 +984,13 @@ textarea.input { min-height: 96px; resize: vertical; }
 select.input {
   appearance: none;
   padding-right: 36px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23afb9cf' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a2abb9' stroke-width='1.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 10px 6px;
 }
 :root[data-theme="light"] select.input {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%233c455a' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23525c6b' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 .input--code {
   min-height: 56px;
@@ -1174,12 +1022,12 @@ select.input {
   content: "";
   width: 8px;
   height: 8px;
-  background: var(--signal);
+  background: var(--on-signal);
   transform: scale(0);
   transition: transform var(--t-fast) var(--ease);
 }
 .check input:hover { border-color: var(--ink-faint); }
-.check input:checked { border-color: var(--signal); }
+.check input:checked { border-color: var(--signal); background: var(--signal); }
 .check input:checked::before { transform: scale(1); }
 .check__copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .check__name { color: var(--ink); font-size: 13px; font-weight: 500; }
@@ -1223,23 +1071,14 @@ select.input {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast), --btn-fill var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
 }
 .btn:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); text-decoration: none; }
 .btn:hover .arrow { transform: translateX(4px); }
 .btn:hover .arrow--back { transform: translateX(-4px); }
 .btn:active { transform: scale(0.96); }
-/* A primary action takes the ground's ink as its field, cut at the corner
- * like the Key; identity stays a line beside it. The cut is painted rather
- * than clipped so the focus ring survives. */
-.btn--primary, .btn--primary:hover {
-  --btn-fill: var(--ink);
-  border-color: transparent;
-  border-radius: 0 var(--r-sm) var(--r-sm) var(--r-sm);
-  background: linear-gradient(135deg, transparent 5px, var(--btn-fill) 5.75px) border-box;
-  color: var(--paper);
-}
-.btn--primary:hover { --btn-fill: var(--ink-muted); }
+.btn--primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.btn--primary:hover { background: var(--signal-hover); border-color: var(--signal-hover); color: var(--on-signal); }
 .btn:disabled:not([data-disabled-by-htmx]) { background: transparent; border-color: var(--line); color: var(--ink-disabled); cursor: not-allowed; transform: none; }
 /* htmx disables the submitting button for the life of its request. That is a
  * control at work, not one that is unavailable: it keeps its colours. */
@@ -1247,14 +1086,10 @@ select.input {
 .btn--ghost { border-color: transparent; color: var(--ink-subtle); }
 .btn--ghost:hover { background: transparent; border-color: var(--line-strong); color: var(--ink); }
 .btn--ghost[aria-current="page"] { color: var(--ink); }
-/* Destructive: the one filled scarlet control, accent-deep under chalk on
- * either ground, labelled with what it destroys. */
-.btn--danger { background: var(--alarm-field); border-color: var(--alarm-field); color: var(--on-alarm-field); }
-.btn--danger:hover { background: var(--alarm-field); border-color: var(--ink); color: var(--on-alarm-field); }
-/* In a row of a table the destructive control waits as an outline and fills
- * under the pointer, so a list of rows is not a column of scarlet. */
-.table .btn--danger { background: transparent; border-color: var(--signal-line); color: var(--ink); }
-.table .btn--danger:hover, .table .btn--danger:focus-visible { background: var(--alarm-field); border-color: var(--alarm-field); color: var(--on-alarm-field); }
+/* Destructive: an outline in lacquer that fills under the pointer, labelled
+ * with what it destroys. */
+.btn--danger { border-color: var(--signal-line); color: var(--danger); }
+.btn--danger:hover, .btn--danger:focus-visible { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
 .btn--sm { min-height: 30px; padding: 0 10px; font-size: 12px; }
 .btn--lg { min-height: 44px; padding: 0 20px; font-size: 14px; }
 .btn--block { width: 100%; }
@@ -1276,7 +1111,7 @@ select.input {
   padding: 13px 18px 13px 21px;
   border: 1px solid var(--line);
   box-shadow: inset 3px 0 0 var(--ink-subtle);
-  background: var(--panel);
+  background: var(--surface);
   color: var(--ink);
   font-size: 14px;
   line-height: 1.45;
@@ -1297,9 +1132,8 @@ select.input {
 .notice--ok::before { content: "OK"; color: var(--ok); }
 .notice--warn { box-shadow: inset 3px 0 0 var(--warn); }
 .notice--warn::before { content: "Warning"; color: var(--warn); }
-:root[data-theme="light"] .notice--warn::before { color: var(--ink-subtle); }
-.notice--error { border-color: var(--signal-line); box-shadow: inset 3px 0 0 var(--alarm); }
-.notice--error::before { content: "Error"; color: var(--alarm-text); }
+.notice--error { border-color: var(--signal-line); box-shadow: inset 3px 0 0 var(--danger); background: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
+.notice--error::before { content: "Error"; color: var(--danger); }
 .notice + .page-head { padding-top: 32px; }
 
 .secret { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
@@ -1325,7 +1159,7 @@ select.input {
   padding: 14px 0 0;
   border-top: 1px solid var(--line-faint);
   list-style: none;
-  color: var(--alarm-text);
+  color: var(--danger);
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.5;
@@ -1336,7 +1170,6 @@ select.input {
 /* The confirmation dialog --------------------------------------------------- */
 
 .confirm {
-  --cut-line: var(--line-strong);
   width: min(28rem, calc(100vw - 2rem));
   padding: 0;
   border: 1px solid var(--line-strong);
@@ -1369,7 +1202,7 @@ select.input {
   flex-direction: column;
   padding: 28px 28px 30px;
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface);
 }
 .grant__code {
   margin: 14px 0 0;
@@ -1393,7 +1226,7 @@ select.input {
   gap: 16px 32px;
   padding: 20px 28px;
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface);
 }
 .grant__decision .row { width: auto; }
 .grant__warning { max-width: 60ch; margin: 0; color: var(--ink-subtle); font-size: 13px; text-wrap: pretty; }
@@ -1430,7 +1263,7 @@ select.input {
   width: 56px;
   height: 56px;
   border: 1px solid var(--line-strong);
-  background: var(--panel);
+  background: var(--surface);
   color: var(--ink-faint);
 }
 .consent__party svg { width: 22px; height: 22px; }
@@ -1457,7 +1290,7 @@ select.input {
   to { left: calc(100% - 5px); opacity: 0; }
 }
 
-.consent__panel { --cut-line: var(--line-strong); border: 1px solid var(--line-strong); background: var(--panel); }
+.consent__panel { border: 1px solid var(--line-strong); background: var(--surface); }
 .consent__client { display: flex; justify-content: space-between; gap: 24px; padding: 24px 28px; border-bottom: 1px solid var(--line); }
 .consent__client > div { min-width: 0; }
 .consent__client .meta { margin: 0 0 8px; }
@@ -1582,7 +1415,7 @@ body:has(.gate)::before { display: none; }
 .gate__ways span { display: block; margin-top: 2px; color: var(--ink-subtle); font-size: 13px; line-height: 1.45; text-wrap: pretty; }
 
 .gate__panel { grid-column: 9 / -1; min-width: 0; }
-.gate__panel .module { --cut-line: var(--line-strong); border-color: var(--line-strong); background: var(--paper); }
+.gate__panel .module { border-color: var(--line-strong); background: var(--paper); }
 .gate__panel .module__body { padding: 28px 28px 30px; }
 .gate__panel .h-ui { margin-bottom: 6px; font-size: 28px; letter-spacing: -0.035em; }
 .gate__panel .module__note { margin-bottom: 26px; }
@@ -1639,16 +1472,16 @@ body:has(.gate)::before { display: none; }
 /* Motion ------------------------------------------------------------------------- */
 
 /* A boosted navigation cross-fades the page under a mast that holds still. */
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; animation-timing-function: var(--motion-ease); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 140ms; animation-timing-function: var(--ease); }
 ::view-transition-group(mast) { animation: none; }
 ::view-transition-old(mast) { display: none; }
 ::view-transition-new(mast) { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .arrow, .nav a, .nav a::before, .tabs a, .tabs a::after, .btn, .input, .check input, .check input::before,
-  .brand__mark, .table tbody tr, .feed__item, .meter::-webkit-progress-value { transition: none; }
+  .table tbody tr, .feed__item, .meter::-webkit-progress-value { transition: none; }
   .btn:hover .arrow, .btn:hover .arrow--back, .module__more:hover .arrow,
-  .page-head__eyebrow a:hover .arrow--back, .brand:hover .brand__mark { transform: none; }
+  .page-head__eyebrow a:hover .arrow--back { transform: none; }
   .confirm[open], .confirm[open]::backdrop, .picture:popover-open, .notice { animation: none; }
   .lamp--on, [data-live] :is(.tag--active, .tag--starting)::before, .gate::after { animation: none; }
   .consent__wire::after { display: none; }
@@ -1700,13 +1533,34 @@ body:has(.gate)::before { display: none; }
 .shell--bare + .foot { display: none; }
 .shell--bare > .notice { position: absolute; top: 16px; left: var(--gutter); right: var(--gutter); z-index: 2; max-width: 40rem; margin: 0 auto; }
 
-/* Brand components ------------------------------------------------------------
+/* The Abdeen Labs lockup ------------------------------------------------------
  *
- * The lockup and Key, as published in the brand's colors_and_type.css. The
- * mark is live-set; no logo file exists. */
+ * The maker's mark on the gate, as published in the brand's
+ * colors_and_type.css. Its colours are Abdeen Labs' own and stay inside the
+ * lockup; nothing of Hark's resolves from them. The mark is live-set; no logo
+ * file exists. */
+
+.lockup {
+  --font-mark: 'Aref Ruqaa', serif;
+  --tracking-wordmark: 0.22em;
+  --mark-optical-shift: 0.168em;
+  --seal-mark-scale: 0.36;
+  --seal-cut: 26%;
+  --seal-size: 24px;
+  --seal-key-field: #121827;
+  --seal-key-line: #fe002a;
+  --seal-key-ink: #f3f7ff;
+  --lockup-divider: #313c5a;
+}
+:root[data-theme="light"] .lockup {
+  --seal-key-field: #eaeef5;
+  --seal-key-line: #d4212c;
+  --seal-key-ink: #0a0f1c;
+  --lockup-divider: #bbc5db;
+}
 
 .wordmark {
-  font-family: var(--font-mono);
+  font-family: var(--mono);
   font-weight: 500;
   font-size: 11px;
   letter-spacing: var(--tracking-wordmark);
@@ -1734,14 +1588,14 @@ body:has(.gate)::before { display: none; }
   height: var(--seal-size);
   flex: none;
   display: inline-block;
-  background: var(--seal-key-field, var(--pitch-900));
+  background: var(--seal-key-field);
   clip-path: polygon(var(--seal-cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--seal-cut));
 }
 .seal-key::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--seal-key-line, var(--accent));
+  background: var(--seal-key-line);
   clip-path: polygon(
     evenodd,
     var(--seal-cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--seal-cut),
@@ -1761,10 +1615,8 @@ body:has(.gate)::before { display: none; }
   transform: translate(-50%, calc(-50% - var(--mark-optical-shift)));
   font-family: var(--font-mark);
   font-weight: 700;
-  color: var(--seal-key-ink, var(--accent));
+  color: var(--seal-key-ink);
   font-size: calc(var(--seal-size) * var(--seal-mark-scale) / 0.883);
   line-height: 1;
   direction: rtl;
 }
-
-.gate__foot .lockup { --seal-size: 24px; }

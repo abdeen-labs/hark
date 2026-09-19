@@ -13,8 +13,8 @@
      short cross-fade under a mast that holds still. */}}
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0,"globalViewTransitions":true,"responseHandling":[{"code":".*","swap":true}]}'>
 <title>{{.Title}} · Hark</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M10 0h22v32H0V10z' fill='%23fe002a'/%3E%3C/svg%3E">
-<meta name="theme-color" content="#0a0f1c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ce2020'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#06080d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=block">
@@ -70,17 +70,14 @@
 </main>
 
 <footer class="foot meta{{if eq .Section "consent"}} foot--consent{{end}}">
-  {{template "lockup"}}
-  <span class="foot__meta">
-    <a href="{{.Paths.Docs}}" hx-boost="false">API contract</a>
-    <span>Hark{{if .Version}} · Rev {{.Version}}{{end}}</span>
-  </span>
+  <span>Hark{{if .Version}} · Rev {{.Version}}{{end}}</span>
+  <a href="{{.Paths.Docs}}" hx-boost="false">API contract</a>
 </footer>
 
 {{/* The confirmation every data-confirm form opens instead of window.confirm.
      It submits nothing itself: method="dialog" only closes it, and the script
      reads which button did. */}}
-<dialog class="confirm cut" data-confirm-dialog>
+<dialog class="confirm" data-confirm-dialog>
   <form method="dialog">
     <p class="confirm__label">Confirm</p>
     <p class="confirm__message" data-confirm-message></p>

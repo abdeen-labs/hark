@@ -9,7 +9,7 @@
 
 <div class="grid">
   {{with .Secret}}
-  <section class="module module--signal cut span-12">
+  <section class="module module--signal span-12">
     <div class="module__head">
       <h2 class="module__label">Your new token</h2>
       <span class="meta meta--signal">Copy it now. It won't be shown again.</span>
@@ -133,7 +133,7 @@
     {{/* Keep popovers outside the table so action-cell display and spacing
          rules cannot override their hidden state or centered position. */}}
     {{range .Tokens}}
-      <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture cut" id="picture-{{.ID}}" popover
+      <form method="post" action="{{$.Paths.Tokens}}/{{.ID}}/picture" class="picture" id="picture-{{.ID}}" popover
             role="dialog" aria-labelledby="picture-title-{{.ID}}"
             hx-disabled-elt="find button[type=submit]">
         <input type="hidden" name="csrf_token" value="{{$.CSRF}}">

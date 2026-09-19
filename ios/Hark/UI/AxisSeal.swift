@@ -44,9 +44,9 @@ struct KeyPlate: Shape {
     }
 }
 
-/// The standard seal. The field follows the ground, the line is the
-/// identity scarlet, and the mark takes the ground's primary ink. 16 pt is
-/// the floor.
+/// The standard seal. The field follows the ground, the line is Abdeen
+/// Labs' own scarlet rather than Hark's signal, and the mark takes the
+/// ground's primary ink. 16 pt is the floor.
 struct KeySeal: View {
     var size: CGFloat = 40
 
@@ -54,13 +54,15 @@ struct KeySeal: View {
     static let inkHeight: CGFloat = 0.883
     static let opticalShift: CGFloat = 0.168
 
+    private static let keyLine = Color(axisDark: 0xFE002A, light: 0xD4212C)
+
     private var line: CGFloat { max(1, size / 40) }
     private var fontSize: CGFloat { size * Self.markScale / Self.inkHeight }
 
     var body: some View {
         ZStack {
             KeyPlate().fill(Axis.surface)
-            KeyPlate().stroke(Axis.signal, lineWidth: line * 2)
+            KeyPlate().stroke(Self.keyLine, lineWidth: line * 2)
             Text("عابدين")
                 .font(BrandFace.mark(fontSize))
                 .foregroundStyle(Axis.ink)

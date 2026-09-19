@@ -67,7 +67,7 @@
   padding: 0 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
-  background: var(--panel);
+  background: var(--surface);
   color: var(--ink-subtle);
   font-family: var(--mono);
   font-size: 10.5px;
@@ -134,7 +134,7 @@
   padding: 1px 5px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-xs);
-  background: var(--panel-2);
+  background: var(--surface-2);
   color: var(--ink-faint);
   font-family: var(--mono);
   font-size: 10px;
@@ -291,7 +291,7 @@
   padding: 14px 18px 14px 21px;
   border: 1px solid var(--line);
   box-shadow: inset 3px 0 0 var(--signal);
-  background: var(--panel);
+  background: var(--surface);
   color: var(--ink-subtle);
 }
 .prose blockquote > :last-child { margin-bottom: 0; }
@@ -333,13 +333,29 @@
 
 .prose pre { color: var(--ink-muted); }
 
+/* Code sits on the dark ground in both themes, so its ink is pinned to the
+ * dark palette rather than following the page. */
+.prose pre, .prose code, .code-copy {
+  --ink: #f4f6f9;
+  --ink-muted: #d5dbe4;
+  --ink-subtle: #a2abb9;
+  --ink-faint: #8f99ab;
+  --ok: #16b37d;
+  --warn: #e2a81e;
+  --signal-text: #e64949;
+  --line-strong: rgba(244, 246, 249, 0.26);
+  --paper: #06080d;
+}
+/* An endpoint heading is a code span with no chip behind it: it reads on the
+ * page, so it takes the page's accent back. */
+.prose :is(h3, h4) code { --signal-text: inherit; }
+
 /* Syntax colors, on chroma's classes. Only tokens the contract's three fence
- * languages — json, http, sh — produce. The scheme is tonal: state colours
- * are reserved for state, so values read in ink and only keywords take the
- * accent. */
-.chroma .nt { color: var(--ink-muted); }
-.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ink); }
-.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--ink); }
+ * languages — json, http, sh — produce. Strings borrow jade and
+ * numbers amber as reading colors, not as status. */
+.chroma .nt { color: var(--ink); }
+.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }
+.chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--warn); }
 .chroma .k, .chroma .kc, .chroma .kd, .chroma .kr { color: var(--signal-text); }
 .chroma .c, .chroma .c1, .chroma .cm { color: var(--ink-faint); font-style: italic; }
 .chroma .nf, .chroma .nb, .chroma .nn { color: var(--ink); font-weight: 500; }
@@ -438,7 +454,7 @@
     max-height: 18rem;
     padding: 14px;
     border: 1px solid var(--line);
-    background: var(--panel);
+    background: var(--surface);
   }
   .toc__item--h3 { display: none; }
   .docs-formats { display: none; }
