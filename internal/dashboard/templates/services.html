@@ -1,8 +1,9 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">Services</h1>
-    <p class="page-head__lede lede">Webhook endpoints for incoming notifications.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">03</span>Sources</p>
+    <h1 class="page-head__title">Services</h1>
+    <p class="page-head__lede lede">One webhook URL per source. Anything that can send a POST can reach your phone through it.</p>
   </div>
 </header>
 
@@ -48,7 +49,7 @@
             </span>
           </label>
 
-          <button class="btn btn--primary" type="submit">Create service</button>
+          <button class="btn btn--primary" type="submit">Create service <span class="arrow" aria-hidden="true">→</span></button>
         </form>
       </div>
     </section>
@@ -116,7 +117,7 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">No services yet.</p>
+    <p class="empty"><span class="empty__title">No services yet</span>Create one for each thing that should reach you: CI, a cron job, a home automation. Each gets its own webhook URL, priority, and picture.</p>
     {{end}}
   </section>
 </div>

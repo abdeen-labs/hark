@@ -1,30 +1,30 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">History</h1>
-    <p class="page-head__lede lede">Every notification, response, and Live Activity this account has relayed.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">02</span>Log</p>
+    <h1 class="page-head__title">History</h1>
+    <p class="page-head__lede lede">Every notification, response, and Live Activity this account has relayed, newest first.</p>
   </div>
 </header>
 
-<nav class="tabs" aria-label="Filter by kind">
-  <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}>All</a>
-  <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}>Notifications</a>
-  <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}>Responses</a>
-  <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}>Live Activities</a>
-</nav>
-
-<div class="ledger">
+<section class="module ledger" aria-label="Deliveries">
+  <nav class="tabs" aria-label="Filter by kind">
+    <a href="{{.Paths.History}}"{{if eq .Filter "all"}} aria-current="page"{{end}}>All</a>
+    <a href="{{.Paths.History}}?kind=notification"{{if eq .Filter "notification"}} aria-current="page"{{end}}>Notifications</a>
+    <a href="{{.Paths.History}}?kind=response"{{if eq .Filter "response"}} aria-current="page"{{end}}>Responses</a>
+    <a href="{{.Paths.History}}?kind=live_activity"{{if eq .Filter "live_activity"}} aria-current="page"{{end}}>Live Activities</a>
+  </nav>
   {{if .Items}}
   {{template "feed-list" .Items}}
   {{else}}
-  <p class="empty empty--bare">{{if eq .Filter "all"}}No deliveries yet.{{else}}No matching deliveries.{{end}}</p>
+  <p class="empty empty--bare">{{if eq .Filter "all"}}<span class="empty__title">No deliveries yet</span>Everything Hark relays is recorded here. <a href="{{.Paths.Test}}">Send a test notification</a> to check the path to your phone; tests are not recorded.{{else}}<span class="empty__title">No matching deliveries</span>Nothing of this kind has been relayed. <a href="{{.Paths.History}}">Show everything</a>.{{end}}</p>
   {{end}}
-</div>
+</section>
 
 {{if or .Older .Newest}}
 <nav class="pager" aria-label="Pages">
-  {{with .Newest}}<a class="btn" href="{{.}}" rel="prev"><span class="arrow arrow--back">←</span> Newest</a>{{end}}
-  {{with .Older}}<a class="btn" href="{{.}}" rel="next">Older <span class="arrow">→</span></a>{{end}}
+  {{with .Newest}}<a class="btn" href="{{.}}" rel="prev"><span class="arrow arrow--back" aria-hidden="true">←</span> Newest</a>{{end}}
+  {{with .Older}}<a class="btn" href="{{.}}" rel="next">Older <span class="arrow" aria-hidden="true">→</span></a>{{end}}
 </nav>
 {{end}}
 {{end}}

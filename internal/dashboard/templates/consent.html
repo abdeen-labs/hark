@@ -1,20 +1,24 @@
 {{define "content"}}
 <section class="consent" aria-labelledby="consent-title">
   <header class="consent__heading">
+    {{with .Consent}}
+    <div class="consent__link" aria-hidden="true">
+      <span class="consent__party">{{with text .Client.LogoURI}}<img class="consent__logo" src="{{.}}" alt="">{{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16v14H4zM4 9h16M7 7h.01M10 7h.01"/></svg>{{end}}</span>
+      <span class="consent__wire"></span>
+      <span class="consent__party"><span class="brand__mark"></span></span>
+    </div>
+    {{end}}
     <p class="consent__eyebrow meta"><span class="brand__mark" aria-hidden="true"></span>App connection</p>
     <h1 id="consent-title">{{with .Consent}}Connect {{.Client.Name}}{{else}}Unable to connect{{end}}</h1>
     <p class="consent__intro">{{if .Consent}}Review the access this app is requesting to your Hark account.{{else}}Return to the app and start a new connection request.{{end}}</p>
   </header>
 
   {{with .Consent}}
-  <div class="consent__panel" data-consent>
+  <div class="consent__panel cut" data-consent>
     <div class="consent__client">
-      <div class="consent__app">
-        {{with text .Client.LogoURI}}<img class="consent__logo" src="{{.}}" alt="">{{end}}
-        <div>
-          <p class="meta">Application</p>
-          <p class="consent__client-name">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>{{else}}{{.Client.Name}}{{end}}</p>
-        </div>
+      <div>
+        <p class="meta">Application</p>
+        <p class="consent__client-name">{{if .Client.ClientURI}}<a href="{{text .Client.ClientURI}}" rel="noopener noreferrer">{{.Client.Name}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>{{else}}{{.Client.Name}}{{end}}</p>
       </div>
       <div class="consent__destination">
         <p class="meta">{{if .Loopback}}Returns to this computer{{else}}Returns to{{end}}</p>
@@ -29,7 +33,7 @@
       </div>
       <ul class="consent__permissions">
         {{range .Scopes}}
-        <li data-scope="{{.}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg><span>{{scopeDescription .}}</span></li>
+        <li data-scope="{{.}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>{{scopeDescription .}}</span></li>
         {{else}}<li>No access requested.</li>{{end}}
       </ul>
     </div>

@@ -1,17 +1,20 @@
 {{/* feed-list draws a slice of db.FeedItem. The overview and the history
-     render the same rows; only how many, and how you get more, differ. */}}
+     render the same rows; only how many, and how you get more, differ. The
+     status rides on a data attribute, where the stylesheet reads it to colour
+     the row's node. */}}
 {{define "feed-list"}}
 <ul class="feed">
   {{range .}}
-  <li class="feed__item" id="feed-{{.ID}}">
+  <li class="feed__item" id="feed-{{.ID}}" data-status="{{text .Status}}">
     <time class="feed__time" datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time>
+    <span class="feed__node" aria-hidden="true"></span>
     <div class="feed__body">
       <div class="feed__head">
         {{with text .SourceImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}
         <span class="feed__source">{{.SourceName}}</span>
-        <span class="tag">{{title .Kind}}</span>
-        {{with text .Status}}<span class="tag tag--{{.}}">{{title .}}</span>{{end}}
+        <span class="feed__kind meta">{{title .Kind}}</span>
         {{with text .Priority}}{{if ne . "normal"}}<span class="tag tag--warn">{{title .}}</span>{{end}}{{end}}
+        {{with text .Status}}<span class="tag tag--{{.}}">{{title .}}</span>{{end}}
       </div>
       <p class="feed__title">{{.Title}}</p>
       {{with text .Detail}}<p class="feed__detail">{{.}}</p>{{end}}

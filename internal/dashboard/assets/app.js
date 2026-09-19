@@ -1,11 +1,11 @@
 // The dashboard's whole client, on top of vendored htmx and idiomorph. hx-boost
 // on the body does the navigation — every same-origin link and form becomes a
-// fetch and a body swap — and this file adds the four behaviours that are
+// fetch and a body swap — and this file adds the five behaviours that are
 // ours: a confirmation before a destructive submit, copying a one-time secret,
-// keeping the overview current without a reload, and keeping "3m ago" true
-// while a page sits open. Everything in here is delegated or re-resolved per
-// use, so content htmx swapped in five minutes ago is as covered as the first
-// render.
+// keeping the current section in view in a nav that scrolls, keeping the
+// overview current without a reload, and keeping "3m ago" true while a page
+// sits open. Everything in here is delegated or re-resolved per use, so
+// content htmx swapped in five minutes ago is as covered as the first render.
 "use strict";
 
 // Destructive forms carry data-confirm, answered by the layout's <dialog>.
@@ -49,6 +49,18 @@ document.addEventListener("click", async (event) => {
     button.disabled = false;
   }, 1500);
 });
+
+// On a narrow screen the sections are a row that scrolls sideways, and a swap
+// redraws it from the start. The current section is brought back into view so
+// the row always shows where you are.
+const showCurrentSection = () => {
+  const link = document.querySelector(".nav [aria-current]");
+  if (!link) return;
+  const nav = link.closest(".nav");
+  nav.scrollLeft += link.getBoundingClientRect().left - nav.getBoundingClientRect().left - 16;
+};
+document.addEventListener("DOMContentLoaded", showCurrentSection);
+document.addEventListener("htmx:afterSettle", showCurrentSection);
 
 // The overview polls for its own dynamic half. The server renders the same
 // template block the page shipped with and answers If-None-Match with a 304,

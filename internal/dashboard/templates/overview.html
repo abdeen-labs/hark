@@ -1,10 +1,13 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">Overview</h1>
-    <p class="page-head__lede lede">Active Live Activities and recent deliveries.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">01</span>Status</p>
+    <h1 class="page-head__title">Overview</h1>
+    <p class="page-head__lede lede">What is on a Lock Screen right now, and what Hark relayed last. This page keeps itself current.</p>
   </div>
-  <a class="btn btn--sm" href="{{.Paths.Test}}">Send a test</a>
+  <div class="page-head__actions">
+    <a class="btn" href="{{.Paths.Test}}">Send a test <span class="arrow" aria-hidden="true">→</span></a>
+  </div>
 </header>
 
 {{/* Everything inside this div is what the poll replaces: the same
@@ -14,26 +17,77 @@
 
 {{define "overview-live"}}
 <div class="column">
-  <section class="stats" aria-label="Account">
+  <section class="stats cut" aria-label="Account">
     <div class="stat">
+      <p class="stat__label">Devices</p>
       <div class="metric">
-        <span class="metric__value"><span class="num">{{.Stats.ActiveDevices}}</span><span class="metric__of">/{{.Stats.Devices}}</span></span>
-        <span class="metric__label">Active devices</span>
+        <p class="metric__value"><span class="num">{{.Stats.ActiveDevices}}</span><span class="metric__of">/{{.Stats.Devices}}</span></p>
       </div>
+      <progress class="meter" value="{{.Stats.ActiveDevices}}" max="{{if .Stats.Devices}}{{.Stats.Devices}}{{else}}1{{end}}" aria-label="Active devices"></progress>
+      <p class="stat__note">{{if .Stats.ActiveDevices}}Active and receiving pushes{{else}}<a href="{{.Paths.Devices}}">None receiving pushes</a>{{end}}</p>
     </div>
     <div class="stat">
+      <p class="stat__label">API tokens</p>
       <div class="metric">
-        <span class="metric__value"><span class="num">{{.Stats.ActiveTokens}}</span><span class="metric__of">/{{.Stats.Tokens}}</span></span>
-        <span class="metric__label">Active API tokens</span>
+        <p class="metric__value"><span class="num">{{.Stats.ActiveTokens}}</span><span class="metric__of">/{{.Stats.Tokens}}</span></p>
       </div>
+      <progress class="meter" value="{{.Stats.ActiveTokens}}" max="{{if .Stats.Tokens}}{{.Stats.Tokens}}{{else}}1{{end}}" aria-label="Active API tokens"></progress>
+      <p class="stat__note">Active, of every token issued</p>
     </div>
     <div class="stat">
+      <p class="stat__label"><span class="lamp{{if .Stats.LiveActivities}} lamp--on{{end}}" aria-hidden="true"></span>Live Activities</p>
       <div class="metric">
-        <span class="metric__value num">{{.Stats.LiveActivities}}</span>
-        <span class="metric__label">Live Activities</span>
+        <p class="metric__value num">{{.Stats.LiveActivities}}</p>
       </div>
+      <progress class="meter meter--live" value="{{if .Stats.LiveActivities}}1{{else}}0{{end}}" max="1" aria-hidden="true"></progress>
+      <p class="stat__note">{{if .Stats.LiveActivities}}On a Lock Screen now{{else}}Nothing running{{end}}</p>
+    </div>
+    <div class="stat">
+      <p class="stat__label">Last delivery</p>
+      {{if .History}}{{with index .History 0}}
+      <div class="metric metric--text">
+        <p class="metric__value"><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></p>
+      </div>
+      <progress class="meter" value="0" max="1" aria-hidden="true"></progress>
+      <p class="stat__note">
+        {{with text .Status}}<span class="tag tag--{{.}}">{{title .}}</span>{{end}}
+        <span class="stat__note-text">{{.SourceName}}</span>
+      </p>
+      {{end}}{{else}}
+      <div class="metric metric--text">
+        <p class="metric__value"><span class="muted">—</span></p>
+      </div>
+      <progress class="meter" value="0" max="1" aria-hidden="true"></progress>
+      <p class="stat__note">Nothing relayed yet</p>
+      {{end}}
     </div>
   </section>
+
+  {{if not .Stats.Devices}}
+  <section class="module" aria-labelledby="setup-title">
+    <div class="module__head">
+      <h2 class="module__label" id="setup-title">Get a first notification through</h2>
+      <span class="meta">3 steps</span>
+    </div>
+    <ol class="steps">
+      <li class="step">
+        <p class="step__title">Register an iPhone</p>
+        <p class="step__text">Sign in to the Hark iOS app with this account and allow notifications. The device appears here on its own.</p>
+        <a class="btn btn--sm" href="{{.Paths.Devices}}">Devices <span class="arrow" aria-hidden="true">→</span></a>
+      </li>
+      <li class="step">
+        <p class="step__title">Create a service</p>
+        <p class="step__text">A service is one webhook URL. Anything that can send a POST can reach your phone through it.</p>
+        <a class="btn btn--sm" href="{{.Paths.Services}}">Services <span class="arrow" aria-hidden="true">→</span></a>
+      </li>
+      <li class="step">
+        <p class="step__title">Send a test</p>
+        <p class="step__text">Push a notification through APNs from here and see exactly how many devices accepted it.</p>
+        <a class="btn btn--sm" href="{{.Paths.Test}}">Send a test <span class="arrow" aria-hidden="true">→</span></a>
+      </li>
+    </ol>
+  </section>
+  {{end}}
 
   <section class="module">
     <div class="module__head">
@@ -43,13 +97,13 @@
     {{if .Activities}}
     <div class="scroll">
       <table class="table">
-        <thead><tr><th>Source</th><th>Status</th><th>Seq</th><th>Last operation</th><th>Updated</th><th>Expires</th></tr></thead>
+        <thead><tr><th>Source</th><th>Status</th><th class="cell--right">Seq</th><th>Last operation</th><th>Updated</th><th>Expires</th></tr></thead>
         <tbody>
           {{range .Activities}}
           <tr>
             <td class="cell--strong">{{.SourceName}}{{with text .Key}} <span class="mono muted">{{.}}</span>{{end}}</td>
             <td><span class="tag tag--{{.Status}}">{{title .Status}}</span></td>
-            <td class="num mono">{{.Sequence}}</td>
+            <td class="num mono cell--right">{{.Sequence}}</td>
             <td class="num mono">{{.AcceptedCount}} accepted<span class="muted"> · {{.FailedCount}} failed</span></td>
             <td><time datetime="{{iso .UpdatedAt}}" title="{{when .UpdatedAt}}">{{ago .UpdatedAt}}</time></td>
             <td><time datetime="{{iso .ExpiresAt}}" title="{{when .ExpiresAt}}">{{ago .ExpiresAt}}</time></td>
@@ -59,19 +113,19 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">No active Live Activities.</p>
+    <p class="empty"><span class="empty__title">No Live Activities running</span>One appears here the moment a service or token starts it, and leaves when it ends or expires.</p>
     {{end}}
   </section>
 
   <section class="module">
     <div class="module__head">
       <h2 class="module__label">Recent deliveries</h2>
-      <a class="module__more meta" href="{{.Paths.History}}">View history <span class="arrow">→</span></a>
+      <a class="module__more meta" href="{{.Paths.History}}">View history <span class="arrow" aria-hidden="true">→</span></a>
     </div>
     {{if .History}}
     {{template "feed-list" .History}}
     {{else}}
-    <p class="empty">No recent deliveries. <a href="{{.Paths.Test}}">Send a test notification</a>.</p>
+    <p class="empty"><span class="empty__title">Nothing relayed yet</span>Notifications, answers, and Live Activities land here as they go out. <a href="{{.Paths.Test}}">Send a test notification</a> to see one.</p>
     {{end}}
   </section>
 </div>

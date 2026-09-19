@@ -1,8 +1,9 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">Send a test</h1>
-    <p class="page-head__lede lede">Send a notification through APNs without adding it to history.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">T</span>Tool</p>
+    <h1 class="page-head__title">Send a test</h1>
+    <p class="page-head__lede lede">Push a notification through APNs and see how many devices accepted it. Tests are not added to history.</p>
   </div>
 </header>
 
@@ -49,8 +50,8 @@
           </select>
         </label>
 
-        <button class="btn btn--primary" type="submit"{{if not .Devices}} disabled{{end}}>Send</button>
-        {{if not .Devices}}<p class="module__note">No active device is registered to send to.</p>{{end}}
+        <button class="btn btn--primary" type="submit"{{if not .Devices}} disabled{{end}}>Send <span class="arrow" aria-hidden="true">→</span></button>
+        {{if not .Devices}}<p class="module__note">No active device is registered to send to. <a href="{{.Paths.Devices}}">Register one</a> first.</p>{{end}}
       </form>
     </div>
   </section>
@@ -73,7 +74,7 @@
       {{end}}
     </div>
     {{else}}
-    <p class="empty">Results will appear here.</p>
+    <p class="empty"><span class="empty__title">Nothing sent yet</span>APNs answers per device. The count it accepted, and any reason it refused, appear here.</p>
     {{end}}
   </section>
 </div>

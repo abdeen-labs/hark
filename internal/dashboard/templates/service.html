@@ -1,8 +1,8 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <a class="page-head__back" href="{{.Paths.Services}}"><span class="arrow arrow--back">←</span> All services</a>
-    <h1 class="page-head__title h-ui">{{.Service.Title}}</h1>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">03</span><a href="{{.Paths.Services}}"><span class="arrow arrow--back" aria-hidden="true">←</span> Services</a></p>
+    <h1 class="page-head__title">{{.Service.Title}}</h1>
     <p class="page-head__lede lede">
       Created <time datetime="{{iso .Service.CreatedAt}}" title="{{when .Service.CreatedAt}}">{{ago .Service.CreatedAt}}</time>
       · Updated <time datetime="{{iso .Service.UpdatedAt}}" title="{{when .Service.UpdatedAt}}">{{ago .Service.UpdatedAt}}</time>
@@ -12,7 +12,7 @@
 </header>
 
 <div class="grid">
-  <section class="module module--signal span-12">
+  <section class="module module--signal cut span-12">
     <div class="module__head">
       <h2 class="module__label">Webhook URL</h2>
       <span class="meta">Keep this URL secret</span>
@@ -117,7 +117,7 @@
       </table>
     </div>
     {{else}}
-    <p class="empty">No deliveries yet.</p>
+    <p class="empty"><span class="empty__title">No deliveries yet</span>Send a POST to the webhook URL above and it shows up here.</p>
     {{end}}
   </section>
 

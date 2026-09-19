@@ -8,10 +8,12 @@
      style-src 'self' would refuse anyway; no history snapshots, because these
      pages can carry secrets and the server already says no-store — back and
      forward re-fetch instead; and every status swaps, because a 403 or a 422
-     here is a rendered page, not a protocol error. */}}
-<meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0,"responseHandling":[{"code":".*","swap":true}]}'>
+     here is a rendered page, not a protocol error. A swap runs inside a view
+     transition where the browser has them, which the stylesheet keeps to a
+     short cross-fade under a mast that holds still. */}}
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"historyCacheSize":0,"globalViewTransitions":true,"responseHandling":[{"code":".*","swap":true}]}'>
 <title>{{.Title}} · Hark</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fe002a'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M10 0h22v32H0V10z' fill='%23fe002a'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#0a0f1c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +35,7 @@
      disables its own submit button for the duration, so a second click cannot
      send twice. */}}
 <body hx-boost="true" hx-indicator="body">
+<a class="skip" href="#main">Skip to content</a>
 
 {{if .SignedIn}}
 <header class="mast{{if eq .Section "consent"}} mast--consent{{end}}">
@@ -59,20 +62,25 @@
 </header>
 {{end}}
 
-<main class="shell{{if not .SignedIn}} shell--bare{{end}}{{if eq .Section "consent"}} shell--consent{{end}}">
-  {{with .Notice}}<p class="notice notice--{{.Kind}}" data-notice="{{.Kind}}" role="status">{{.Message}}</p>{{end}}
+{{/* Signed out, the only page with something to say is the sign-in form, and
+     it says it beside the fields. */}}
+<main id="main" class="shell{{if not .SignedIn}} shell--bare{{end}}{{if eq .Section "consent"}} shell--consent{{end}}">
+  {{if .SignedIn}}{{with .Notice}}<p class="notice notice--{{.Kind}}" data-notice="{{.Kind}}" role="status">{{.Message}}</p>{{end}}{{end}}
   {{template "content" .}}
 </main>
 
-<footer class="foot{{if eq .Section "consent"}} foot--consent{{end}}">
-  <span>Hark</span>
-  {{if .Version}}<span>Rev {{.Version}}</span>{{end}}
+<footer class="foot meta{{if eq .Section "consent"}} foot--consent{{end}}">
+  {{template "lockup"}}
+  <span class="foot__meta">
+    <a href="{{.Paths.Docs}}" hx-boost="false">API contract</a>
+    <span>Hark{{if .Version}} · Rev {{.Version}}{{end}}</span>
+  </span>
 </footer>
 
 {{/* The confirmation every data-confirm form opens instead of window.confirm.
      It submits nothing itself: method="dialog" only closes it, and the script
      reads which button did. */}}
-<dialog class="confirm" data-confirm-dialog>
+<dialog class="confirm cut" data-confirm-dialog>
   <form method="dialog">
     <p class="confirm__label">Confirm</p>
     <p class="confirm__message" data-confirm-message></p>

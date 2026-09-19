@@ -1,10 +1,13 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">Devices</h1>
-    <p class="page-head__lede lede">Phones and iPads signed in through the iOS app.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">04</span>Receivers</p>
+    <h1 class="page-head__title">Devices</h1>
+    <p class="page-head__lede lede">iPhones and iPads signed in to this account through the Hark iOS app.</p>
   </div>
-  <a class="btn btn--sm" href="{{.Paths.Test}}">Send a test</a>
+  <div class="page-head__actions">
+    <a class="btn" href="{{.Paths.Test}}">Send a test <span class="arrow" aria-hidden="true">→</span></a>
+  </div>
 </header>
 
 <section class="module">
@@ -57,7 +60,7 @@
     </table>
   </div>
   {{else}}
-  <p class="empty">No devices yet. Sign in through the iOS app to register one.</p>
+  <p class="empty"><span class="empty__title">No devices yet</span>Sign in to the Hark iOS app with this account and allow notifications. The device registers itself and appears here.</p>
   {{end}}
 </section>
 {{end}}

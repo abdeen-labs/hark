@@ -1,16 +1,18 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">Authorize a client</h1>
-    <p class="page-head__lede lede">Review the requested access before approving this client.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">05</span><a href="{{.Paths.Tokens}}"><span class="arrow arrow--back" aria-hidden="true">←</span> Tokens</a></p>
+    <h1 class="page-head__title">Authorize a client</h1>
+    <p class="page-head__lede lede">A command-line client is asking for an API token. Check the code and the access it wants before you approve.</p>
   </div>
 </header>
 
 {{with .Request}}
 <section class="grant grid" aria-label="Request">
-  <div class="span-7">
+  <div class="grant__ask cut span-7">
     <p class="meta">User code</p>
     <p class="grant__code">{{.UserCode}}</p>
+    <p class="grant__match">This must match the code the client is showing you. If it does not, deny the request.</p>
     <p class="grant__client"><span class="meta">Client</span><span class="h-ui">{{.ClientName}}</span></p>
   </div>
 
@@ -55,17 +57,17 @@
     </div>
   </div>
 
-  <div class="span-12">
+  <div class="grant__decision span-12">
     {{if $.Pending}}
-    <p class="grant__warning">Only approve requests you started.</p>
+    <p class="grant__warning">Only approve a request you started. Approving issues a token with exactly the scopes listed.</p>
     <form method="post" action="{{$.Paths.Authorize}}" class="row row--actions" hx-disabled-elt="[name=decision]">
       <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
       <input type="hidden" name="code" value="{{.UserCode}}">
-      <button class="btn btn--primary" type="submit" name="decision" value="approve">Approve</button>
-      <button class="btn btn--danger" type="submit" name="decision" value="deny">Deny</button>
+      <button class="btn btn--lg" type="submit" name="decision" value="deny">Deny</button>
+      <button class="btn btn--primary btn--lg" type="submit" name="decision" value="approve">Approve <span class="arrow" aria-hidden="true">→</span></button>
     </form>
     {{else}}
-    <p class="empty empty--bare">This request no longer needs a decision.</p>
+    <p class="grant__warning">This request no longer needs a decision.</p>
     {{end}}
   </div>
 </section>

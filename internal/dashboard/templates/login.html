@@ -1,18 +1,22 @@
 {{define "content"}}
 <section class="gate">
   <div class="gate__brand">
-    <p class="meta">Push relay</p>
+    <p class="gate__eyebrow meta"><span class="brand__mark" aria-hidden="true"></span>Push relay · Self-hosted</p>
     <p class="display gate__title">Hark</p>
-    <p class="lede">Notifications from your services, scripts, and automations. Connect them through webhooks or the API.</p>
+    <p class="lede gate__lede">Your services, scripts, and agents, on your Lock Screen.</p>
+    <ul class="gate__ways">
+      <li><strong>Notify</strong><span>One webhook URL per source, or a scoped API token.</span></li>
+      <li><strong>Ask</strong><span>Questions answered from the Lock Screen.</span></li>
+      <li><strong>Follow</strong><span>Live Activities for jobs that take a while.</span></li>
+    </ul>
   </div>
 
   <div class="gate__panel">
-    <section class="module">
-      <div class="module__head">
-        <p class="module__label">Access</p>
-      </div>
+    {{with .Notice}}<p class="notice notice--{{.Kind}}" data-notice="{{.Kind}}" role="status">{{.Message}}</p>{{end}}
+    <section class="module cut">
       <div class="module__body">
         <h1 class="h-ui">Sign in</h1>
+        <p class="module__note">Accounts are created by this deployment's admin.</p>
         <form method="post" action="{{.Paths.Login}}" class="stack" hx-disabled-elt="find button[type=submit]">
           <input type="hidden" name="csrf_token" value="{{.CSRF}}">
           <input type="hidden" name="next" value="{{.Next}}">
@@ -28,18 +32,15 @@
             <input class="input" type="password" name="password" autocomplete="current-password" required>
           </label>
 
-          <button class="btn btn--primary" type="submit">Sign in</button>
+          <button class="btn btn--primary btn--lg btn--block" type="submit">Sign in <span class="arrow" aria-hidden="true">→</span></button>
         </form>
       </div>
     </section>
+    <p class="gate__aside">Building an integration? <a href="{{.Paths.Docs}}" hx-boost="false">Read the API contract</a>.</p>
   </div>
 
   <footer class="gate__foot meta">
-    <span class="lockup" role="img" aria-label="Abdeen Labs">
-      <span class="seal-key" aria-hidden="true"><span class="seal-mark" lang="ar">عابدين</span></span>
-      <span class="lockup-divider" aria-hidden="true"></span>
-      <span class="wordmark" aria-hidden="true">Abdeen Labs</span>
-    </span>
+    {{template "lockup"}}
     <span>Hark{{if .Version}} · Rev {{.Version}}{{end}}</span>
   </footer>
 </section>

@@ -1,8 +1,9 @@
 {{define "content"}}
 <header class="page-head">
   <div class="page-head__text">
-    <h1 class="page-head__title h-ui">Accounts</h1>
-    <p class="page-head__lede lede">Create accounts for the people who use this Hark deployment. Only the admin can provision accounts.</p>
+    <p class="page-head__eyebrow meta"><span class="page-head__index">06</span>Admin</p>
+    <h1 class="page-head__title">Accounts</h1>
+    <p class="page-head__lede lede">The people who use this Hark deployment. There is no sign-up: only the admin creates accounts.</p>
   </div>
 </header>
 
@@ -35,7 +36,7 @@
           <span class="field__hint" id="password-hint">12–256 characters. Share it with the account owner so they can sign in.</span>
         </label>
         <p class="field__hint">New accounts are regular users, with their own devices, services, and tokens.</p>
-        <button class="btn btn--primary" type="submit">Create account</button>
+        <button class="btn btn--primary" type="submit">Create account <span class="arrow" aria-hidden="true">→</span></button>
       </form>
     </div>
   </section>
@@ -61,7 +62,7 @@
         </tbody>
       </table>
     </div>
-    {{else}}<p class="empty">No accounts yet.</p>{{end}}
+    {{else}}<p class="empty"><span class="empty__title">No accounts yet</span>Accounts you create are listed here.</p>{{end}}
   </section>
 </div>
 {{end}}
