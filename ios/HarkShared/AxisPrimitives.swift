@@ -172,7 +172,7 @@ struct ThinBar: View {
 
 /// A status or kind in a one-pixel frame. State tags carry a square light in
 /// their colour; kind tags do not. A warning is a chip, `onField` ink on
-/// neon yellow; a fault is the alarm chip, white ink on lacquer. Both lead with a
+/// neon yellow; a fault is the alarm chip, chalk ink on scarlet. Both lead with a
 /// rotated square.
 struct Tag: View {
     enum Tone {
@@ -280,8 +280,8 @@ struct StateTag: View {
 
 /// An instrument control: compact, square-cornered, labelled in capitals, and
 /// a press that compresses rather than lifts. A primary control takes the
-/// ground's ink as its field; a danger control is filled lacquer under
-/// white.
+/// ground's ink as its field; a danger control is filled scarlet under
+/// chalk.
 struct InstrumentButtonStyle: ButtonStyle {
     enum Kind {
         case primary, secondary, danger, ghost

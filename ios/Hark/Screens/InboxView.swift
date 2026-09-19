@@ -97,7 +97,7 @@ struct InboxView: View {
                                 }
                             }
                         }
-                        .tint(Axis.signalDeep)
+                        .tint(Axis.alarmField)
                     }
                 }
             }

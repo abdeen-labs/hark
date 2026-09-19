@@ -41,7 +41,13 @@
   --warn-line: rgba(245, 255, 0, 0.5);
   /* Ink on a field filled with --warn, on either theme. */
   --on-warn: #10141b;
-  --danger: #e64949;
+  /* The alarm step is Abdeen Labs scarlet, apart from the lacquer signal: a
+   * failure, an error, a destructive control, a Critical priority. As a fill
+   * it is the deeper scarlet under --on-danger, on either theme. */
+  --danger: #fe002a;
+  --danger-line: rgba(254, 0, 42, 0.6);
+  --danger-field: #d4212c;
+  --on-danger: #f3f7ff;
 
   /* Code keeps the dark ground on either theme. */
   --code: #090c11;
@@ -100,7 +106,8 @@
 
   --ok: #1d5a96;
   --ok-line: rgba(29, 90, 150, 0.5);
-  --danger: #b91c1c;
+  --danger: #be0018;
+  --danger-line: rgba(212, 33, 44, 0.6);
 
   --code-line: rgba(244, 246, 249, 0.14);
   --code-line-strong: rgba(244, 246, 249, 0.26);
@@ -880,10 +887,11 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 }
 .tag--code { font-family: var(--mono); font-size: 10.5px; }
 .tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok { border-color: var(--ok-line); color: var(--ok); }
-.tag--failed, .tag--error, .tag--denied, .tag--retired { border-color: var(--signal-line); color: var(--danger); }
+.tag--failed, .tag--error, .tag--denied, .tag--retired { border-color: var(--danger-line); color: var(--danger); }
+.tag--critical { border-color: transparent; background: var(--danger-field); color: var(--on-danger); }
 .tag--partial, .tag--warn, .tag--starting, .tag--pending { border-color: var(--warn-line); color: var(--warn); }
 :is(.tag--accepted, .tag--active, .tag--approved, .tag--consumed, .tag--ok,
-    .tag--failed, .tag--error, .tag--denied, .tag--retired,
+    .tag--failed, .tag--error, .tag--denied, .tag--retired, .tag--critical,
     .tag--partial, .tag--starting, .tag--pending)::before {
   content: "";
   flex: none;
@@ -1141,10 +1149,10 @@ select.input {
 .btn--ghost { border-color: transparent; color: var(--ink-subtle); }
 .btn--ghost:hover { background: transparent; border-color: var(--line-strong); color: var(--ink); }
 .btn--ghost[aria-current="page"] { color: var(--ink); }
-/* Destructive: an outline in lacquer that fills under the pointer, labelled
+/* Destructive: an outline in scarlet that fills under the pointer, labelled
  * with what it destroys. */
-.btn--danger { border-color: var(--signal-line); color: var(--danger); }
-.btn--danger:hover, .btn--danger:focus-visible { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.btn--danger { border-color: var(--danger-line); color: var(--danger); }
+.btn--danger:hover, .btn--danger:focus-visible { background: var(--danger-field); border-color: var(--danger-field); color: var(--on-danger); }
 .btn--sm { min-height: 30px; padding: 0 10px; font-size: 12px; }
 .btn--lg { min-height: 44px; padding: 0 20px; font-size: 14px; }
 .btn--block { width: 100%; }
@@ -1189,7 +1197,7 @@ select.input {
 .notice--warn::before { content: "Warning"; color: var(--warn); }
 :root[data-theme="light"] .notice--warn { box-shadow: inset 3px 0 0 var(--on-warn); }
 :root[data-theme="light"] .notice--warn::before { padding: 1px 5px; background: var(--warn); color: var(--on-warn); }
-.notice--error { border-color: var(--signal-line); box-shadow: inset 3px 0 0 var(--danger); background: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
+.notice--error { border-color: var(--danger-line); box-shadow: inset 3px 0 0 var(--danger); background: color-mix(in srgb, var(--danger-field) 10%, var(--surface)); }
 .notice--error::before { content: "Error"; color: var(--danger); }
 .notice + .page-head { padding-top: 32px; }
 

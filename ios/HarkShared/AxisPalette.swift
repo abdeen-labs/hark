@@ -35,8 +35,7 @@ nonisolated enum Axis {
 
     /// Lacquer red: fills, strips, rules, and lights. Not small text.
     static let signal = Color(axisRGB: axisSignalRGB)
-    /// The filled lacquer on either ground, under `onAlarmField` or under
-    /// the white a system control draws itself.
+    /// The filled lacquer on either ground.
     static let signalDeep = Color(axisRGB: axisSignalRGB)
     /// The signal colour at text weight; passes AA on the paper.
     static let signalText = Color(axisDark: axisAccentDarkRGB, light: axisAccentLightRGB)
@@ -55,16 +54,18 @@ nonisolated enum Axis {
     /// either one. It measures about 1:1 on the light paper, so it never sets
     /// light-ground ink.
     static let warn = Color(axisRGB: 0xF5FF00)
-    /// The alarm step: a dashed frame, a struck rule, a pulse, or a status
-    /// light, at the signal's text weight so it clears 3:1 on either paper.
-    static let alarm = signalText
-    /// The alarm label.
-    static let alarmText = signalText
-    /// The alarm chip and the destructive control: lacquer on either ground,
-    /// under `onAlarmField`.
-    static let alarmField = signalDeep
-    /// White ink on a filled lacquer field.
-    static let onAlarmField = Color(axisRGB: 0xFFFFFF)
+    /// The alarm step is Abdeen Labs scarlet, apart from the lacquer signal:
+    /// a fault, a destructive control, a Critical alert. Here it is a dashed
+    /// frame, a struck rule, a pulse, or a status light.
+    static let alarm = Color(axisDark: axisScarletRGB, light: axisScarletDeepRGB)
+    /// The alarm label; passes AA on the paper.
+    static let alarmText = Color(axisDark: axisScarletRGB, light: axisScarletInkRGB)
+    /// The alarm chip and the destructive control: the deeper scarlet on
+    /// either ground, under `onAlarmField` or under the white a system
+    /// control draws itself.
+    static let alarmField = Color(axisRGB: axisScarletDeepRGB)
+    /// Chalk ink on a filled scarlet field.
+    static let onAlarmField = Color(axisRGB: 0xF3F7FF)
 
     /// Fallback for invalid or low-contrast Live Activity accents.
     static let accent = signalText
@@ -105,6 +106,9 @@ nonisolated private let axisInkDarkRGB: UInt32 = 0xF4F6F9
 nonisolated private let axisInkLightRGB: UInt32 = 0x10141B
 
 nonisolated private let axisSignalRGB: UInt32 = 0xCE2020
+nonisolated private let axisScarletRGB: UInt32 = 0xFE002A
+nonisolated private let axisScarletDeepRGB: UInt32 = 0xD4212C
+nonisolated private let axisScarletInkRGB: UInt32 = 0xBE0018
 nonisolated private let axisAccentDarkRGB: UInt32 = 0xE64949
 nonisolated private let axisAccentLightRGB: UInt32 = 0xB91C1C
 

@@ -75,7 +75,7 @@ struct CriticalServicesView: View {
                         Button("Delete", role: .destructive) {
                             Task { await delete(service) }
                         }
-                        .tint(Axis.signalDeep)
+                        .tint(Axis.alarmField)
                     }
                 }
 

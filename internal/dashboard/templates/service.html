@@ -108,7 +108,7 @@
             <td><span class="tag tag--{{.Status}}">{{title .Status}}</span></td>
             <td class="cell--clamp"><span class="cell--strong block">{{.Title}}</span><span class="block muted" title="{{.Body}}">{{.Body}}</span>
               {{with text .Error}}<span class="feed__error" title="{{.}}">{{.}}</span>{{end}}</td>
-            <td>{{if ne .Priority "normal"}}<span class="tag tag--warn">{{title .Priority}}</span>{{else}}<span class="muted">{{title .Priority}}</span>{{end}}</td>
+            <td>{{if eq .Priority "critical"}}<span class="tag tag--critical">{{title .Priority}}</span>{{else if ne .Priority "normal"}}<span class="tag tag--warn">{{title .Priority}}</span>{{else}}<span class="muted">{{title .Priority}}</span>{{end}}</td>
             <td class="num mono cell--right">{{.DeliveredCount}}</td>
             <td><time datetime="{{iso .CreatedAt}}" title="{{when .CreatedAt}}">{{ago .CreatedAt}}</time></td>
           </tr>

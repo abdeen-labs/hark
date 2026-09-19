@@ -13,7 +13,7 @@
         {{with text .SourceImageURL}}<img class="avatar" src="{{.}}" alt="">{{end}}
         <span class="feed__source">{{.SourceName}}</span>
         <span class="feed__kind meta">{{title .Kind}}</span>
-        {{with text .Priority}}{{if ne . "normal"}}<span class="tag tag--warn">{{title .}}</span>{{end}}{{end}}
+        {{with text .Priority}}{{if eq . "critical"}}<span class="tag tag--critical">{{title .}}</span>{{else if ne . "normal"}}<span class="tag tag--warn">{{title .}}</span>{{end}}{{end}}
         {{with text .Status}}<span class="tag tag--{{.}}">{{title .}}</span>{{end}}
       </div>
       <p class="feed__title">{{.Title}}</p>
