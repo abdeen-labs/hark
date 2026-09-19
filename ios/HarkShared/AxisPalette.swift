@@ -40,20 +40,21 @@ nonisolated enum Axis {
     static let signalDeep = Color(axisRGB: axisSignalRGB)
     /// The signal colour at text weight; passes AA on the paper.
     static let signalText = Color(axisDark: axisAccentDarkRGB, light: axisAccentLightRGB)
-    /// Ink on a field filled with `warn`: dark on amber, white on the deeper
-    /// amber the light ground uses.
-    static let onField = Color(axisDark: axisInkLightRGB, light: 0xFFFFFF)
+    /// Dark ink on a field filled with `warn`, on either ground.
+    static let onField = Color(axisRGB: axisInkLightRGB)
     static let signalWash = signal.opacity(0.12)
     static let signalLine = signal.opacity(0.55)
 
     // MARK: States
 
-    /// Success is jade; red is never success.
-    static let ok = Color(axisDark: 0x16B37D, light: 0x0C7A54)
+    /// Cobalt, the Abdeen Labs step for verified. Red is never success.
+    static let ok = Color(axisDark: 0x5AA7FF, light: 0x1D5A96)
     static let okLine = ok.opacity(0.5)
-    /// Amber. It reads as ink on either paper, and fills a chip under
-    /// `onField`.
-    static let warn = Color(axisDark: 0xE2A81E, light: 0x8F6600)
+    /// Neon yellow, the Abdeen Labs step for a warning. It sets a warning's
+    /// line and label on the dark ground and fills a chip under `onField` on
+    /// either one. It measures about 1:1 on the light paper, so it never sets
+    /// light-ground ink.
+    static let warn = Color(axisRGB: 0xF5FF00)
     /// The alarm step: a dashed frame, a struck rule, a pulse, or a status
     /// light, at the signal's text weight so it clears 3:1 on either paper.
     static let alarm = signalText

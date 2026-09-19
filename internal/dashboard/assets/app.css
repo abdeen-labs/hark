@@ -33,11 +33,14 @@
   --signal-wash: rgba(206, 32, 32, 0.12);
   --signal-line: rgba(206, 32, 32, 0.55);
 
-  /* Status. Success is jade; red is never success. */
-  --ok: #16b37d;
-  --ok-line: rgba(22, 179, 125, 0.5);
-  --warn: #e2a81e;
-  --warn-line: rgba(226, 168, 30, 0.5);
+  /* Status, on the Abdeen Labs steps: cobalt says verified, neon yellow marks
+   * a warning. Red is never success. */
+  --ok: #5aa7ff;
+  --ok-line: rgba(90, 167, 255, 0.5);
+  --warn: #f5ff00;
+  --warn-line: rgba(245, 255, 0, 0.5);
+  /* Ink on a field filled with --warn, on either theme. */
+  --on-warn: #10141b;
   --danger: #e64949;
 
   /* Code keeps the dark ground on either theme. */
@@ -58,6 +61,10 @@
   --r-sm: 3px;
   --r-md: 6px;
   --r-lg: 10px;
+
+  /* The chamfer on a surface's top left corner. The mark stays a plain
+   * square. */
+  --cut: 14px;
 
   --gutter: 48px;
   --gap: 24px;
@@ -91,10 +98,8 @@
 
   --signal-text: #b91c1c;
 
-  --ok: #0c7a54;
-  --ok-line: rgba(12, 122, 84, 0.5);
-  --warn: #8f6600;
-  --warn-line: rgba(143, 102, 0, 0.5);
+  --ok: #1d5a96;
+  --ok-line: rgba(29, 90, 150, 0.5);
   --danger: #b91c1c;
 
   --code-line: rgba(244, 246, 249, 0.14);
@@ -106,11 +111,17 @@
   --image-edge: oklch(0 0 0 / 0.1);
 }
 
+@property --btn-fill {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
 @media (max-width: 1024px) {
   :root { --gutter: 24px; --gap: 20px; }
 }
 @media (max-width: 640px) {
-  :root { --gutter: 16px; --gap: 16px; }
+  :root { --gutter: 16px; --gap: 16px; --cut: 12px; }
 }
 
 /* Base --------------------------------------------------------------------- */
@@ -281,6 +292,33 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 
 /* A run of blocks, one under the other. */
 .column { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+
+/* The cut ------------------------------------------------------------------
+ *
+ * One chamfered corner, top left. The clip removes the corner and the
+ * pseudo-element draws the edge the border lost. A focus ring that reaches
+ * past the box is clipped with it, so nothing focusable sits in the corner of
+ * a cut surface. */
+
+.cut {
+  position: relative;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%, 0 var(--cut));
+}
+.cut::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  z-index: 1;
+  width: var(--cut);
+  height: var(--cut);
+  background: linear-gradient(135deg,
+    transparent 50%,
+    var(--cut-line, var(--line)) 50%,
+    var(--cut-line, var(--line)) calc(50% + 1px),
+    transparent calc(50% + 1px));
+  pointer-events: none;
+}
 
 /* Chrome -------------------------------------------------------------------- */
 
@@ -499,7 +537,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   border: 1px solid var(--line);
   background: var(--surface);
 }
-.module--signal { border-color: var(--signal-line); box-shadow: inset 4px 0 0 var(--signal); }
+.module--signal { --cut-line: var(--signal-line); border-color: var(--signal-line); box-shadow: inset 4px 0 0 var(--signal); }
 .module--signal > .module__head, .module--signal > .module__body { padding-left: 24px; }
 
 .module__head {
@@ -802,6 +840,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 .identity { display: flex; align-items: flex-start; }
 .identity > .avatar { flex: 0 0 20px; margin-top: 1px; }
 .picture {
+  --cut-line: var(--line-strong);
   width: min(30rem, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
@@ -853,6 +892,13 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
   background: currentColor;
 }
 [data-live] :is(.tag--active, .tag--starting)::before { animation: lamp 2.4s ease-in-out infinite; }
+/* Neon yellow measures about 1:1 on the light paper: there it is a fill under
+ * --on-warn, never a glyph. */
+:root[data-theme="light"] :is(.tag--partial, .tag--warn, .tag--starting, .tag--pending) {
+  border-color: transparent;
+  background: var(--warn);
+  color: var(--on-warn);
+}
 .tag--expired, .tag--ended, .tag--no_devices { border-color: var(--line); color: var(--ink-faint); }
 
 /* Feed ----------------------------------------------------------------------
@@ -907,6 +953,7 @@ body.htmx-request::after { animation: request-line 1.8s var(--ease) 120ms forwar
 }
 .feed__item:is([data-status="accepted"], [data-status="active"]) .feed__node::after { border-color: var(--ok); background: var(--ok); }
 .feed__item:is([data-status="partial"], [data-status="starting"]) .feed__node::after { border-color: var(--warn); background: var(--warn); }
+:root[data-theme="light"] .feed__item:is([data-status="partial"], [data-status="starting"]) .feed__node::after { border-color: var(--on-warn); }
 .feed__item[data-status="failed"] .feed__node::after { border-color: var(--danger); background: var(--danger); }
 
 .feed__body { min-width: 0; padding: 16px 0 18px; border-bottom: 1px solid var(--line-faint); }
@@ -1071,14 +1118,22 @@ select.input {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast), --btn-fill var(--t-fast);
 }
 .btn:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); text-decoration: none; }
 .btn:hover .arrow { transform: translateX(4px); }
 .btn:hover .arrow--back { transform: translateX(-4px); }
 .btn:active { transform: scale(0.96); }
-.btn--primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
-.btn--primary:hover { background: var(--signal-hover); border-color: var(--signal-hover); color: var(--on-signal); }
+/* A primary action is filled lacquer, cut at the corner like the surfaces.
+ * The cut is painted rather than clipped so the focus ring survives. */
+.btn--primary, .btn--primary:hover {
+  --btn-fill: var(--signal);
+  border-color: transparent;
+  border-radius: 0 var(--r-sm) var(--r-sm) var(--r-sm);
+  background: linear-gradient(135deg, transparent 5px, var(--btn-fill) 5.75px) border-box;
+  color: var(--on-signal);
+}
+.btn--primary:hover { --btn-fill: var(--signal-hover); }
 .btn:disabled:not([data-disabled-by-htmx]) { background: transparent; border-color: var(--line); color: var(--ink-disabled); cursor: not-allowed; transform: none; }
 /* htmx disables the submitting button for the life of its request. That is a
  * control at work, not one that is unavailable: it keeps its colours. */
@@ -1132,6 +1187,8 @@ select.input {
 .notice--ok::before { content: "OK"; color: var(--ok); }
 .notice--warn { box-shadow: inset 3px 0 0 var(--warn); }
 .notice--warn::before { content: "Warning"; color: var(--warn); }
+:root[data-theme="light"] .notice--warn { box-shadow: inset 3px 0 0 var(--on-warn); }
+:root[data-theme="light"] .notice--warn::before { padding: 1px 5px; background: var(--warn); color: var(--on-warn); }
 .notice--error { border-color: var(--signal-line); box-shadow: inset 3px 0 0 var(--danger); background: color-mix(in srgb, var(--signal) 12%, var(--surface)); }
 .notice--error::before { content: "Error"; color: var(--danger); }
 .notice + .page-head { padding-top: 32px; }
@@ -1170,6 +1227,7 @@ select.input {
 /* The confirmation dialog --------------------------------------------------- */
 
 .confirm {
+  --cut-line: var(--line-strong);
   width: min(28rem, calc(100vw - 2rem));
   padding: 0;
   border: 1px solid var(--line-strong);
@@ -1290,7 +1348,7 @@ select.input {
   to { left: calc(100% - 5px); opacity: 0; }
 }
 
-.consent__panel { border: 1px solid var(--line-strong); background: var(--surface); }
+.consent__panel { --cut-line: var(--line-strong); border: 1px solid var(--line-strong); background: var(--surface); }
 .consent__client { display: flex; justify-content: space-between; gap: 24px; padding: 24px 28px; border-bottom: 1px solid var(--line); }
 .consent__client > div { min-width: 0; }
 .consent__client .meta { margin: 0 0 8px; }
@@ -1415,7 +1473,7 @@ body:has(.gate)::before { display: none; }
 .gate__ways span { display: block; margin-top: 2px; color: var(--ink-subtle); font-size: 13px; line-height: 1.45; text-wrap: pretty; }
 
 .gate__panel { grid-column: 9 / -1; min-width: 0; }
-.gate__panel .module { border-color: var(--line-strong); background: var(--paper); }
+.gate__panel .module { --cut-line: var(--line-strong); border-color: var(--line-strong); background: var(--paper); }
 .gate__panel .module__body { padding: 28px 28px 30px; }
 .gate__panel .h-ui { margin-bottom: 6px; font-size: 28px; letter-spacing: -0.035em; }
 .gate__panel .module__note { margin-bottom: 26px; }

@@ -55,9 +55,9 @@ struct IndexLabel: View {
     }
 }
 
-/// A warning's label: a rotated square ahead of the word. Amber on the dark
-/// ground; on the light ground the pair becomes a chip, `onField` ink on
-/// amber.
+/// A warning's label: a rotated square ahead of the word. Neon yellow on the
+/// dark ground; on the light ground the pair becomes a chip, `onField` ink on
+/// yellow, because neon yellow does not read on the light paper.
 struct WarningLabel: View {
     let text: String
     var size: CGFloat = 10
@@ -94,8 +94,9 @@ struct WarningLabel: View {
 // MARK: - Lights and rules
 
 /// A square status light. A warning's light is the square rotated, and on the
-/// light ground it sits as `onField` ink on an amber pad. Blinks in hard
-/// steps when asked to, unless motion is reduced.
+/// light ground it sits as `onField` ink on a yellow pad, because neon yellow
+/// does not read on the light paper. Blinks in hard steps when asked to,
+/// unless motion is reduced.
 struct StatusLight: View {
     var color: Color = Axis.signal
     var size: CGFloat = 6
@@ -171,7 +172,7 @@ struct ThinBar: View {
 
 /// A status or kind in a one-pixel frame. State tags carry a square light in
 /// their colour; kind tags do not. A warning is a chip, `onField` ink on
-/// amber; a fault is the alarm chip, white ink on lacquer. Both lead with a
+/// neon yellow; a fault is the alarm chip, white ink on lacquer. Both lead with a
 /// rotated square.
 struct Tag: View {
     enum Tone {

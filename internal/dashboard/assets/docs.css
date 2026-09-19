@@ -340,8 +340,8 @@
   --ink-muted: #d5dbe4;
   --ink-subtle: #a2abb9;
   --ink-faint: #8f99ab;
-  --ok: #16b37d;
-  --warn: #e2a81e;
+  --ok: #5aa7ff;
+  --warn: #f5ff00;
   --signal-text: #e64949;
   --line-strong: rgba(244, 246, 249, 0.26);
   --paper: #06080d;
@@ -351,8 +351,8 @@
 .prose :is(h3, h4) code { --signal-text: inherit; }
 
 /* Syntax colors, on chroma's classes. Only tokens the contract's three fence
- * languages — json, http, sh — produce. Strings borrow jade and
- * numbers amber as reading colors, not as status. */
+ * languages — json, http, sh — produce. Strings borrow cobalt and
+ * numbers yellow as reading colors, not as status. */
 .chroma .nt { color: var(--ink); }
 .chroma .s, .chroma .s1, .chroma .s2, .chroma .sb { color: var(--ok); }
 .chroma .m, .chroma .mi, .chroma .mf, .chroma .mh { color: var(--warn); }
