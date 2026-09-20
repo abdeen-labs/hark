@@ -1,0 +1,292 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="hark-title hark-desc">
+  <title id="hark-title">Hark</title>
+  <desc id="hark-desc">Three API requests leave a server and arrive on an iPhone as a question, a Live Activity, and a notification.</desc>
+
+  <style>
+    :root {
+      --paper: #06080d;
+      --surface: #0b0e14;
+      --surface-3: #1a212c;
+      --ink: #f4f6f9;
+      --ink-muted: #d5dbe4;
+      --ink-subtle: #a2abb9;
+      --ink-faint: #8f99ab;
+      --line: rgba(244, 246, 249, 0.12);
+      --line-strong: rgba(244, 246, 249, 0.24);
+      --signal: #ce2020;
+      --ok: #5aa7ff;
+      --dot: rgba(244, 246, 249, 0.085);
+      --code: #090c11;
+      --code-ink: #eef1f6;
+      --code-faint: #8f99ab;
+      --code-ok: #5aa7ff;
+      --code-line: rgba(244, 246, 249, 0.12);
+      --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --ease: cubic-bezier(0.2, 0, 0, 1);
+      --loop: 16s;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --paper: #f4f5f8;
+        --surface: #ffffff;
+        --surface-3: #e2e5eb;
+        --ink: #10141b;
+        --ink-muted: #2a313c;
+        --ink-subtle: #525c6b;
+        --ink-faint: #616b7b;
+        --line: rgba(16, 20, 27, 0.12);
+        --line-strong: rgba(16, 20, 27, 0.24);
+        --ok: #1d5a96;
+        --dot: rgba(16, 20, 27, 0.1);
+        --code-line: rgba(244, 246, 249, 0.14);
+      }
+    }
+
+    text { font-family: var(--sans); }
+    .ground { fill: var(--paper); stroke: var(--line); }
+    .dot { fill: var(--dot); }
+    .mark { fill: var(--signal); }
+    .wordmark { fill: var(--ink); font-size: 44px; font-weight: 600; letter-spacing: -1.5px; }
+    .lede { fill: var(--ink-subtle); font-size: 16px; }
+
+    .field { fill: var(--code); stroke: var(--code-line); }
+    .req { fill: var(--code-ink); font-family: var(--mono); font-size: 13px; }
+    .req .verb { fill: var(--code-faint); }
+    .status { fill: var(--code-ok); font-family: var(--mono); font-size: 13px; text-anchor: end; }
+
+    .wire { fill: none; stroke: var(--line-strong); }
+    .trail { fill: none; stroke: var(--signal); stroke-width: 1.5; stroke-dasharray: 1; opacity: 0; }
+    .pulse { fill: var(--signal); opacity: 0; }
+
+    .card { fill: var(--surface); stroke: var(--line); }
+    .label { fill: var(--ink-subtle); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.9px; }
+    .kind { fill: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.9px; text-anchor: end; }
+    .title { fill: var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -0.15px; }
+    .body { fill: var(--ink-subtle); font-size: 13px; }
+    .state { font-size: 13px; text-anchor: end; }
+    .deploying { fill: var(--ink-subtle); opacity: 0; }
+    .done { fill: var(--ok); }
+    .track { fill: var(--surface-3); }
+    .bar { fill: var(--signal); transform-box: fill-box; transform-origin: 0 50%; }
+
+    .btn { fill: none; stroke: var(--line-strong); }
+    .btn-text { font-size: 12px; text-anchor: middle; }
+    .hold { opacity: 0.35; }
+    .hold .btn-text { fill: var(--ink-muted); }
+    .approve { transform-box: fill-box; transform-origin: center; }
+    .approve-fill { fill: var(--signal); }
+    .approve .btn-text { fill: #ffffff; font-weight: 600; }
+    .tap { fill: none; stroke: var(--ink); opacity: 0; transform-box: fill-box; transform-origin: center; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .l1, .l2, .l3, .s1, .s2, .s3, .c1, .c2, .c3, .hold, .approve, .approve-fill, .approve .btn-text, .tap, .deploying, .done {
+        animation-duration: var(--loop);
+        animation-iteration-count: infinite;
+        animation-timing-function: var(--ease);
+      }
+      .t1, .t2, .t3, .p1, .p2, .p3 {
+        animation-duration: var(--loop);
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+      }
+      .bar {
+        animation: fill var(--loop) cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      .l1 { animation-name: lit-1; }
+      .l2 { animation-name: lit-2; }
+      .l3 { animation-name: lit-3; }
+      .s1 { animation-name: status-1; }
+      .s2 { animation-name: status-2; }
+      .s3 { animation-name: status-3; }
+      .t1 { animation-name: trail-1; }
+      .t2 { animation-name: trail-2; }
+      .t3 { animation-name: trail-3; }
+      .p1 { animation-name: pulse-1; }
+      .p2 { animation-name: pulse-2; }
+      .p3 { animation-name: pulse-3; }
+      .c1 { animation-name: card-1; }
+      .c2 { animation-name: card-2; }
+      .c3 { animation-name: card-3; }
+      .hold { animation-name: hold; }
+      .approve { animation-name: press; }
+      .approve-fill { animation-name: approve-fill; }
+      .approve .btn-text { animation-name: approve-text; }
+      .tap { animation-name: tap; }
+      .deploying { animation-name: deploying; }
+      .done { animation-name: done; }
+    }
+
+    @keyframes lit-1 { 0%, 2% { opacity: 0.38; } 4.5%, 90% { opacity: 1; } 94%, 100% { opacity: 0.38; } }
+    @keyframes lit-2 { 0%, 27% { opacity: 0.38; } 29.5%, 90% { opacity: 1; } 94%, 100% { opacity: 0.38; } }
+    @keyframes lit-3 { 0%, 62% { opacity: 0.38; } 64.5%, 90% { opacity: 1; } 94%, 100% { opacity: 0.38; } }
+
+    @keyframes status-1 { 0%, 5% { opacity: 0; } 6.5%, 90% { opacity: 1; } 94%, 100% { opacity: 0; } }
+    @keyframes status-2 { 0%, 30% { opacity: 0; } 31.5%, 90% { opacity: 1; } 94%, 100% { opacity: 0; } }
+    @keyframes status-3 { 0%, 65% { opacity: 0; } 66.5%, 90% { opacity: 1; } 94%, 100% { opacity: 0; } }
+
+    @keyframes trail-1 {
+      0%, 4.9% { stroke-dashoffset: 1; opacity: 0; }
+      5% { stroke-dashoffset: 1; opacity: 1; }
+      10% { stroke-dashoffset: 0; opacity: 1; }
+      16%, 100% { stroke-dashoffset: 0; opacity: 0; }
+    }
+    @keyframes trail-2 {
+      0%, 29.9% { stroke-dashoffset: 1; opacity: 0; }
+      30% { stroke-dashoffset: 1; opacity: 1; }
+      35% { stroke-dashoffset: 0; opacity: 1; }
+      41%, 100% { stroke-dashoffset: 0; opacity: 0; }
+    }
+    @keyframes trail-3 {
+      0%, 64.9% { stroke-dashoffset: 1; opacity: 0; }
+      65% { stroke-dashoffset: 1; opacity: 1; }
+      70% { stroke-dashoffset: 0; opacity: 1; }
+      76%, 100% { stroke-dashoffset: 0; opacity: 0; }
+    }
+
+    @keyframes pulse-1 {
+      0%, 4.9% { opacity: 0; transform: translate(0, 0); }
+      5% { opacity: 1; transform: translate(0, 0); }
+      5.74% { transform: translate(36px, 0); }
+      8.6% { transform: translate(36px, -138px); }
+      10% { opacity: 1; transform: translate(104px, -138px); }
+      10.6%, 100% { opacity: 0; transform: translate(104px, -138px); }
+    }
+    @keyframes pulse-2 {
+      0%, 29.9% { opacity: 0; transform: translate(0, 0); }
+      30% { opacity: 1; transform: translate(0, 0); }
+      31.44% { transform: translate(52px, 0); }
+      33.56% { transform: translate(52px, -76px); }
+      35% { opacity: 1; transform: translate(104px, -76px); }
+      35.6%, 100% { opacity: 0; transform: translate(104px, -76px); }
+    }
+    @keyframes pulse-3 {
+      0%, 64.9% { opacity: 0; transform: translate(0, 0); }
+      65% { opacity: 1; transform: translate(0, 0); }
+      67.88% { transform: translate(68px, 0); }
+      68.47% { transform: translate(68px, -14px); }
+      70% { opacity: 1; transform: translate(104px, -14px); }
+      70.6%, 100% { opacity: 0; transform: translate(104px, -14px); }
+    }
+
+    @keyframes card-1 {
+      0%, 10% { opacity: 0; transform: translateY(10px); }
+      12.5%, 90% { opacity: 1; transform: translateY(0); }
+      94%, 100% { opacity: 0; transform: translateY(0); }
+    }
+    @keyframes card-2 {
+      0%, 35% { opacity: 0; transform: translateY(10px); }
+      37.5%, 90% { opacity: 1; transform: translateY(0); }
+      94%, 100% { opacity: 0; transform: translateY(0); }
+    }
+    @keyframes card-3 {
+      0%, 70% { opacity: 0; transform: translateY(10px); }
+      72.5%, 90% { opacity: 1; transform: translateY(0); }
+      94%, 100% { opacity: 0; transform: translateY(0); }
+    }
+
+    @keyframes hold { 0%, 22.5% { opacity: 1; } 24%, 100% { opacity: 0.35; } }
+    @keyframes press { 0%, 21.5% { transform: scale(1); } 22.5% { transform: scale(0.94); } 24%, 100% { transform: scale(1); } }
+    @keyframes approve-fill { 0%, 22.5% { opacity: 0; } 24%, 100% { opacity: 1; } }
+    @keyframes approve-text { 0%, 22.5% { fill: var(--ink); } 24%, 100% { fill: #ffffff; } }
+    @keyframes tap {
+      0%, 21.5% { opacity: 0; transform: scale(0.3); }
+      22% { opacity: 0.5; transform: scale(0.3); }
+      25.5%, 100% { opacity: 0; transform: scale(1); }
+    }
+
+    @keyframes fill { 0%, 37.5% { transform: scaleX(0); } 60%, 100% { transform: scaleX(1); } }
+    @keyframes deploying { 0%, 60% { opacity: 1; } 61.5%, 100% { opacity: 0; } }
+    @keyframes done { 0%, 60% { opacity: 0; } 61.5%, 100% { opacity: 1; } }
+  </style>
+
+  <defs>
+    <pattern id="dots" x="44" y="6" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle class="dot" cx="12" cy="12" r="1"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="0.85" stop-color="#000"/>
+    </linearGradient>
+    <mask id="dots-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="960" height="320">
+      <rect width="960" height="320" fill="url(#fade)"/>
+    </mask>
+    <clipPath id="ground-clip">
+      <path d="M20.5,0.5 H959.5 V319.5 H0.5 V20.5 Z"/>
+    </clipPath>
+  </defs>
+
+  <path class="ground" d="M20.5,0.5 H959.5 V319.5 H0.5 V20.5 Z"/>
+  <g clip-path="url(#ground-clip)">
+    <rect width="960" height="320" fill="url(#dots)" mask="url(#dots-mask)"/>
+  </g>
+
+  <rect class="mark" x="56" y="40" width="32" height="32"/>
+  <text class="wordmark" x="108" y="72">Hark</text>
+  <text class="lede" x="56" y="116">Push notifications for your services, scripts,</text>
+  <text class="lede" x="56" y="139">and automations. Free, open source, self-hosted.</text>
+
+  <rect class="field" x="56.5" y="190.5" width="400" height="89" rx="3"/>
+  <g class="l1">
+    <text class="req" x="74" y="218"><tspan class="verb">POST</tspan> /interactions</text>
+    <text class="status s1" x="438" y="218">201</text>
+  </g>
+  <g class="l2">
+    <text class="req" x="74" y="240"><tspan class="verb">POST</tspan> /activities</text>
+    <text class="status s2" x="438" y="240">201</text>
+  </g>
+  <g class="l3">
+    <text class="req" x="74" y="262"><tspan class="verb">POST</tspan> /hooks/{token}</text>
+    <text class="status s3" x="438" y="262">201</text>
+  </g>
+
+  <path class="wire" d="M456.5,214 H492 V76 H560"/>
+  <path class="wire" d="M456.5,236 H508 V160 H560"/>
+  <path class="wire" d="M456.5,258 H524 V244 H560"/>
+  <path class="trail t1" pathLength="1" d="M456.5,214 H492 V76 H560"/>
+  <path class="trail t2" pathLength="1" d="M456.5,236 H508 V160 H560"/>
+  <path class="trail t3" pathLength="1" d="M456.5,258 H524 V244 H560"/>
+  <rect class="pulse p1" x="453" y="211" width="6" height="6"/>
+  <rect class="pulse p2" x="453" y="233" width="6" height="6"/>
+  <rect class="pulse p3" x="453" y="255" width="6" height="6"/>
+
+  <g class="c1">
+    <path class="card" d="M570.5,40.5 H903.5 V111.5 H560.5 V50.5 Z"/>
+    <rect class="mark" x="578" y="56" width="7" height="7"/>
+    <text class="label" x="593" y="63">DEPLOY</text>
+    <text class="kind" x="886" y="63">QUESTION</text>
+    <text class="title" x="578" y="92">Ship build 412?</text>
+    <g class="hold">
+      <rect class="btn" x="762.5" y="74.5" width="54" height="24" rx="2"/>
+      <text class="btn-text" x="789.5" y="91">Hold</text>
+    </g>
+    <g class="approve">
+      <rect class="btn" x="822.5" y="74.5" width="64" height="24" rx="2"/>
+      <rect class="approve-fill" x="822" y="74" width="65" height="25" rx="2"/>
+      <text class="btn-text" x="854.5" y="91">Approve</text>
+    </g>
+    <circle class="tap" cx="854.5" cy="86.5" r="20"/>
+  </g>
+
+  <g class="c2">
+    <path class="card" d="M570.5,124.5 H903.5 V195.5 H560.5 V134.5 Z"/>
+    <rect class="mark" x="578" y="140" width="7" height="7"/>
+    <text class="label" x="593" y="147">DEPLOY</text>
+    <text class="kind" x="886" y="147">LIVE ACTIVITY</text>
+    <text class="title" x="578" y="171">Build 412 to production</text>
+    <text class="state deploying" x="886" y="171">Deploying</text>
+    <text class="state done" x="886" y="171">Done</text>
+    <rect class="track" x="578" y="181" width="308" height="4"/>
+    <rect class="bar" x="578" y="181" width="308" height="4"/>
+  </g>
+
+  <g class="c3">
+    <path class="card" d="M570.5,208.5 H903.5 V279.5 H560.5 V218.5 Z"/>
+    <rect class="mark" x="578" y="224" width="7" height="7"/>
+    <text class="label" x="593" y="231">DEPLOY</text>
+    <text class="kind" x="886" y="231">NOW</text>
+    <text class="title" x="578" y="253">Build 412 shipped</text>
+    <text class="body" x="578" y="270">main reached production in 3m 12s</text>
+  </g>
+</svg>

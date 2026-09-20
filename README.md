@@ -1,3 +1,5 @@
+<img src="docs/header.svg" alt="Three API requests arrive on an iPhone as a question, a Live Activity, and a notification." width="100%">
+
 # Hark
 
 Hark is a notification app for your services, scripts, and automations. Send
