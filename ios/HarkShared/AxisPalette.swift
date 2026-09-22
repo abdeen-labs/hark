@@ -106,9 +106,9 @@ nonisolated private let axisInkDarkRGB: UInt32 = 0xF4F6F9
 nonisolated private let axisInkLightRGB: UInt32 = 0x10141B
 
 nonisolated private let axisSignalRGB: UInt32 = 0xCE2020
-nonisolated private let axisScarletRGB: UInt32 = 0xFE002A
-nonisolated private let axisScarletDeepRGB: UInt32 = 0xD4212C
-nonisolated private let axisScarletInkRGB: UInt32 = 0xBE0018
+nonisolated private let axisScarletRGB: UInt32 = 0xFF002B
+nonisolated private let axisScarletDeepRGB: UInt32 = 0xDB0023
+nonisolated private let axisScarletInkRGB: UInt32 = 0xBD001D
 nonisolated private let axisAccentDarkRGB: UInt32 = 0xE64949
 nonisolated private let axisAccentLightRGB: UInt32 = 0xB91C1C
 

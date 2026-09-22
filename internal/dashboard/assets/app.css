@@ -44,9 +44,9 @@
   /* The alarm step is Abdeen Labs scarlet, apart from the lacquer signal: a
    * failure, an error, a destructive control, a Critical priority. As a fill
    * it is the deeper scarlet under --on-danger, on either theme. */
-  --danger: #fe002a;
-  --danger-line: rgba(254, 0, 42, 0.6);
-  --danger-field: #d4212c;
+  --danger: #ff002b;
+  --danger-line: rgba(255, 0, 43, 0.6);
+  --danger-field: #db0023;
   --on-danger: #f3f7ff;
 
   /* Code keeps the dark ground on either theme. */
@@ -106,8 +106,8 @@
 
   --ok: #1d5a96;
   --ok-line: rgba(29, 90, 150, 0.5);
-  --danger: #be0018;
-  --danger-line: rgba(212, 33, 44, 0.6);
+  --danger: #bd001d;
+  --danger-line: rgba(219, 0, 35, 0.6);
 
   --code-line: rgba(244, 246, 249, 0.14);
   --code-line-strong: rgba(244, 246, 249, 0.26);
@@ -1613,16 +1613,16 @@ body:has(.gate)::before { display: none; }
   --seal-mark-scale: 0.36;
   --seal-cut: 26%;
   --seal-size: 24px;
-  --seal-key-field: #121827;
-  --seal-key-line: #fe002a;
+  --seal-key-field: #111827;
+  --seal-key-line: #ff002b;
   --seal-key-ink: #f3f7ff;
-  --lockup-divider: #313c5a;
+  --lockup-divider: #2f3c5a;
 }
 :root[data-theme="light"] .lockup {
   --seal-key-field: #eaeef5;
-  --seal-key-line: #d4212c;
-  --seal-key-ink: #0a0f1c;
-  --lockup-divider: #bbc5db;
+  --seal-key-line: #db0023;
+  --seal-key-ink: #090f1b;
+  --lockup-divider: #bac5db;
 }
 
 .wordmark {

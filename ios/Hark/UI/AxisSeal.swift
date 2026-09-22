@@ -54,7 +54,7 @@ struct KeySeal: View {
     static let inkHeight: CGFloat = 0.883
     static let opticalShift: CGFloat = 0.168
 
-    private static let keyLine = Color(axisDark: 0xFE002A, light: 0xD4212C)
+    private static let keyLine = Color(axisDark: 0xFF002B, light: 0xDB0023)
 
     private var line: CGFloat { max(1, size / 40) }
     private var fontSize: CGFloat { size * Self.markScale / Self.inkHeight }
