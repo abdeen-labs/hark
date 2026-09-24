@@ -39,8 +39,7 @@ type Event struct {
 	PassURL  *string `db:"pass_url"`
 	Priority string  `db:"priority"`
 	Status   string  `db:"status"`
-	// DeliveredCount counts APNs acceptances, which is not the same as
-	// deliveries: APNs accepting a message says nothing about the phone.
+	// DeliveredCount counts messages accepted by APNs.
 	DeliveredCount int `db:"delivered_count"`
 	// Error holds the joined provider failure reasons. It stays out of the
 	// caller's response because APNs errors can embed device tokens.

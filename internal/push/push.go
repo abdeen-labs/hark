@@ -120,8 +120,7 @@ type AlertInteraction struct {
 
 // AlertResult is the aggregate of one fan-out.
 type AlertResult struct {
-	// Accepted counts the messages APNs took. It is not proof of display, and
-	// every response that reports it says so.
+	// Accepted counts messages accepted by APNs.
 	Accepted int
 	// Failures are human-readable descriptions, one per failed message. They are
 	// shown only to the account owner: a provider error can embed a device

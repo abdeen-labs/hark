@@ -17,9 +17,7 @@ type notificationDTO struct {
 	URL      *string `json:"url"`
 	PassURL  *string `json:"pass_url"`
 	Priority string  `json:"priority"`
-	// AcceptedCount is how many messages APNs took. It is not proof that a phone
-	// showed anything, and a caller that treats it as delivery confirmation will
-	// be wrong on exactly the days it matters.
+	// AcceptedCount counts messages accepted by APNs.
 	AcceptedCount int       `json:"accepted_count"`
 	CreatedAt     Timestamp `json:"created_at"`
 }

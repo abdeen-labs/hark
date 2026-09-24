@@ -46,7 +46,7 @@ func toolOutputSchemas() map[string]outputSchema {
 	nullTime := nullableOutput("string", "RFC 3339 UTC timestamp, or null if the event has not occurred.")
 	replayed := outputField("boolean", "True when an idempotency key returned an earlier result.")
 	message := nullableOutput("string", "Explains a fallback or delivery issue; null when there is none.")
-	accepted := outputField("integer", "Devices whose push was accepted by APNs; not confirmation it was displayed.")
+	accepted := outputField("integer", "Number of messages accepted by APNs.")
 
 	notification := outputObject(map[string]outputSchema{
 		"id": str, "title": str, "body": str, "image_url": nullStr, "url": nullStr,

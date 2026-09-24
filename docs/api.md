@@ -429,9 +429,7 @@ If no device is reachable, Hark still creates the record. The response has
 
 ### What `accepted` means
 
-`accepted`, `accepted_count`, and `delivered_count` count messages that **APNs
-accepted from Hark**. They do not confirm that a device received or displayed the
-message.
+`accepted`, `accepted_count`, and `delivered_count` count messages accepted by APNs.
 
 When a send fails, Hark stores the APNs error in the account's delivery log
 ([`GET /events`](#get-events)). It does not return the raw error to the
